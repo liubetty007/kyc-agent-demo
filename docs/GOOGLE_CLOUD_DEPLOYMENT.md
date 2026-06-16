@@ -74,6 +74,13 @@ Recommended setup:
 4. Configure `ANTHROPIC_API_KEY` for LLM email intake analysis.
 5. Keep KYC Team approval before external sends and document acceptance.
 
+Helper scripts:
+
+- Generate a Gmail refresh token locally:
+  `GMAIL_CLIENT_ID=... GMAIL_CLIENT_SECRET=... node scripts/gmail-oauth-token.mjs`
+- Store secrets and update Cloud Run:
+  `./scripts/configure-real-email-secrets.sh`
+
 Inbound Gmail sync:
 
 - KYC/Admin clicks **Fetch & Analyze Gmail** on a case.

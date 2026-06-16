@@ -19,6 +19,7 @@ data/cases.json
 # generated archives and local secrets
 *.zip
 *password*.txt
+.gmail-oauth-token.json
 
 # OS/editor files
 .DS_Store
