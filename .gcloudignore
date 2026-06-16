@@ -1,0 +1,8 @@
+.git
+.next
+.env*
+node_modules
+npm-debug.log
+data/cases.json
+docs/.DS_Store
+

@@ -1,0 +1,83 @@
+{
+  "ubo_rule": {
+    "threshold_percentage": 25,
+    "operator": ">=",
+    "description": "A UBO is a natural person who directly or indirectly owns 25% or more of the company."
+  },
+  "address_proof_rule": {
+    "max_age_months": 3,
+    "applies_to": ["director", "authorized_representative", "ubo"],
+    "required": true
+  },
+  "jurisdiction_rules": {
+    "accepted_standard": ["Hong Kong", "Singapore", "BVI", "Cayman"],
+    "requires_state": ["United States"],
+    "requires_legal_review": ["European countries", "Other countries"],
+    "offshore": ["BVI", "Cayman", "Other offshore"],
+    "prohibited": ["Mainland China"],
+    "high_risk_jurisdictions": {
+      "source": "compliance_maintained_list",
+      "list": [],
+      "default_action": "manual_review_required"
+    }
+  },
+  "base_documents": [
+    {"id":"certificate_of_incorporation","name":"Certificate of Incorporation","category":"Constitutional","required":true,"reason":"Required for all companies"},
+    {"id":"business_registration_certificate","name":"Business Registration Certificate","category":"Constitutional","required":true,"reason":"Required for all companies if applicable"},
+    {"id":"articles_of_association","name":"Articles of Association","category":"Constitutional","required":true,"reason":"Required for all companies"},
+    {"id":"register_of_directors","name":"Register of Directors","category":"Constitutional","required":true,"reason":"Required for all companies"},
+    {"id":"register_of_shareholders","name":"Register of Shareholders","category":"Constitutional","required":true,"reason":"Required for all companies"},
+    {"id":"ownership_structure_chart","name":"Ownership Structure Chart","category":"Constitutional","required":true,"reason":"Required to identify UBOs"},
+    {"id":"business_description","name":"Business Description","category":"Constitutional","required":true,"reason":"Required for business risk assessment"},
+    {"id":"source_of_funds","name":"Source of Funds","category":"Constitutional","required":true,"reason":"Required for AML assessment"}
+  ],
+  "hk_specific_documents": [
+    {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"reason":"Required for Hong Kong registered companies"}
+  ],
+  "internal_forms": [
+    {"id":"institution_onboarding_form","name":"Institution Onboarding Form","category":"Internal Form","required":true,"reason":"Required internal onboarding form"},
+    {"id":"authorization_letter","name":"Authorization Letter","category":"Internal Form","required":true,"reason":"Required to verify authorized representative"},
+    {"id":"mutual_nda","name":"Mutual NDA","category":"Internal Form","required":true,"reason":"Required internal form"},
+    {"id":"board_resolution","name":"Board Resolution","category":"Internal Form","required":true,"reason":"Required to authorize account opening and signatories"},
+    {"id":"declaration_source_of_fund_wealth","name":"Declaration of Source of Fund/Wealth","category":"Internal Form","required":true,"reason":"Required source of fund/wealth declaration"}
+  ],
+  "associated_individual_documents": {
+    "roles": ["director", "authorized_representative", "ubo"],
+    "documents": [
+      {"id":"online_identity_verification","name":"Online Identity Verification","category":"Individual","required":true,"reason":"Required for Director, AR and UBO"},
+      {"id":"passport_or_id","name":"Passport / ID","category":"Individual","required":true,"reason":"Required for Director, AR and UBO"},
+      {"id":"proof_of_current_residential_address","name":"Proof of Current Residential Address","category":"Individual","required":true,"reason":"Must be issued within the last 3 months"}
+    ]
+  },
+  "crypto_business_rules": {
+    "source_of_crypto_assets_required": true,
+    "wallet_address_list_required": false,
+    "wallet_address_list_policy": "request_if_available_or_if_needed_for_chain_risk_review",
+    "alternative_evidence_accepted": ["exchange_statement", "custodian_statement", "transaction_history", "audited_financial_statement", "bank_statement", "financing_agreement", "mining_pool_evidence"],
+    "missing_evidence_issue": "missing_source_of_funds_evidence",
+    "documents": [
+      {"id":"source_of_crypto_assets","name":"Source of Crypto Assets / Supporting Evidence","category":"Crypto Extra","required":true,"reason":"Required for crypto-related businesses"},
+      {"id":"aml_questionnaire","name":"AML Questionnaire","category":"Risk Based","required":true,"reason":"Required for crypto-related businesses"},
+      {"id":"wallet_address_list","name":"Other Documents, if available","category":"Crypto Extra","required":false,"reason":"Optional slot for additional helpful documents, including wallet address lists if available or requested for chain risk review"}
+    ]
+  },
+  "mining_business_rules": {
+    "mining_proof_required": true,
+    "accepted_mining_proof": ["antpool_observer_link", "mining_pool_observer_link", "mining_pool_account_evidence", "mining_revenue_record"],
+    "wallet_receiving_mining_proceeds_required": false,
+    "wallet_policy": "request_if_available",
+    "documents": [
+      {"id":"mining_proof","name":"Mining Proof, e.g. Antpool Observer Link","category":"Mining Extra","required":true,"reason":"Required for mining businesses"},
+      {"id":"mining_revenue_evidence","name":"Mining Revenue Evidence","category":"Mining Extra","required":false,"reason":"Recommended evidence for mining businesses"},
+      {"id":"mining_wallet_address","name":"Wallet Receiving Mining Proceeds, if available","category":"Mining Extra","required":false,"reason":"Request if available"}
+    ]
+  },
+  "financing_source_rules": {
+    "required_documents": [
+      {"id":"financing_agreement","name":"Financing Agreement","category":"Financing Extra","required":true,"reason":"Required when source of funds is financing"},
+      {"id":"investor_lender_information","name":"Investor / Lender Information","category":"Financing Extra","required":true,"reason":"Required when source of funds is financing"},
+      {"id":"proof_of_fund_transfer","name":"Proof of Fund Transfer","category":"Financing Extra","required":true,"reason":"Required to evidence movement of funds"}
+    ],
+    "supporting_documents": ["bank_statement", "wallet_transaction_evidence", "board_approval", "use_of_proceeds_explanation"]
+  }
+}

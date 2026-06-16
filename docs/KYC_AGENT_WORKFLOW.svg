@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#52606d"/>
+    </marker>
+    <style>
+      .title { font: 700 34px Arial, sans-serif; fill: #172b4d; }
+      .subtitle { font: 400 17px Arial, sans-serif; fill: #52606d; }
+      .section { font: 700 20px Arial, sans-serif; fill: #172b4d; }
+      .label { font: 700 17px Arial, sans-serif; fill: #172b4d; }
+      .body { font: 400 14px Arial, sans-serif; fill: #344563; }
+      .small { font: 400 12px Arial, sans-serif; fill: #52606d; }
+      .line { stroke: #52606d; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #7a869a; stroke-width: 2; stroke-dasharray: 8 6; fill: none; marker-end: url(#arrow); }
+      .agent { fill: #e9f2ff; stroke: #3b82c4; stroke-width: 2; rx: 8; }
+      .rule { fill: #e9f8ef; stroke: #278554; stroke-width: 2; rx: 8; }
+      .human { fill: #fff3dc; stroke: #c27a16; stroke-width: 2; rx: 8; }
+      .data { fill: #f1edff; stroke: #7257b5; stroke-width: 2; rx: 8; }
+      .event { fill: #ffffff; stroke: #7a869a; stroke-width: 2; rx: 8; }
+      .decision { fill: #fff0f0; stroke: #bd4b4b; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1180" fill="#f7f9fc"/>
+  <text x="800" y="54" text-anchor="middle" class="title">KYC / KYB 多 Agent 工作流程</text>
+  <text x="800" y="84" text-anchor="middle" class="subtitle">主 Agent 负责调度；Sub-agents 负责专门任务；政策判断与最终审批保持可控</text>
+
+  <rect x="50" y="112" width="1500" height="82" fill="#ffffff" stroke="#d9e2ec" rx="8"/>
+  <rect x="86" y="133" width="250" height="42" class="agent"/>
+  <text x="211" y="159" text-anchor="middle" class="label">LLM / Agent</text>
+  <rect x="420" y="133" width="250" height="42" class="rule"/>
+  <text x="545" y="159" text-anchor="middle" class="label">确定性规则 / 工具</text>
+  <rect x="754" y="133" width="250" height="42" class="human"/>
+  <text x="879" y="159" text-anchor="middle" class="label">人工审批</text>
+  <rect x="1088" y="133" width="250" height="42" class="data"/>
+  <text x="1213" y="159" text-anchor="middle" class="label">数据库 / 文件 / 日志</text>
+
+  <text x="62" y="235" class="section">A. 客户材料处理与 KYC 审查主流程</text>
+
+  <rect x="60" y="266" width="180" height="78" class="event"/>
+  <text x="150" y="296" text-anchor="middle" class="label">触发事件</text>
+  <text x="150" y="320" text-anchor="middle" class="body">新 Case / 新邮件</text>
+  <text x="150" y="338" text-anchor="middle" class="body">文件上传 / 用户指令</text>
+
+  <path d="M240 305 H300" class="line"/>
+
+  <rect x="300" y="254" width="280" height="102" class="agent"/>
+  <text x="440" y="283" text-anchor="middle" class="label">主 Agent</text>
+  <text x="440" y="306" text-anchor="middle" class="label">KYC Case Orchestrator</text>
+  <text x="440" y="329" text-anchor="middle" class="body">验证权限 · 读取 Case · 选择工具</text>
+  <text x="440" y="347" text-anchor="middle" class="body">校验结果 · 记录审计 · 建议下一步</text>
+
+  <path d="M580 305 H646" class="line"/>
+
+  <rect x="646" y="266" width="210" height="78" class="agent"/>
+  <text x="751" y="296" text-anchor="middle" class="label">Email Intake Agent</text>
+  <text x="751" y="320" text-anchor="middle" class="body">意图、关键词、实体提取</text>
+  <text x="751" y="338" text-anchor="middle" class="small">LLM + 结构化 JSON</text>
+
+  <path d="M856 305 H915" class="line"/>
+
+  <rect x="915" y="266" width="210" height="78" class="agent"/>
+  <text x="1020" y="296" text-anchor="middle" class="label">Case Matching Agent</text>
+  <text x="1020" y="320" text-anchor="middle" class="body">Case ID、线程、邮箱匹配</text>
+  <text x="1020" y="338" text-anchor="middle" class="small">歧义时转人工队列</text>
+
+  <path d="M1125 305 H1185" class="line"/>
+
+  <polygon points="1290,250 1395,305 1290,360 1185,305" class="decision"/>
+  <text x="1290" y="297" text-anchor="middle" class="label">匹配是否明确？</text>
+  <text x="1290" y="321" text-anchor="middle" class="body">置信度与唯一性检查</text>
+
+  <path d="M1290 360 V402 H1055" class="line"/>
+  <text x="1305" y="388" class="small">是</text>
+  <path d="M1395 305 H1470 V428 H1390" class="line"/>
+  <text x="1424" y="294" class="small">否</text>
+
+  <rect x="1160" y="402" width="230" height="66" class="human"/>
+  <text x="1275" y="430" text-anchor="middle" class="label">KYC 人工匹配</text>
+  <text x="1275" y="452" text-anchor="middle" class="body">确认邮件属于哪个 Case</text>
+
+  <rect x="800" y="402" width="255" height="66" class="rule"/>
+  <text x="927" y="430" text-anchor="middle" class="label">文件隔离与安全检查</text>
+  <text x="927" y="452" text-anchor="middle" class="body">类型、大小、哈希、恶意文件扫描</text>
+
+  <path d="M800 435 H740" class="line"/>
+
+  <rect x="480" y="390" width="260" height="90" class="agent"/>
+  <text x="610" y="420" text-anchor="middle" class="label">Document Processing Agent</text>
+  <text x="610" y="444" text-anchor="middle" class="body">OCR · 文档分类 · 字段提取</text>
+  <text x="610" y="464" text-anchor="middle" class="small">每个字段保存页码、证据和置信度</text>
+
+  <path d="M480 435 H420" class="line"/>
+
+  <rect x="160" y="390" width="260" height="90" class="agent"/>
+  <text x="290" y="420" text-anchor="middle" class="label">Evidence Reconciliation Agent</text>
+  <text x="290" y="444" text-anchor="middle" class="body">跨文件核对姓名、股权、地址</text>
+  <text x="290" y="464" text-anchor="middle" class="small">只提出差异，不作最终合规决定</text>
+
+  <path d="M290 480 V530 H440" class="line"/>
+
+  <rect x="440" y="506" width="270" height="92" class="rule"/>
+  <text x="575" y="536" text-anchor="middle" class="label">Policy &amp; Checklist Engine</text>
+  <text x="575" y="560" text-anchor="middle" class="body">必需文件、UBO 25%、地址 3 个月</text>
+  <text x="575" y="580" text-anchor="middle" class="body">禁止地区、Crypto / Mining / Financing</text>
+
+  <path d="M710 552 H775" class="line"/>
+
+  <rect x="775" y="506" width="230" height="92" class="agent"/>
+  <text x="890" y="536" text-anchor="middle" class="label">Risk Triage Agent</text>
+  <text x="890" y="560" text-anchor="middle" class="body">整理风险信号与矛盾点</text>
+  <text x="890" y="580" text-anchor="middle" class="small">不得自行批准或拒绝</text>
+
+  <path d="M1005 552 H1070" class="line"/>
+
+  <rect x="1070" y="506" width="260" height="92" class="agent"/>
+  <text x="1200" y="536" text-anchor="middle" class="label">主 Agent 更新建议状态</text>
+  <text x="1200" y="560" text-anchor="middle" class="body">汇总证据、缺失项、风险与下一步</text>
+  <text x="1200" y="580" text-anchor="middle" class="small">写入事件与 Agent Run 审计记录</text>
+
+  <path d="M1200 598 V646" class="line"/>
+
+  <rect x="1050" y="646" width="300" height="78" class="human"/>
+  <text x="1200" y="676" text-anchor="middle" class="label">KYC Team 人工复核</text>
+  <text x="1200" y="700" text-anchor="middle" class="body">接受/退回文件 · 确认问题 · 批准下一步</text>
+
+  <path d="M1050 685 H930" class="line"/>
+
+  <polygon points="820,630 930,685 820,740 710,685" class="decision"/>
+  <text x="820" y="677" text-anchor="middle" class="label">材料是否完整？</text>
+  <text x="820" y="701" text-anchor="middle" class="body">风险是否可提交？</text>
+
+  <path d="M820 740 V782 H615" class="line"/>
+  <text x="836" y="768" class="small">否</text>
+  <path d="M710 685 H610" class="line"/>
+  <text x="653" y="674" class="small">是</text>
+
+  <rect x="330" y="758" width="285" height="90" class="agent"/>
+  <text x="472" y="788" text-anchor="middle" class="label">Client Communication Agent</text>
+  <text x="472" y="812" text-anchor="middle" class="body">生成补件 / 澄清 / 提醒邮件草稿</text>
+  <text x="472" y="832" text-anchor="middle" class="small">仅引用已确认缺失项和政策模板</text>
+
+  <path d="M330 803 H270" class="line"/>
+  <rect x="60" y="770" width="210" height="66" class="human"/>
+  <text x="165" y="798" text-anchor="middle" class="label">KYC 批准并发送</text>
+  <text x="165" y="820" text-anchor="middle" class="body">等待客户补件后重新进入流程</text>
+
+  <rect x="350" y="640" width="260" height="90" class="agent"/>
+  <text x="480" y="670" text-anchor="middle" class="label">Compliance Pack Agent</text>
+  <text x="480" y="694" text-anchor="middle" class="body">生成带证据链接的审查包</text>
+  <text x="480" y="714" text-anchor="middle" class="small">不作最终 Compliance 决定</text>
+
+  <path d="M350 685 H285" class="line"/>
+  <rect x="60" y="640" width="225" height="90" class="human"/>
+  <text x="172" y="670" text-anchor="middle" class="label">Compliance Team</text>
+  <text x="172" y="694" text-anchor="middle" class="body">批准 / 拒绝 / EDD / 补充资料</text>
+  <text x="172" y="714" text-anchor="middle" class="small">必须记录理由和审批人</text>
+
+  <path d="M172 730 V890 H300" class="line"/>
+
+  <rect x="300" y="864" width="260" height="74" class="rule"/>
+  <text x="430" y="894" text-anchor="middle" class="label">Case 状态机</text>
+  <text x="430" y="918" text-anchor="middle" class="body">Approved / Rejected / EDD / Waiting</text>
+
+  <path d="M560 901 H630" class="line"/>
+  <rect x="630" y="852" width="340" height="98" class="data"/>
+  <text x="800" y="882" text-anchor="middle" class="label">Firestore + Cloud Storage</text>
+  <text x="800" y="906" text-anchor="middle" class="body">Case 快照 · 事件 · 任务 · Agent Runs</text>
+  <text x="800" y="928" text-anchor="middle" class="body">私有原始文件 · 提取结果 · 审批记录</text>
+
+  <path d="M970 901 H1040" class="line"/>
+  <rect x="1040" y="864" width="300" height="74" class="agent"/>
+  <text x="1190" y="894" text-anchor="middle" class="label">Audit &amp; Monitoring Agent</text>
+  <text x="1190" y="918" text-anchor="middle" class="body">异常、超时、低置信度与越权告警</text>
+
+  <text x="62" y="1002" class="section">B. Case 进度问答（只读，不改变 Workflow）</text>
+
+  <rect x="60" y="1030" width="250" height="74" class="event"/>
+  <text x="185" y="1058" text-anchor="middle" class="label">用户提问</text>
+  <text x="185" y="1082" text-anchor="middle" class="body">“公司 A 的 KYC 进展如何？”</text>
+
+  <path d="M310 1067 H380" class="dash"/>
+
+  <rect x="380" y="1022" width="280" height="90" class="agent"/>
+  <text x="520" y="1052" text-anchor="middle" class="label">Case Status Agent</text>
+  <text x="520" y="1076" text-anchor="middle" class="body">调用只读工具，不依赖对话记忆</text>
+  <text x="520" y="1096" text-anchor="middle" class="small">验证用户权限，禁止跨客户搜索</text>
+
+  <path d="M660 1067 H730" class="dash"/>
+
+  <rect x="730" y="1022" width="300" height="90" class="rule"/>
+  <text x="880" y="1052" text-anchor="middle" class="label">Read-only Case Tools</text>
+  <text x="880" y="1076" text-anchor="middle" class="body">Case 快照 · 文件状态 · Open Issues</text>
+  <text x="880" y="1096" text-anchor="middle" class="small">最近活动 · Owner · 下一步任务</text>
+
+  <path d="M1030 1067 H1100" class="dash"/>
+
+  <rect x="1100" y="1022" width="430" height="90" class="agent"/>
+  <text x="1315" y="1052" text-anchor="middle" class="label">带时间点和证据的回答</text>
+  <text x="1315" y="1076" text-anchor="middle" class="body">当前阶段 · 已收/应收数量 · 阻塞项 · 最新活动</text>
+  <text x="1315" y="1096" text-anchor="middle" class="small">明确区分事实与建议，并链接到 Case</text>
+
+  <text x="800" y="1152" text-anchor="middle" class="small">控制原则：LLM 负责理解、提取、总结与草稿；规则引擎负责硬性政策；人工负责关键 KYC / Compliance 决策</text>
+</svg>

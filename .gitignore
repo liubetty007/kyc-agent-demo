@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+.next/
+out/
+dist/
+
+# local environment and deployment state
+.env
+.env.*
+!.env.example
+.vercel/
+.claude/
+
+# local demo/runtime data
+data/cases.json
+
+# generated archives and local secrets
+*.zip
+*password*.txt
+
+# OS/editor files
+.DS_Store
+docs/.DS_Store
+docs/.Rhistory
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
