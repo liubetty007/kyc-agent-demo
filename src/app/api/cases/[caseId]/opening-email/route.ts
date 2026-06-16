@@ -1,5 +1,6 @@
 import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { requireApiUser } from '@/lib/auth/admin';
+import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { generateOpeningEmail } from '@/lib/kyb/openingEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { NextResponse } from 'next/server';
@@ -31,6 +32,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         direction: 'outbound',
         status: 'sent',
         attachments: ['Antalpha Institutional Cooperation Guide_XXX.pdf'],
+      }),
+    });
+    return NextResponse.json(updated);
+  }
+
+  if (body.action === 'send_real') {
+    if (!hasGmailConfigured()) return NextResponse.json({ error: 'Gmail is not configured.' }, { status: 503 });
+    const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
+    const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
+    const sent = await sendGmailMessage({
+      to: customerEmail(caseData),
+      subject: parsed.subject,
+      body: parsed.body,
+    });
+    const updated = await updateCase(caseId, {
+      openingEmailDraft: draft,
+      openingEmailSentAt: new Date().toISOString(),
+      mailboxMessages: appendMailboxMessage(caseData, {
+        provider: 'gmail',
+        providerMessageId: sent.id,
+        threadId: sent.threadId,
+        from: kycMailboxAddress(),
+        to: customerEmail(caseData),
+        subject: parsed.subject,
+        body: parsed.body,
+        direction: 'outbound',
+        status: 'sent',
       }),
     });
     return NextResponse.json(updated);

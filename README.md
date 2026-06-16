@@ -11,6 +11,9 @@ A fast local-first demo for corporate KYC onboarding automation.
 - Generate missing item questions
 - Generate client follow-up email draft
 - Generate compliance pack summary
+- Send real KYC emails through Gmail when OAuth is configured
+- Fetch Gmail replies and attachments into the case timeline
+- Use an LLM-backed Email Intake Agent for intent, keyword and attachment analysis
 
 ## Confirmed rules in this demo
 
@@ -52,4 +55,4 @@ uploaded documents are stored in the private bucket named by
 
 ## Future expansion
 
-Replace file-backed storage with Supabase/Postgres, add Supabase Storage for documents, add OCR/PDF extraction, screening providers, chain analytics, RBAC, audit logs, and real email sending.
+Next priorities: Gmail Pub/Sub push notifications, OCR/PDF extraction, screening providers, chain analytics, richer RBAC, immutable audit logs, and a read-only Case Status Agent.

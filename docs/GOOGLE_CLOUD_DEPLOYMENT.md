@@ -21,6 +21,12 @@ case whose `contactEmail` matches the signed-in email.
 - `KYC_DOCUMENT_BUCKET`
 - `FIREBASE_API_KEY`
 - `ANTHROPIC_API_KEY` through Secret Manager when AI drafting is enabled
+- `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
+- `GMAIL_CLIENT_ID`
+- `GMAIL_CLIENT_SECRET`
+- `GMAIL_REFRESH_TOKEN`
+- `GMAIL_SENDER_EMAIL`
+- `KYC_TEAM_EMAIL`
 
 ## Security defaults
 
@@ -49,3 +55,30 @@ Current staging URL:
 
 Do not commit generated test passwords, API keys, `.env` files, local Cloud
 Shell archives, `.vercel`, `.next`, or `data/cases.json`.
+
+## Gmail and LLM integration
+
+The application now supports real Gmail intake when Gmail OAuth variables are
+configured. Without those variables it falls back to demo mailbox ingestion.
+
+Required Gmail OAuth scope:
+
+- `https://www.googleapis.com/auth/gmail.modify`
+
+Recommended setup:
+
+1. Create an OAuth client in Google Cloud for the KYC mailbox operator.
+2. Authorize the KYC Gmail account and store the refresh token in Secret Manager
+   or Cloud Run environment variables.
+3. Set `GMAIL_SENDER_EMAIL` to the mailbox that sends opening/follow-up emails.
+4. Configure `ANTHROPIC_API_KEY` for LLM email intake analysis.
+5. Keep KYC Team approval before external sends and document acceptance.
+
+Inbound Gmail sync:
+
+- KYC/Admin clicks **Fetch & Analyze Gmail** on a case.
+- Gmail is searched by case ID, company name, and client sender.
+- New messages are imported into the case timeline.
+- Attachments are stored in the private document bucket.
+- Email Intake Agent extracts intent, keywords, entities, attachment type,
+  confidence, and human-review requirements.

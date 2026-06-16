@@ -27,7 +27,39 @@ export type DocumentRequirement = {
   reason: string;
 };
 
-export type DocumentSource = 'manual' | 'email_demo';
+export type DocumentSource = 'manual' | 'email_demo' | 'gmail';
+
+export type EmailAttachmentAnalysis = {
+  filename: string;
+  suggestedRequirementId?: string;
+  documentType?: string;
+  confidence: number;
+  reason: string;
+};
+
+export type EmailIntakeAnalysis = {
+  intent:
+    | 'new_submission'
+    | 'supplemental_documents'
+    | 'clarification'
+    | 'reminder'
+    | 'withdrawal'
+    | 'unrelated'
+    | 'unknown';
+  keywords: string[];
+  entities: {
+    companyName?: string;
+    caseId?: string;
+    jurisdiction?: string;
+    people?: string[];
+  };
+  summary: string;
+  suggestedCaseStatus?: CaseStatus;
+  requiresHumanReview: boolean;
+  confidence: number;
+  evidence: string[];
+  attachments: EmailAttachmentAnalysis[];
+};
 
 export type ReceivedDocument = {
   id: string;
@@ -54,6 +86,9 @@ export type AssociatedIndividual = {
 
 export type MailboxMessage = {
   id: string;
+  provider?: 'demo' | 'gmail';
+  providerMessageId?: string;
+  threadId?: string;
   from: string;
   to: string;
   subject: string;
@@ -62,6 +97,7 @@ export type MailboxMessage = {
   direction: 'outbound' | 'inbound' | 'internal';
   status: 'draft' | 'sent' | 'received';
   attachments?: string[];
+  analysis?: EmailIntakeAnalysis;
 };
 
 export type KYCCase = {

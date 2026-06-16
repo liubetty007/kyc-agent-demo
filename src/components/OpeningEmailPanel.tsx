@@ -43,10 +43,28 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
     setLoading(null);
   }
 
+  async function realSend() {
+    setLoading('real-send');
+    await save();
+    const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send_real' }),
+    });
+    if (!response.ok) {
+      alert((await response.json()).error || 'Gmail send failed.');
+      setLoading(null);
+      return;
+    }
+    const updated = await response.json();
+    setSentAt(updated.openingEmailSentAt);
+    setLoading(null);
+  }
+
   return (
     <div className="card">
       <h2>KYC Email to Client</h2>
-      <p>Demo mode: prepare the opening email for the client. “Demo Send” records a sent timestamp only and does not send a real email.</p>
+      <p>Prepare the opening email for the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
       {!draft ? (
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Opening Email</button>
       ) : (
@@ -55,6 +73,7 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
           <div className="actions">
             <button className="button" disabled={Boolean(loading)} onClick={save}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={demoSend}>{loading === 'send' ? 'Sending…' : 'Demo Send'}</button>
+            <button className="button primary" disabled={Boolean(loading)} onClick={realSend}>{loading === 'real-send' ? 'Sending Gmail…' : 'Send via Gmail'}</button>
             {saved && <span className="small">Saved.</span>}
             {sentAt && <span className="badge accepted">Demo sent: {new Date(sentAt).toLocaleString()}</span>}
           </div>

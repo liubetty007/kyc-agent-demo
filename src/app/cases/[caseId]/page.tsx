@@ -39,10 +39,10 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
         <CaseSnapshotEditor caseData={caseData} />
         <div className="card">
           <h2>Workflow Notes</h2>
-          <p>Use the opening email first, then fetch or upload client documents, run Agent review, and prepare the follow-up email or compliance pack.</p>
+          <p>Use the opening email first, then fetch Gmail replies or upload client documents, run Agent review, and prepare the follow-up email or compliance pack.</p>
           <ul className="list">
             <li>Company registration place: {caseData.jurisdiction}{caseData.usState ? ` (${caseData.usState})` : ''}</li>
-            <li>Document intake can be manual or via demo email ingestion.</li>
+            <li>Document intake can be manual, Gmail-based, or demo fallback when Gmail is not configured.</li>
             <li>Policy rules are available under Policy Review.</li>
           </ul>
         </div>

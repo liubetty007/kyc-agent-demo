@@ -19,6 +19,22 @@ export async function storeCaseDocument(caseId: string, file: File): Promise<str
   return objectName;
 }
 
+export async function storeCaseDocumentBytes(input: {
+  caseId: string;
+  filename: string;
+  contentType?: string;
+  data: Buffer;
+}): Promise<string> {
+  const safeName = input.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100);
+  const objectName = `cases/${input.caseId}/${crypto.randomUUID()}-${safeName}`;
+  await bucket().file(objectName).save(input.data, {
+    resumable: false,
+    contentType: input.contentType || 'application/octet-stream',
+    metadata: { cacheControl: 'private, no-store' },
+  });
+  return objectName;
+}
+
 export async function createDocumentDownloadUrl(objectName: string): Promise<string> {
   const [url] = await bucket().file(objectName).getSignedUrl({
     action: 'read',
@@ -26,4 +42,3 @@ export async function createDocumentDownloadUrl(objectName: string): Promise<str
   });
   return url;
 }
-
