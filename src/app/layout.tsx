@@ -13,19 +13,35 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
-        {user && <header className="topbar">
-          <div>
-            <strong>KYC Agent</strong>
-            <span>Corporate onboarding automation</span>
+        {user ? (
+          <div className="app-shell">
+            <aside className="sidebar">
+              <div className="brand-block">
+                <strong>KYC Agent</strong>
+                <span>Corporate onboarding automation</span>
+              </div>
+              <nav className="side-nav">
+                <a href="/">Cases</a>
+                {user.role !== 'client' && <a href="/cases/new">New Case</a>}
+                <a href="/policy">Policy Review</a>
+              </nav>
+              <div className="sidebar-footer">
+                <AccountMenu email={user.email} role={user.role} />
+              </div>
+            </aside>
+            <div className="workspace">
+              <header className="topbar">
+                <div>
+                  <strong>Operations Console</strong>
+                  <span>Role: {user.role}</span>
+                </div>
+              </header>
+              <main>{children}</main>
+            </div>
           </div>
-          <nav>
-            <a href="/">Cases</a>
-            {user.role !== 'client' && <a href="/cases/new">New Case</a>}
-            <a href="/policy">Policy Review</a>
-          </nav>
-          <AccountMenu email={user.email} role={user.role} />
-        </header>}
-        <main>{children}</main>
+        ) : (
+          <main>{children}</main>
+        )}
       </body>
     </html>
   );

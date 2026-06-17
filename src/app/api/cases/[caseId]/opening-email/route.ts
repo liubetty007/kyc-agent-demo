@@ -1,5 +1,6 @@
 import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { requireApiUser } from '@/lib/auth/admin';
+import { readOpeningEmailAttachment, type OpeningEmailAttachmentRef } from '@/lib/kyb/documentStorage';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { generateOpeningEmail } from '@/lib/kyb/openingEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const caseData = await getCase(caseId);
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
-  let body: { action?: string } = {};
+  let body: { action?: string; attachments?: OpeningEmailAttachmentRef[] } = {};
   try {
     body = await request.json();
   } catch {
@@ -41,10 +42,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     if (!hasGmailConfigured()) return NextResponse.json({ error: 'Gmail is not configured.' }, { status: 503 });
     const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
     const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
+    const attachments = await Promise.all((body.attachments || []).map((attachment) => readOpeningEmailAttachment(caseId, attachment)));
     const sent = await sendGmailMessage({
       to: customerEmail(caseData),
       subject: parsed.subject,
       body: parsed.body,
+      attachments,
     });
     const updated = await updateCase(caseId, {
       openingEmailDraft: draft,
@@ -59,6 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         body: parsed.body,
         direction: 'outbound',
         status: 'sent',
+        attachments: attachments.map((attachment) => attachment.filename),
       }),
     });
     return NextResponse.json(updated);

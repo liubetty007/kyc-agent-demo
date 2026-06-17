@@ -40,4 +40,13 @@ Role mappings live in `src/lib/auth/roles.ts` and require deployment after chang
 - Target multi-agent workflow is documented in `docs/AGENT_WORKFLOW.md`.
 - Editable workflow diagram is `docs/KYC_AGENT_WORKFLOW.svg`.
 - Google Cloud setup notes are in `docs/GOOGLE_CLOUD_DEPLOYMENT.md`.
-
+- Opening-email standard attachments are loaded from private Cloud Storage
+  prefixes `kyc_agent_documents/` and `-kyc_agent_documents/` in
+  `kyc-agent-docs-20130272975`. Per-email uploads are stored under
+  `cases/{caseId}/opening-email-attachments/`.
+- Gmail sending supports real MIME attachments for selected standard files and
+  per-email uploads. Keep attachment paths server-validated; do not trust client
+  object names outside the allowed prefixes.
+- 2026-06-18 local bucket listing showed no standard opening-document folder yet;
+  only `cases/` objects were visible. The selector will populate after files are
+  uploaded to one of the supported prefixes.

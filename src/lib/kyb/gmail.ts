@@ -47,8 +47,8 @@ export function kycMailboxAddress(): string {
   return process.env.GMAIL_SENDER_EMAIL || process.env.KYC_TEAM_EMAIL || 'kyc-team@demo.antalpha.local';
 }
 
-function base64Url(input: string): string {
-  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+function base64UrlBuffer(input: Buffer): string {
+  return input.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 function decodeBase64Url(input?: string): string {
@@ -160,26 +160,79 @@ export async function listCaseGmailMessages(caseData: KYCCase): Promise<GmailMes
   return messages.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
 }
 
+function escapeHeaderValue(value: string): string {
+  return value.replace(/[\r\n"]/g, ' ').trim();
+}
+
+function wrapBase64(input: Buffer): string {
+  return input.toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
+}
+
+function buildRawEmail(input: {
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  attachments?: GmailAttachment[];
+}): Buffer {
+  if (!input.attachments?.length) {
+    return Buffer.from([
+      `From: ${input.from}`,
+      `To: ${input.to}`,
+      `Subject: ${input.subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/plain; charset=UTF-8',
+      '',
+      input.body,
+    ].join('\r\n'));
+  }
+
+  const boundary = `kyc-agent-${crypto.randomUUID()}`;
+  const lines = [
+    `From: ${input.from}`,
+    `To: ${input.to}`,
+    `Subject: ${input.subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    input.body,
+    '',
+  ];
+
+  for (const attachment of input.attachments) {
+    const filename = escapeHeaderValue(attachment.filename || 'attachment');
+    const contentType = attachment.contentType || 'application/octet-stream';
+    lines.push(
+      `--${boundary}`,
+      `Content-Type: ${contentType}; name="${filename}"`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${filename}"`,
+      '',
+      wrapBase64(attachment.data),
+      '',
+    );
+  }
+  lines.push(`--${boundary}--`, '');
+  return Buffer.from(lines.join('\r\n'));
+}
+
 export async function sendGmailMessage(input: {
   to: string;
   subject: string;
   body: string;
   threadId?: string;
+  attachments?: GmailAttachment[];
 }): Promise<{ id: string; threadId?: string }> {
   const from = kycMailboxAddress();
-  const raw = [
-    `From: ${from}`,
-    `To: ${input.to}`,
-    `Subject: ${input.subject}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    '',
-    input.body,
-  ].join('\r\n');
+  const raw = buildRawEmail({ from, to: input.to, subject: input.subject, body: input.body, attachments: input.attachments });
   return await gmailFetch('/messages/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw: base64Url(raw), threadId: input.threadId }),
+    body: JSON.stringify({ raw: base64UrlBuffer(raw), threadId: input.threadId }),
   });
 }
 
