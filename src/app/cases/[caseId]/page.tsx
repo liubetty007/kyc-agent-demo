@@ -1,12 +1,10 @@
 import Link from 'next/link';
 import { CaseActions } from '@/components/CaseActions';
 import { CaseSnapshotEditor } from '@/components/CaseSnapshotEditor';
-import { ComplianceWorkflowPanel } from '@/components/ComplianceWorkflowPanel';
+import { ComplianceReplySummary } from '@/components/ComplianceReplySummary';
 import { DocumentPanel } from '@/components/DocumentPanel';
 import { MailboxTimelinePanel } from '@/components/MailboxTimelinePanel';
 import { OpeningEmailPanel } from '@/components/OpeningEmailPanel';
-import { ReviewPanel } from '@/components/ReviewPanel';
-import { TextOutputPanel } from '@/components/TextOutputPanel';
 import { requirePageUser } from '@/lib/auth/admin';
 import { canAccessCase, canPerformKycOperations } from '@/lib/auth/roles';
 import { caseStatusBadgeClass, caseStatusLabel } from '@/lib/kyb/complianceReview';
@@ -52,7 +50,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
         <CaseSnapshotEditor caseData={caseData} readOnly={!kycCanOperate} />
         <div className="card">
           <h2>Workflow Notes</h2>
-          <p>Use the opening email first, then fetch Gmail replies or upload client documents, run Agent review, and prepare the follow-up email or compliance pack.</p>
+          <p>Use the opening email first, then fetch Gmail replies or upload client documents, run Agent review, and prepare follow-up emails.</p>
           <ul className="list">
             <li>
               Company registration place: {caseData.jurisdiction}
@@ -76,9 +74,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
       </section>
 
       <DocumentPanel caseData={caseData} viewerRole={user.role} />
-      <ReviewPanel review={caseData.review} />
-      <TextOutputPanel title="Compliance Pack" text={caseData.compliancePack} empty="Generate a compliance pack after running review." />
-      <ComplianceWorkflowPanel caseData={caseData} readOnly={!kycCanOperate} />
+      <ComplianceReplySummary caseData={caseData} />
     </div>
   );
 }

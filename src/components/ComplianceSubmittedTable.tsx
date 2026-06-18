@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { complianceReplyMessages } from '@/lib/kyb/caseMailThreads';
+import { complianceReplyExcerpt } from '@/lib/kyb/complianceReplyText';
 import { readResponseError } from '@/lib/http';
 import type { KYCCase } from '@/lib/kyb/types';
 
@@ -68,7 +69,7 @@ export function ComplianceSubmittedTable({ cases }: { cases: KYCCase[] }) {
                 <p className="small">
                   {latestReply.from} · {new Date(latestReply.createdAt).toLocaleString()}
                 </p>
-                <div className="compliance-history-note">{latestReply.body}</div>
+                <p className="compliance-history-note">{complianceReplyExcerpt(latestReply.body)}</p>
               </div>
             ) : (
               <p className="small">等待合规回复</p>

@@ -1,7 +1,6 @@
 import { requireApiUser } from '@/lib/auth/admin';
 import { analyzeComplianceReplyAndDraftClientEmail, formatClientEmailDraft } from '@/lib/kyb/complianceReplyAgent';
 import { latestComplianceReply } from '@/lib/kyb/caseMailThreads';
-import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { formatComplianceNote } from '@/lib/kyb/complianceReview';
 import type { ComplianceDecisionOutcome } from '@/lib/kyb/types';
@@ -19,8 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     return NextResponse.json({ error: '请先抓取合规回复邮件。' }, { status: 400 });
   }
 
-  const review = caseData.review || runReview(caseData);
-  const analysis = await analyzeComplianceReplyAndDraftClientEmail(caseData, review, {
+  const analysis = await analyzeComplianceReplyAndDraftClientEmail(caseData, {
     subject: reply.subject,
     body: reply.body,
     from: reply.from,
@@ -31,7 +29,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const updated = await updateCase(caseId, {
     emailDraft,
-    review,
     complianceDecisions: [
       ...(caseData.complianceDecisions || []),
       {

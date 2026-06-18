@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { readResponseError } from '@/lib/http';
 import { complianceReplyMessages } from '@/lib/kyb/caseMailThreads';
+import { extractNewReplyText } from '@/lib/kyb/complianceReplyText';
 import { canSubmitCaseToCompliance } from '@/lib/kyb/complianceSubmit';
 import type { KYCCase } from '@/lib/kyb/types';
 
@@ -181,7 +182,7 @@ export function ComplianceWorkflowPanel({ caseData, readOnly = false }: { caseDa
                   <p className="small">
                     {message.from} · {new Date(message.createdAt).toLocaleString()}
                   </p>
-                  <div className="compliance-history-note">{message.body}</div>
+                  <div className="compliance-history-note">{extractNewReplyText(message.body)}</div>
                 </article>
               ))
             ) : (
