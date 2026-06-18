@@ -7,16 +7,11 @@ export function isCaseSubmittedToCompliance(caseData: KYCCase): boolean {
 }
 
 export function isCaseCompleted(caseData: KYCCase): boolean {
-  return (
-    caseData.status === 'ready_for_compliance'
-    || caseData.status === 'approved'
-    || caseData.status === 'compliance_review'
-    || caseData.status === 'rejected'
-  );
+  return caseData.status === 'approved' || caseData.status === 'rejected';
 }
 
 export function isCaseInProgress(caseData: KYCCase): boolean {
-  return !isCaseCompleted(caseData);
+  return !isCaseCompleted(caseData) && !isCaseSubmittedToCompliance(caseData);
 }
 
 export function filterCases(cases: KYCCase[], filter: CaseListFilter): KYCCase[] {
@@ -45,7 +40,7 @@ export const CASE_LIST_TITLES: Record<CaseListFilter, { title: string; descripti
   },
   completed: {
     title: '已完成的案件',
-    description: '已送合规、合规已通过，或合规已拒绝开户的案件。',
+    description: '合规已作出最终决定：通过或拒绝开户。',
   },
   compliance_submitted: {
     title: '已送合规',

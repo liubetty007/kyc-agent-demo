@@ -22,7 +22,7 @@ function statusBadgeLabel(caseData: KYCCase): string {
 export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
   const inProgress = filterCases(cases, 'in_progress');
   const completed = filterCases(cases, 'completed');
-  const complianceQueue = cases.filter((caseData) => caseData.complianceSubmittedAt);
+  const complianceQueue = filterCases(cases, 'compliance_submitted');
   const recent = [...cases]
     .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
     .slice(0, 12);
