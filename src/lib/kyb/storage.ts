@@ -1,8 +1,10 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { Firestore } from '@google-cloud/firestore';
+import { createBackendCase, isBackendEnabled } from '@/lib/kyc-backend/client';
+import { backendCaseToKycCase, toBackendIntake } from '@/lib/kyc-backend/mappers';
 import { generateChecklist } from './checklist';
-import type { BusinessType, Jurisdiction, KYCCase, ReceivedDocument } from './types';
+import type { BusinessType, CaseLanguage, Jurisdiction, KYCCase, ReceivedDocument } from './types';
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'cases.json');
 const COLLECTION = 'kycCases';
@@ -66,7 +68,18 @@ export async function createCase(input: {
   usState?: string;
   businessType: BusinessType;
   sourceOfFunds: string;
+  needsNsBusiness?: boolean;
+  language?: CaseLanguage;
 }): Promise<KYCCase> {
+  if (isBackendEnabled()) {
+    const backend = await createBackendCase(toBackendIntake(input));
+    const mapped = backendCaseToKycCase(backend, input);
+    const cases = await listCases();
+    cases.unshift(mapped);
+    await saveCases(cases);
+    return mapped;
+  }
+
   const now = new Date().toISOString();
   const newCase: KYCCase = {
     id: `KYC-${Date.now().toString().slice(-6)}`,
@@ -76,6 +89,8 @@ export async function createCase(input: {
     usState: input.usState,
     businessType: input.businessType,
     sourceOfFunds: input.sourceOfFunds,
+    language: input.language,
+    needsNsBusiness: input.needsNsBusiness,
     status: 'created',
     createdAt: now,
     updatedAt: now,

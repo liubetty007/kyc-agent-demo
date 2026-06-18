@@ -1,7 +1,7 @@
 import { COMPLIANCE_TEAM_EMAIL, KYC_TEAM_EMAIL } from './mailbox';
 import type { KYCCase, ReviewResult } from './types';
 
-export function generateComplianceEmail(caseData: KYCCase, review: ReviewResult): string {
+export function generateComplianceEmail(caseData: KYCCase, review: ReviewResult, attachmentNames: string[] = []): string {
   const riskFlags = review.businessAssessment.riskFlags.length
     ? review.businessAssessment.riskFlags.map((flag) => `- ${flag}`).join('\n')
     : '- No major business risk flags identified by the Agent.';
@@ -11,6 +11,10 @@ export function generateComplianceEmail(caseData: KYCCase, review: ReviewResult)
   const openItems = review.questionsForClient.length
     ? review.questionsForClient.map((item) => `- ${item}`).join('\n')
     : '- No open client questions noted by the Agent.';
+
+  const attachmentList = attachmentNames.length
+    ? attachmentNames.map((name) => `- ${name}`).join('\n')
+    : '- No KYC-accepted documents attached yet. Please Accept files before sending.';
 
   return `Subject: Compliance Review Request – ${caseData.companyName} (${caseData.id})
 
@@ -33,6 +37,9 @@ ${riskFlags}
 
 Documents included / reviewed:
 ${documents}
+
+KYC-accepted attachments (included with this email):
+${attachmentList}
 
 Open questions or missing items:
 ${openItems}

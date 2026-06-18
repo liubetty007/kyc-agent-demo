@@ -46,7 +46,7 @@ export function ComplianceEmailPanel({ caseData }: { caseData: KYCCase }) {
   return (
     <div className="card">
       <h2>Compliance Team Review Email</h2>
-      <p>Final step: package the case materials and prepare an editable email to Compliance Team for review.</p>
+          <p className="small">KYC 初审：文件已 Accept 后，点击 Demo Send to Compliance 送合规审批。</p>
       {!draft ? (
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Compliance Email</button>
       ) : (

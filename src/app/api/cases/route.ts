@@ -1,7 +1,7 @@
 import { createCase, listCases } from '@/lib/kyb/storage';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
-import type { BusinessType, Jurisdiction } from '@/lib/kyb/types';
+import type { BusinessType, CaseLanguage, Jurisdiction } from '@/lib/kyb/types';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     usState: body.usState,
     businessType: body.businessType as BusinessType,
     sourceOfFunds: body.sourceOfFunds,
+    needsNsBusiness: Boolean(body.needsNsBusiness),
+    language: (body.language as CaseLanguage) || 'zh',
   });
   return NextResponse.json(created);
 }

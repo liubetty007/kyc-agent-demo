@@ -1,11 +1,30 @@
-import { ingestDemoMailbox } from '@/lib/kyb/emailIngestion';
 import { requireApiUser } from '@/lib/auth/admin';
+import { ingestDemoMailbox } from '@/lib/kyb/emailIngestion';
 import { analyzeEmailForCase } from '@/lib/kyb/emailIntakeAgent';
 import { hasGmailConfigured, kycMailboxAddress, listCaseGmailMessages } from '@/lib/kyb/gmail';
 import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { storeCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { getCase, updateCase, upsertReceivedDocument } from '@/lib/kyb/storage';
+import { ingestBackendEmail, ingestBackendEmailMock, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+
+function isBackendCaseId(caseId: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
+}
+
+function demoMockPayload(caseData: { companyName: string; contactEmail?: string }) {
+  return {
+    from_email: caseData.contactEmail || 'client@example.com',
+    subject: `KYC documents for ${caseData.companyName}`,
+    attachments: [
+      { filename: 'Certificate of Incorporation.pdf', text: 'Certificate of Incorporation' },
+      { filename: 'Articles of Association.pdf', text: 'Articles of Association memorandum' },
+      { filename: 'Board Resolution.pdf', text: 'Board Resolution directors' },
+      { filename: 'Proof of Address - UBO.pdf', text: 'utility bill proof of address bank statement' },
+      { filename: 'Mutual Confidentiality Agreement NDA.pdf', text: 'mutual confidentiality agreement nda' },
+    ],
+  };
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
@@ -13,6 +32,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const { caseId } = await params;
   const caseData = await getCase(caseId);
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
+
+  if (isBackendEnabled() && isBackendCaseId(caseId)) {
+    try {
+      const summary = await ingestBackendEmail(caseId);
+      return NextResponse.json({ mode: summary.mode, summary });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Gmail ingest failed';
+      return NextResponse.json(
+        {
+          error: message,
+          hint: '请先 Send via Gmail 发开户邮件，等客户回信后再点 Fetch Client Reply。不会自动导入 demo 假文件。',
+        },
+        { status: 502 },
+      );
+    }
+  }
 
   if (hasGmailConfigured()) {
     const existingProviderIds = new Set((caseData.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));

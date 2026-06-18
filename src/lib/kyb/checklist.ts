@@ -6,6 +6,9 @@ function uniqueById(docs: DocumentRequirement[]): DocumentRequirement[] {
 }
 
 export function isCryptoRelated(caseData: Pick<KYCCase, 'businessType' | 'sourceOfFunds'>): boolean {
+  if (caseData.businessType === 'btc_loan' || caseData.businessType === 'crypto_financing' || caseData.businessType === 'crypto') {
+    return true;
+  }
   const text = `${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
   return ['crypto', 'btc', 'usdt', 'virtual asset', 'digital asset', 'wallet', 'exchange'].some((word) =>
     text.includes(word),
@@ -13,11 +16,17 @@ export function isCryptoRelated(caseData: Pick<KYCCase, 'businessType' | 'source
 }
 
 export function isMiningRelated(caseData: Pick<KYCCase, 'businessType' | 'sourceOfFunds'>): boolean {
+  if (caseData.businessType === 'mining_loan' || caseData.businessType === 'mining') {
+    return true;
+  }
   const text = `${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
   return ['mining', 'miner', 'antpool', 'hashrate', 'mining pool'].some((word) => text.includes(word));
 }
 
 export function isFinancingSource(caseData: Pick<KYCCase, 'businessType' | 'sourceOfFunds'>): boolean {
+  if (caseData.businessType === 'btc_loan' || caseData.businessType === 'financing' || caseData.businessType === 'crypto_financing') {
+    return true;
+  }
   const text = `${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
   return ['financing', 'fundraising', 'investor', 'loan', 'shareholder loan', 'private placement'].some((word) =>
     text.includes(word),

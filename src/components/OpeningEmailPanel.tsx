@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { readResponseError } from '@/lib/http';
 import type { KYCCase } from '@/lib/kyb/types';
 
 type OpeningAttachment = {
@@ -18,7 +19,11 @@ function formatBytes(value?: number): string {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
+function isBackendCaseId(caseId: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
+}
+
+export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KYCCase; readOnly?: boolean }) {
   const [draft, setDraft] = useState(caseData.openingEmailDraft || '');
   const [sentAt, setSentAt] = useState(caseData.openingEmailSentAt);
   const [loading, setLoading] = useState<string | null>(null);
@@ -101,6 +106,11 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
   }
 
   async function demoSend() {
+    if (!isBackendCaseId(caseData.id)) {
+      alert('This demo case cannot send via backend. Please create a new case from "New Case".');
+      return;
+    }
+
     setLoading('send');
     await save();
     const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
@@ -108,12 +118,25 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'send_demo' }),
     });
+    if (!response.ok) {
+      alert(await readResponseError(response, 'Demo send failed.'));
+      setLoading(null);
+      return;
+    }
     const updated = await response.json();
     setSentAt(updated.openingEmailSentAt);
     setLoading(null);
   }
 
   async function realSend() {
+    if (!isBackendCaseId(caseData.id)) {
+      alert('This demo case cannot send via backend. Please create a new case from "New Case".');
+      return;
+    }
+    if (sentAt && !window.confirm('开户邮件已发送过。再次发送会在同一 Gmail 线程里追加一封邮件。确定要继续吗？')) {
+      return;
+    }
+
     setLoading('real-send');
     await save();
     const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
@@ -122,7 +145,7 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
       body: JSON.stringify({ action: 'send_real', attachments: selectedAttachments }),
     });
     if (!response.ok) {
-      alert((await response.json()).error || 'Gmail send failed.');
+      alert(await readResponseError(response, 'Gmail send failed.'));
       setLoading(null);
       return;
     }
@@ -136,10 +159,13 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
       <h2>KYC Email to Client</h2>
       <p>Prepare the opening email for the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
       {!draft ? (
+        readOnly ? <p className="small">No opening email draft yet.</p> : (
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Opening Email</button>
+        )
       ) : (
         <>
-          <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} readOnly={readOnly} />
+          {!readOnly && (
           <div className="attachment-panel">
             <div className="section-title">
               <div>
@@ -181,6 +207,8 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
               )}
             </div>
           </div>
+          )}
+          {!readOnly && (
           <div className="actions">
             <button className="button" disabled={Boolean(loading)} onClick={save}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={demoSend}>{loading === 'send' ? 'Sending…' : 'Demo Send'}</button>
@@ -188,6 +216,8 @@ export function OpeningEmailPanel({ caseData }: { caseData: KYCCase }) {
             {saved && <span className="small">Saved.</span>}
             {sentAt && <span className="badge accepted">Demo sent: {new Date(sentAt).toLocaleString()}</span>}
           </div>
+          )}
+          {readOnly && sentAt && <span className="badge accepted">Sent: {new Date(sentAt).toLocaleString()}</span>}
         </>
       )}
     </div>

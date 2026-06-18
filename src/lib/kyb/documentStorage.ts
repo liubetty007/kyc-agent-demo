@@ -54,6 +54,11 @@ export async function storeCaseDocumentBytes(input: {
   return objectName;
 }
 
+export async function readCaseDocumentBytes(objectName: string): Promise<Buffer> {
+  const [data] = await bucket().file(objectName).download();
+  return data;
+}
+
 export async function listOpeningEmailStandardDocuments(): Promise<OpeningEmailAttachmentRef[]> {
   const fileGroups = await Promise.all(OPENING_DOCS_PREFIXES.map((prefix) => bucket().getFiles({ prefix })));
   const files = fileGroups.flatMap(([items]) => items);

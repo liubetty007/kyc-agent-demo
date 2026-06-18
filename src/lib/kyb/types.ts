@@ -9,7 +9,29 @@ export type Jurisdiction =
   | 'Other countries'
   | 'Mainland China';
 
-export type BusinessType = 'normal' | 'crypto' | 'mining' | 'financing' | 'crypto_financing' | 'other';
+/** Primary UI values: 质押借贷 / 矿业贷. Legacy values kept for seeded demo cases. */
+export type BusinessType =
+  | 'btc_loan'
+  | 'mining_loan'
+  | 'normal'
+  | 'crypto'
+  | 'mining'
+  | 'financing'
+  | 'crypto_financing'
+  | 'other';
+
+export const BUSINESS_TYPE_OPTIONS: Array<{ value: 'btc_loan' | 'mining_loan'; label: string; hint: string }> = [
+  { value: 'mining_loan', label: '矿业贷', hint: 'Default prime onboarding (no 币贷 extras)' },
+  { value: 'btc_loan', label: '质押借贷', hint: 'BTC 币贷 — extra confirmations & templates' },
+];
+
+export function businessTypeLabel(businessType: BusinessType): string {
+  const match = BUSINESS_TYPE_OPTIONS.find((opt) => opt.value === businessType);
+  if (match) return match.label;
+  return businessType;
+}
+
+export type CaseLanguage = 'zh' | 'en';
 
 export type CaseStatus =
   | 'created'
@@ -17,7 +39,30 @@ export type CaseStatus =
   | 'documents_received'
   | 'agent_reviewed'
   | 'ready_for_compliance'
+  | 'compliance_review'
+  | 'awaiting_client_information'
+  | 'edd_required'
+  | 'approved'
+  | 'rejected'
   | 'prohibited';
+
+export type ComplianceDecisionOutcome = 'approved' | 'rejected' | 'request_more_info' | 'edd_required';
+
+export type ComplianceDecision = {
+  outcome: ComplianceDecisionOutcome;
+  note: string;
+  reviewerEmail: string;
+  decidedAt: string;
+};
+
+export type ComplianceSubmitSnapshot = {
+  missing_required: string[];
+  missing_recommended: string[];
+  pending_doc_types: string[];
+  received_doc_types: string[];
+  submittedBy: string;
+  submittedAt: string;
+};
 
 export type DocumentRequirement = {
   id: string;
@@ -108,6 +153,8 @@ export type KYCCase = {
   usState?: string;
   businessType: BusinessType;
   sourceOfFunds: string;
+  language?: CaseLanguage;
+  needsNsBusiness?: boolean;
   status: CaseStatus;
   createdAt: string;
   updatedAt: string;
@@ -121,7 +168,12 @@ export type KYCCase = {
   compliancePack?: string;
   complianceEmailDraft?: string;
   complianceEmailSentAt?: string;
+  complianceGmailThreadId?: string;
+  complianceSubmittedAt?: string;
+  complianceSubmitSnapshot?: ComplianceSubmitSnapshot;
+  complianceDecisions?: ComplianceDecision[];
   mailboxMessages?: MailboxMessage[];
+  driveFolderId?: string;
 };
 
 export type ReviewIssue = {

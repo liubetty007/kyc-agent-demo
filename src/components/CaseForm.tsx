@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { BusinessType, Jurisdiction } from '@/lib/kyb/types';
+import { BUSINESS_TYPE_OPTIONS, type BusinessType, type CaseLanguage, type Jurisdiction } from '@/lib/kyb/types';
 
 const jurisdictions: Jurisdiction[] = ['Hong Kong', 'Singapore', 'BVI', 'Cayman', 'United States', 'European countries', 'Other offshore', 'Other countries', 'Mainland China'];
-const businessTypes: BusinessType[] = ['normal', 'crypto', 'mining', 'financing', 'crypto_financing', 'other'];
+const languages: Array<{ value: CaseLanguage; label: string }> = [
+  { value: 'zh', label: '中文' },
+  { value: 'en', label: 'English' },
+];
 
 export function CaseForm() {
   const [loading, setLoading] = useState(false);
@@ -13,8 +16,10 @@ export function CaseForm() {
     contactEmail: '',
     jurisdiction: 'Hong Kong' as Jurisdiction,
     usState: '',
-    businessType: 'crypto' as BusinessType,
+    businessType: 'mining_loan' as BusinessType,
     sourceOfFunds: 'Crypto treasury assets and business income.',
+    needsNsBusiness: false,
+    language: 'zh' as CaseLanguage,
   });
 
   async function submit(event: React.FormEvent) {
@@ -54,9 +59,27 @@ export function CaseForm() {
       <label>
         Business Type
         <select value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value as BusinessType })}>
-          {businessTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          {BUSINESS_TYPE_OPTIONS.map((type) => (
+            <option key={type.value} value={type.value} title={type.hint}>{type.label}</option>
+          ))}
         </select>
       </label>
+      <div className="grid two">
+        <label>
+          Language
+          <select value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value as CaseLanguage })}>
+            {languages.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 24 }}>
+          <input
+            type="checkbox"
+            checked={form.needsNsBusiness}
+            onChange={(e) => setForm({ ...form, needsNsBusiness: e.target.checked })}
+          />
+          Need NS business
+        </label>
+      </div>
       <label>
         Source of Funds / Business Notes
         <textarea value={form.sourceOfFunds} onChange={(e) => setForm({ ...form, sourceOfFunds: e.target.value })} />

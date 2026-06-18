@@ -2,7 +2,21 @@
 
 import { useState } from 'react';
 
-export function EditableEmailPanel({ caseId, title, text, empty, field }: { caseId: string; title: string; text?: string; empty: string; field: 'emailDraft' | 'openingEmailDraft' }) {
+export function EditableEmailPanel({
+  caseId,
+  title,
+  text,
+  empty,
+  field,
+  readOnly = false,
+}: {
+  caseId: string;
+  title: string;
+  text?: string;
+  empty: string;
+  field: 'emailDraft' | 'openingEmailDraft';
+  readOnly?: boolean;
+}) {
   const [draft, setDraft] = useState(text || '');
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -24,11 +38,13 @@ export function EditableEmailPanel({ caseId, title, text, empty, field }: { case
       <h2>{title}</h2>
       {text ? (
         <>
-          <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} readOnly={readOnly} />
+          {!readOnly && (
           <div className="actions">
             <button className="button primary" disabled={loading} onClick={save}>{loading ? 'Saving…' : 'Save Draft'}</button>
             {saved && <span className="small">Saved.</span>}
           </div>
+          )}
         </>
       ) : (
         <p>{empty}</p>

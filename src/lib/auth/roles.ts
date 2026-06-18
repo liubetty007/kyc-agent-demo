@@ -1,4 +1,4 @@
-export type AppRole = 'client' | 'kyc' | 'admin';
+export type AppRole = 'client' | 'kyc' | 'admin' | 'compliance';
 
 export type AppUser = {
   uid: string;
@@ -18,9 +18,22 @@ export function roleForEmail(email?: string | null): AppRole | undefined {
 }
 
 export function canAccessCase(user: AppUser, contactEmail?: string): boolean {
-  return user.role !== 'client' || contactEmail?.toLowerCase() === user.email;
+  if (user.role === 'client') return contactEmail?.toLowerCase() === user.email;
+  return user.role === 'kyc' || user.role === 'admin' || user.role === 'compliance';
 }
 
 export function canManageCases(user: AppUser): boolean {
   return user.role === 'kyc' || user.role === 'admin';
+}
+
+export function canPerformKycOperations(user: AppUser): boolean {
+  return user.role === 'kyc' || user.role === 'admin';
+}
+
+export function canAccessComplianceWorkspace(user: AppUser): boolean {
+  return user.role === 'compliance' || user.role === 'admin';
+}
+
+export function canSubmitComplianceDecision(user: AppUser): boolean {
+  return user.role === 'compliance' || user.role === 'admin';
 }

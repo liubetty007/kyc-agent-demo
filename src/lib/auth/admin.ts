@@ -8,6 +8,16 @@ import { roleForEmail, type AppRole, type AppUser } from './roles';
 export const SESSION_COOKIE = 'kyc_session';
 export const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
+const DEV_USER: AppUser = {
+  uid: 'local-dev',
+  email: 'alenw0620@gmail.com',
+  role: 'admin',
+};
+
+export function isDevAuthBypass(): boolean {
+  return process.env.KYC_DEV_BYPASS_AUTH === 'true';
+}
+
 function adminAuth() {
   const app = getApps()[0] || initializeApp({ credential: applicationDefault() });
   return getAuth(app);
@@ -27,6 +37,7 @@ export async function verifySessionCookie(value?: string): Promise<AppUser | nul
 }
 
 export async function currentUser(): Promise<AppUser | null> {
+  if (isDevAuthBypass()) return DEV_USER;
   const cookieStore = await cookies();
   return verifySessionCookie(cookieStore.get(SESSION_COOKIE)?.value);
 }
@@ -39,6 +50,12 @@ export async function requirePageUser(roles?: AppRole[]): Promise<AppUser> {
 }
 
 export async function requireApiUser(request: Request, roles?: AppRole[]): Promise<AppUser | NextResponse> {
+  if (isDevAuthBypass()) {
+    if (roles && !roles.includes(DEV_USER.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    return DEV_USER;
+  }
   const cookieHeader = request.headers.get('cookie') || '';
   const session = cookieHeader
     .split(';')

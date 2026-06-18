@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AccountMenu } from '@/components/AccountMenu';
+import { SidebarNav } from '@/components/SidebarNav';
 import { currentUser } from '@/lib/auth/admin';
 import './globals.css';
 
@@ -11,36 +12,24 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body>
         {user ? (
-          <div className="app-shell">
-            <aside className="sidebar">
-              <div className="brand-block">
+          <>
+            <header className="topbar">
+              <div>
                 <strong>KYC Agent</strong>
                 <span>Corporate onboarding automation</span>
               </div>
-              <nav className="side-nav">
-                <a href="/">Cases</a>
-                {user.role !== 'client' && <a href="/cases/new">New Case</a>}
-                <a href="/policy">Policy Review</a>
-              </nav>
-              <div className="sidebar-footer">
-                <AccountMenu email={user.email} role={user.role} />
-              </div>
-            </aside>
-            <div className="workspace">
-              <header className="topbar">
-                <div>
-                  <strong>Operations Console</strong>
-                  <span>Role: {user.role}</span>
-                </div>
-              </header>
-              <main>{children}</main>
+              <AccountMenu email={user.email} role={user.role} />
+            </header>
+            <div className="app-shell">
+              <SidebarNav role={user.role} />
+              <div className="app-main">{children}</div>
             </div>
-          </div>
+          </>
         ) : (
-          <main>{children}</main>
+          <main className="app-main login-main">{children}</main>
         )}
       </body>
     </html>

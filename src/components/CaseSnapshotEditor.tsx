@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { KYCCase } from '@/lib/kyb/types';
 
-export function CaseSnapshotEditor({ caseData }: { caseData: KYCCase }) {
+export function CaseSnapshotEditor({ caseData, readOnly = false }: { caseData: KYCCase; readOnly?: boolean }) {
   const [companyName, setCompanyName] = useState(caseData.companyName);
   const [contactEmail, setContactEmail] = useState(caseData.contactEmail || '');
   const [sourceOfFunds, setSourceOfFunds] = useState(caseData.sourceOfFunds);
@@ -29,7 +29,7 @@ export function CaseSnapshotEditor({ caseData }: { caseData: KYCCase }) {
       <div className="form compact-form">
         <label>
           Company Name
-          <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
+          <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} readOnly={readOnly} />
         </label>
         <label>
           Company Registration Place
@@ -37,16 +37,18 @@ export function CaseSnapshotEditor({ caseData }: { caseData: KYCCase }) {
         </label>
         <label>
           Contact Email
-          <input value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="client@example.com" />
+          <input value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} placeholder="client@example.com" readOnly={readOnly} />
         </label>
         <label>
           Source of Funds / Business Notes
-          <textarea value={sourceOfFunds} onChange={(event) => setSourceOfFunds(event.target.value)} />
+          <textarea value={sourceOfFunds} onChange={(event) => setSourceOfFunds(event.target.value)} readOnly={readOnly} />
         </label>
+        {!readOnly && (
         <div className="actions">
           <button className="button primary" disabled={loading || !companyName.trim()} onClick={save}>{loading ? 'Saving…' : 'Save Case Details'}</button>
           {saved && <span className="small">Saved.</span>}
         </div>
+        )}
       </div>
     </div>
   );

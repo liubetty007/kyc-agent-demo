@@ -13,7 +13,6 @@ export default async function PolicyPage() {
           <h1>KYC Policy Review</h1>
           <p>Non-technical review copy for KYC/Compliance teammates. Use this page to check whether mandatory conditions are complete.</p>
         </div>
-        <a className="button" href="/">Back to Cases</a>
       </section>
       <article className="card policy-doc">
         {markdown.split('\n').map((line, index) => {
