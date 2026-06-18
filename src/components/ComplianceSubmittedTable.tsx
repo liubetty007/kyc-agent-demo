@@ -68,7 +68,7 @@ export function ComplianceSubmittedTable({ cases }: { cases: KYCCase[] }) {
                 <p className="small">
                   {latestReply.from} · {new Date(latestReply.createdAt).toLocaleString()}
                 </p>
-                <pre className="compliance-history-note">{latestReply.body}</pre>
+                <div className="compliance-history-note">{latestReply.body}</div>
               </div>
             ) : (
               <p className="small">等待合规回复</p>

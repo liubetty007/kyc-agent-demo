@@ -42,18 +42,21 @@ export function complianceThreadId(caseData: KYCCase): string | undefined {
 }
 
 export function complianceReplyMessages(caseData: KYCCase) {
+  const threadId = complianceThreadId(caseData);
+  const outbound = complianceOutboundMessages(caseData);
   const outboundIds = new Set(
-    (caseData.mailboxMessages || [])
-      .filter((message) => message.direction === 'outbound' && message.to === COMPLIANCE_TEAM_EMAIL)
-      .map((message) => message.providerMessageId)
-      .filter(Boolean),
+    outbound.map((message) => message.providerMessageId).filter(Boolean),
   );
+  const outboundBodies = new Set(outbound.map((message) => message.body.trim()).filter(Boolean));
 
   return (caseData.mailboxMessages || []).filter((message) => {
     if (message.direction !== 'inbound') return false;
+    if (threadId && message.threadId && message.threadId !== threadId) return false;
     if (isKycSender(message.from)) return false;
     if (!isComplianceSender(message.from)) return false;
     if (message.providerMessageId && outboundIds.has(message.providerMessageId)) return false;
+    const body = message.body.trim();
+    if (body && outboundBodies.has(body)) return false;
     return true;
   });
 }

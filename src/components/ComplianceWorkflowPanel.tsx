@@ -181,7 +181,7 @@ export function ComplianceWorkflowPanel({ caseData, readOnly = false }: { caseDa
                   <p className="small">
                     {message.from} · {new Date(message.createdAt).toLocaleString()}
                   </p>
-                  <pre className="compliance-history-note">{message.body}</pre>
+                  <div className="compliance-history-note">{message.body}</div>
                 </article>
               ))
             ) : (
