@@ -1,4 +1,5 @@
 import { getClaudeJson, hasClaudeConfigured, optionallyPolishText } from './claude';
+import { inferComplianceOutcomeFromText, outcomeForAutomaticComplianceHandling } from './complianceOutcome';
 import { extractNewReplyText } from './complianceReplyText';
 import type { KYCCase } from './types';
 
@@ -12,11 +13,7 @@ type ComplianceReplyAnalysis = {
 
 function fallbackAnalysis(caseData: KYCCase, complianceText: string): ComplianceReplyAnalysis {
   const stripped = extractNewReplyText(complianceText);
-  const lower = stripped.toLowerCase();
-  let outcome: ComplianceReplyAnalysis['outcome'] = 'request_more_info';
-  if (lower.includes('reject') || lower.includes('拒绝')) outcome = 'rejected';
-  else if (lower.includes('approve') || lower.includes('通过')) outcome = 'approved';
-  else if (lower.includes('edd')) outcome = 'edd_required';
+  const outcome = outcomeForAutomaticComplianceHandling(inferComplianceOutcomeFromText(complianceText), complianceText);
 
   const body = stripped
     ? `Dear ${caseData.companyName} Team,\n\nThank you for your cooperation with our onboarding process.\n\nFollowing our internal compliance review, please note the following:\n\n${stripped}\n\nPlease let us know if you have any questions.\n\nBest regards,\nKYC Team`
@@ -63,9 +60,14 @@ Return JSON only:
   "requested_items": ["only items compliance explicitly asked for"],
   "client_email_subject": "email subject to client",
   "client_email_body": "polished email body to client, professional tone, plain text"
-}`;
+}
+
+Important:
+- If compliance only asks the client/KYC to provide missing documents (e.g. COI, 补齐, 缺少), outcome MUST be request_more_info, NOT rejected.
+- Use rejected only when compliance clearly refuses onboarding.`;
 
   const parsed = await getClaudeJson(prompt, fallback);
+  parsed.outcome = outcomeForAutomaticComplianceHandling(parsed.outcome, complianceReply.body);
   if (!parsed.client_email_body?.trim()) {
     parsed.client_email_body = await optionallyPolishText(
       `Rewrite this client follow-up email professionally. Keep it based only on the compliance reply:\n\n${fallback.client_email_body}`,

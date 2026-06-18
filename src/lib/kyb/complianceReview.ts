@@ -1,4 +1,5 @@
 import type { CaseStatus, ComplianceDecision, ComplianceDecisionOutcome, KYCCase } from './types';
+import { hasComplianceReply, isCaseCompleted } from './caseViews';
 
 export const COMPLIANCE_OUTCOME_LABELS: Record<ComplianceDecisionOutcome, string> = {
   approved: '通过',
@@ -49,6 +50,7 @@ export function isCaseAwaitingKycComplianceFeedback(caseData: Pick<KYCCase, 'com
 }
 
 export function caseStatusBadgeClass(caseData: KYCCase): string {
+  if (hasComplianceReply(caseData) && !isCaseCompleted(caseData)) return 'compliance-feedback-pending';
   if (isCaseAwaitingKycComplianceFeedback(caseData)) return 'compliance-feedback-pending';
   const { status } = caseData;
   if (status === 'ready_for_compliance' || status === 'approved') return 'ready';
@@ -59,6 +61,15 @@ export function caseStatusBadgeClass(caseData: KYCCase): string {
 }
 
 export function caseStatusLabel(caseData: KYCCase): string {
-  if (isCaseAwaitingKycComplianceFeedback(caseData)) return '待 KYC 处理合规反馈';
+  if (isCaseCompleted(caseData)) {
+    return caseData.status === 'approved' ? '通过' : '不通过';
+  }
+  if (hasComplianceReply(caseData) || isCaseAwaitingKycComplianceFeedback(caseData)) {
+    return '合规已回复，等待补齐资料';
+  }
+  if (caseData.status === 'compliance_review') return '合规审核中';
+  if (caseData.status === 'awaiting_client_information') return '等待客户补充资料';
+  if (caseData.status === 'edd_required') return '需 EDD';
+  if (caseData.status === 'ready_for_compliance') return '待送合规';
   return caseData.status;
 }

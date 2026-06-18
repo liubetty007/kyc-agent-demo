@@ -15,8 +15,9 @@ function statusBadgeClass(caseData: KYCCase): string {
 }
 
 function statusBadgeLabel(caseData: KYCCase): string {
-  if (caseStatusBadgeClass(caseData) === 'compliance-feedback-pending') return '合规反馈';
-  return isCaseCompleted(caseData) ? '已完成' : '流程中';
+  if (isCaseCompleted(caseData)) return caseData.status === 'approved' ? '通过' : '不通过';
+  if (caseStatusBadgeClass(caseData) === 'compliance-feedback-pending') return '合规已回复';
+  return '流程中';
 }
 
 export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {

@@ -217,7 +217,11 @@ export function ComplianceWorkflowPanel({ caseData, readOnly = false }: { caseDa
             </section>
           )}
 
-          {!readOnly && replies.length > 0 && caseData.status !== 'approved' && caseData.status !== 'rejected' && (
+          {!readOnly && replies.length > 0
+            && caseData.status !== 'approved'
+            && caseData.status !== 'rejected'
+            && caseData.status !== 'awaiting_client_information'
+            && caseData.status !== 'edd_required' && (
             <div className="actions">
               <button className="button primary" type="button" disabled={Boolean(loading)} onClick={() => recordDecision('approved')}>
                 通过

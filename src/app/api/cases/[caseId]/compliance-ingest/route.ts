@@ -2,7 +2,9 @@ import { requireApiUser } from '@/lib/auth/admin';
 import { appendMailboxMessage, COMPLIANCE_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { ingestBackendComplianceEmail, isBackendEnabled } from '@/lib/kyc-backend/client';
-import { complianceThreadId } from '@/lib/kyb/caseMailThreads';
+import { complianceThreadId, latestComplianceReply } from '@/lib/kyb/caseMailThreads';
+import { statusAfterComplianceDecision } from '@/lib/kyb/complianceReview';
+import { inferComplianceOutcomeFromText, outcomeForAutomaticComplianceHandling } from '@/lib/kyb/complianceOutcome';
 import { hasGmailConfigured, listCaseGmailMessages } from '@/lib/kyb/gmail';
 import { NextResponse } from 'next/server';
 
@@ -25,6 +27,19 @@ function apiError(error: unknown, fallback: string) {
     }
   }
   return NextResponse.json({ error: raw || fallback }, { status: 502 });
+}
+
+function applyComplianceReplyStatus(caseData: Awaited<ReturnType<typeof getCase>>, mailboxMessages: NonNullable<NonNullable<Awaited<ReturnType<typeof getCase>>>['mailboxMessages']>) {
+  if (!caseData) return {};
+  const reply = latestComplianceReply({ ...caseData, mailboxMessages });
+  if (!reply) return {};
+  const outcome = outcomeForAutomaticComplianceHandling(
+    inferComplianceOutcomeFromText(reply.body),
+    reply.body,
+  );
+  if (caseData.status === 'approved') return {};
+  if (caseData.status === 'rejected' && outcome === 'rejected') return {};
+  return { status: statusAfterComplianceDecision(outcome) };
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -64,6 +79,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const updated = await updateCase(caseId, {
         complianceGmailThreadId: result.messages[0]?.gmail_thread_id || complianceThreadId(caseData),
         mailboxMessages,
+        ...applyComplianceReplyStatus(caseData, mailboxMessages),
       });
       return NextResponse.json({ case: updated, imported });
     }
@@ -105,6 +121,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const updated = await updateCase(caseId, {
       complianceGmailThreadId: threadId || complianceMessages[0]?.threadId,
       mailboxMessages,
+      ...applyComplianceReplyStatus(caseData, mailboxMessages),
     });
     return NextResponse.json({ case: updated, imported });
   } catch (error) {

@@ -1,9 +1,9 @@
 import { requireApiUser } from '@/lib/auth/admin';
 import { analyzeComplianceReplyAndDraftClientEmail, formatClientEmailDraft } from '@/lib/kyb/complianceReplyAgent';
 import { latestComplianceReply } from '@/lib/kyb/caseMailThreads';
+import { formatComplianceNote, statusAfterComplianceDecision } from '@/lib/kyb/complianceReview';
+import { outcomeForAutomaticComplianceHandling } from '@/lib/kyb/complianceOutcome';
 import { getCase, updateCase } from '@/lib/kyb/storage';
-import { formatComplianceNote } from '@/lib/kyb/complianceReview';
-import type { ComplianceDecisionOutcome } from '@/lib/kyb/types';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -25,20 +25,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   });
 
   const emailDraft = formatClientEmailDraft(analysis.client_email_subject, analysis.client_email_body);
-  const outcome = analysis.outcome === 'unclear' ? 'request_more_info' : analysis.outcome;
+  const outcome = outcomeForAutomaticComplianceHandling(analysis.outcome, reply.body);
 
   const updated = await updateCase(caseId, {
     emailDraft,
     complianceDecisions: [
       ...(caseData.complianceDecisions || []),
       {
-        outcome: outcome as ComplianceDecisionOutcome,
+        outcome,
         note: formatComplianceNote(`[LLM 解析合规邮件]\n${analysis.summary}`, reply.from),
         reviewerEmail: reply.from,
         decidedAt: reply.createdAt,
       },
     ],
-    status: outcome === 'approved' ? 'approved' : outcome === 'rejected' ? 'rejected' : 'awaiting_client_information',
+    status: statusAfterComplianceDecision(outcome),
   });
 
   return NextResponse.json({ case: updated, analysis, emailDraft });
