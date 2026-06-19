@@ -8,7 +8,7 @@ export type AppUser = {
 
 const ROLE_BY_EMAIL: Record<string, AppRole> = {
   'liuyueanan@icloud.com': 'client',
-  'liubetty007@gmail.com': 'kyc',
+  'liubetty007@gmail.com': 'admin',
   'liuy00066@gmail.com': 'admin',
   'alenw0620@gmail.com': 'admin',
 };
