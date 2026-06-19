@@ -3,6 +3,7 @@ import { CaseActions } from '@/components/CaseActions';
 import { CaseSnapshotEditor } from '@/components/CaseSnapshotEditor';
 import { ComplianceReplySummary } from '@/components/ComplianceReplySummary';
 import { DocumentPanel } from '@/components/DocumentPanel';
+import { KycComplianceSubmitPanel } from '@/components/KycComplianceSubmitPanel';
 import { MailboxTimelinePanel } from '@/components/MailboxTimelinePanel';
 import { OpeningEmailPanel } from '@/components/OpeningEmailPanel';
 import { requirePageUser } from '@/lib/auth/admin';
@@ -74,6 +75,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
       </section>
 
       <DocumentPanel caseData={caseData} viewerRole={user.role} />
+      <KycComplianceSubmitPanel caseData={caseData} readOnly={!kycCanOperate} />
       <ComplianceReplySummary caseData={caseData} />
     </div>
   );
