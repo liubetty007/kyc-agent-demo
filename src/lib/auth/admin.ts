@@ -10,7 +10,7 @@ export const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 const DEV_USER: AppUser = {
   uid: 'local-dev',
-  email: 'alenw0620@gmail.com',
+  email: 'liubetty007@gmail.com',
   role: 'admin',
 };
 
@@ -71,4 +71,3 @@ export async function requireApiUser(request: Request, roles?: AppRole[]): Promi
 export function getAdminAuth() {
   return adminAuth();
 }
-
