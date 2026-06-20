@@ -8,7 +8,7 @@ Firebase Authentication, Secret Manager, and Cloud Audit Logs.
 | Email | Role |
 | --- | --- |
 | `liuyueanan@icloud.com` | Client |
-| `liubetty007@gmail.com` | KYC Team |
+| `liubetty007@gmail.com` | Admin |
 | `liuy00066@gmail.com` | Admin |
 | `alenw0620@gmail.com` | Admin (includes KYC Team access) |
 
@@ -49,7 +49,11 @@ case whose `contactEmail` matches the signed-in email.
 - Idempotent base setup: `scripts/deploy-gcp.sh`
 - Cloud Shell authentication and deployment: `scripts/cloud-shell-finish.sh`
 
-Current staging URL:
+Current frontend URL (latest Next.js UI):
+
+- `https://kyc-agent-frontend-767566934621.asia-east2.run.app`
+
+Legacy staging URL (backend framework demo only — not the KYC Agent UI):
 
 - `https://kyc-agent-staging-20130272975.asia-east2.run.app`
 

@@ -22,7 +22,7 @@ Read this before making changes in this repository.
 ## Roles
 
 - `liuyueanan@icloud.com`: client
-- `liubetty007@gmail.com`: KYC Team
+- `liubetty007@gmail.com`: Admin
 - `liuy00066@gmail.com`: admin
 - `alenw0620@gmail.com`: admin, includes KYC Team access
 
