@@ -11,7 +11,9 @@
     "@google-cloud/storage": "^7.17.0",
     "firebase": "^12.14.0",
     "firebase-admin": "^14.0.0",
+    "jszip": "^3.10.1",
     "next": "16.2.7",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

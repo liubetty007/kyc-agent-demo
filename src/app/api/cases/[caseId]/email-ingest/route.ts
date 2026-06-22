@@ -1,10 +1,21 @@
 import { requireApiUser } from '@/lib/auth/admin';
+import { openingThreadId } from '@/lib/kyb/caseMailThreads';
 import { ingestDemoMailbox } from '@/lib/kyb/emailIngestion';
 import { analyzeEmailForCase } from '@/lib/kyb/emailIntakeAgent';
-import { hasGmailConfigured, kycMailboxAddress, listCaseGmailMessages } from '@/lib/kyb/gmail';
+import {
+  getCaseGmailMessage,
+  hasGmailConfigured,
+  kycMailboxAddress,
+  listThreadMessageIds,
+  searchCaseMailboxThreadIds,
+} from '@/lib/kyb/gmail';
 import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import { storeCaseDocumentBytes } from '@/lib/kyb/documentStorage';
+import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { getCase, updateCase, upsertReceivedDocument } from '@/lib/kyb/storage';
+import type { KYCCase } from '@/lib/kyb/types';
+import type { GmailMessage } from '@/lib/kyb/gmail';
 import { ingestBackendEmail, ingestBackendEmailMock, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
 
@@ -26,6 +37,92 @@ function demoMockPayload(caseData: { companyName: string; contactEmail?: string 
   };
 }
 
+function backendStatus(error: unknown): number | null {
+  const raw = error instanceof Error ? error.message : '';
+  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
+  return statusMatch ? Number(statusMatch[1]) : null;
+}
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function normalizeEmail(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return (match ? match[1] : value).trim().toLowerCase();
+}
+
+function caseNeedles(caseData: KYCCase): string[] {
+  return [caseData.id, caseData.companyName]
+    .map((value) => normalize(value || ''))
+    .filter((value) => value.length >= 3);
+}
+
+function textHasCaseContext(caseData: KYCCase, text: string): boolean {
+  const haystack = normalize(text);
+  return caseNeedles(caseData).some((needle) => haystack.includes(needle));
+}
+
+function messageHasCaseContext(caseData: KYCCase, message: GmailMessage): boolean {
+  const attachmentNames = message.attachments.map((attachment) => attachment.filename).join(' ');
+  return textHasCaseContext(caseData, `${message.subject}\n${message.body}\n${attachmentNames}`);
+}
+
+function messageIsFromContact(caseData: KYCCase, message: GmailMessage): boolean {
+  if (!caseData.contactEmail) return true;
+  return normalizeEmail(message.from) === caseData.contactEmail.toLowerCase();
+}
+
+function shouldImportAttachment(caseData: KYCCase, message: GmailMessage, filename: string): boolean {
+  return (
+    textHasCaseContext(caseData, filename)
+    || textHasCaseContext(caseData, `${message.subject}\n${message.body}`)
+  );
+}
+
+async function listCaseThreadGmailMessages(caseData: Awaited<ReturnType<typeof getCase>>) {
+  if (!caseData) return [];
+  const openingThread = openingThreadId(caseData);
+  const threadIds = openingThread ? [openingThread] : await searchCaseMailboxThreadIds(caseData);
+
+  const existingProviderIds = new Set((caseData.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
+  const messages = [];
+  const seenIds = new Set<string>();
+  for (const threadId of threadIds) {
+    const ids = await listThreadMessageIds(threadId);
+    for (const id of ids) {
+      if (!id || seenIds.has(id) || existingProviderIds.has(id)) continue;
+      const message = await getCaseGmailMessage(id);
+      if (message.threadId !== threadId) continue;
+      if (message.labelIds?.includes('SENT') && !message.labelIds.includes('INBOX')) continue;
+      if (!messageIsFromContact(caseData, message)) continue;
+      if (!messageHasCaseContext(caseData, message)) continue;
+      seenIds.add(id);
+      messages.push(message);
+    }
+  }
+  return messages;
+}
+
+function fallbackRequirementId(caseData: KYCCase, filename: string): string | undefined {
+  const normalized = filename.toLowerCase().replace(/[_-]+/g, ' ');
+  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const candidates = checklist
+    .map((item) => {
+      const tokens = [item.id, item.name, item.category]
+        .join(' ')
+        .toLowerCase()
+        .replace(/[_/()-]+/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token.length > 2);
+      const score = tokens.reduce((count, token) => count + (normalized.includes(token) ? 1 : 0), 0);
+      return { id: item.id, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return candidates[0]?.id;
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
@@ -38,23 +135,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const summary = await ingestBackendEmail(caseId);
       return NextResponse.json({ mode: summary.mode, summary });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Gmail ingest failed';
-      return NextResponse.json(
-        {
-          error: message,
-          hint: '请先 Send via Gmail 发开户邮件，等客户回信后再点 Fetch Client Reply。不会自动导入 demo 假文件。',
-        },
-        { status: 502 },
-      );
+      if (backendStatus(error) !== 404) {
+        const message = error instanceof Error ? error.message : 'Gmail ingest failed';
+        return NextResponse.json(
+          {
+            error: message,
+            hint: '请先 Send via Gmail 发开户邮件，等客户回信后再点 Fetch Client Reply。不会自动导入 demo 假文件。',
+          },
+          { status: 502 },
+        );
+      }
     }
   }
 
   if (hasGmailConfigured()) {
     const existingProviderIds = new Set((caseData.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
-    const gmailMessages = (await listCaseGmailMessages(caseData)).filter((message) => !existingProviderIds.has(message.id));
+    const gmailMessages = (await listCaseThreadGmailMessages(caseData)).filter((message) => !existingProviderIds.has(message.id));
     let updated = caseData;
     const importedDocuments = [];
     const importedMessages = [];
+    const skippedAttachments = [];
+    const driveFolderId = await ensureCaseDriveFolder(caseId);
 
     for (const message of gmailMessages) {
       const analysis = await analyzeEmailForCase(updated, {
@@ -65,26 +166,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       });
 
       for (const attachment of message.attachments) {
+        if (!shouldImportAttachment(updated, message, attachment.filename)) {
+          skippedAttachments.push({
+            name: attachment.filename,
+            reason: 'Attachment is not tied to this case company or case id.',
+          });
+          continue;
+        }
         const attachmentAnalysis = analysis.attachments.find((item) => item.filename === attachment.filename);
-        const requirementId = attachmentAnalysis?.suggestedRequirementId;
-        if (!requirementId) continue;
+        const requirementId = attachmentAnalysis?.suggestedRequirementId || fallbackRequirementId(updated, attachment.filename);
+        if (!requirementId) {
+          skippedAttachments.push({
+            name: attachment.filename,
+            reason: 'Could not match attachment to a checklist item.',
+          });
+          continue;
+        }
         const storageObject = await storeCaseDocumentBytes({
           caseId,
           filename: attachment.filename,
           contentType: attachment.contentType,
           data: attachment.data,
+          parentFolderId: driveFolderId,
         });
         const doc = {
           id: `${requirementId}-gmail-${message.id}`,
           requirementId,
           name: attachment.filename,
-          status: 'needs_review' as const,
-          notes: `Imported from Gmail by Email Intake Agent. ${attachmentAnalysis.reason}`,
+          status: 'received' as const,
+          notes: `Imported from Gmail. ${attachmentAnalysis?.reason || 'Matched by filename fallback.'}`,
           source: 'gmail' as const,
           fromEmail: message.from,
           emailSubject: message.subject,
           receivedAt: message.receivedAt,
-          confidence: attachmentAnalysis.confidence,
+          confidence: attachmentAnalysis?.confidence || 0.55,
           storageObject,
         };
         const next = await upsertReceivedDocument(caseId, doc);
@@ -109,12 +224,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       importedMessages.push({ id: message.id, subject: message.subject, analysis });
     }
 
+    const refreshedChecklist = generateChecklist(updated);
+    updated = (await updateCase(caseId, { checklist: refreshedChecklist })) || updated;
+
     return NextResponse.json({
       mode: 'gmail',
       case: updated,
       summary: {
         importedMessages: importedMessages.length,
         importedDocuments: importedDocuments.length,
+        skippedAttachments,
         messages: importedMessages,
       },
     });
@@ -140,6 +259,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     });
     updated = (await updateCase(caseId, { mailboxMessages })) || updated;
   }
+
+  const refreshedChecklist = generateChecklist(updated);
+  updated = (await updateCase(caseId, { checklist: refreshedChecklist })) || updated;
 
   return NextResponse.json({ case: updated, summary });
 }

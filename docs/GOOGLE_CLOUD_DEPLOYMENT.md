@@ -20,8 +20,10 @@ case whose `contactEmail` matches the signed-in email.
 - `GOOGLE_CLOUD_PROJECT`
 - `KYC_DOCUMENT_BUCKET`
 - `FIREBASE_API_KEY`
-- `ANTHROPIC_API_KEY` through Secret Manager when AI drafting is enabled
+- `ANTHROPIC_API_KEY` through Secret Manager when cloud AI drafting is enabled
 - `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
+- Optional local development only: `LLM_PROVIDER=ollama`,
+  `OLLAMA_BASE_URL=http://127.0.0.1:11434`, and `OLLAMA_MODEL=qwen2.5:0.5b`
 - `GMAIL_CLIENT_ID`
 - `GMAIL_CLIENT_SECRET`
 - `GMAIL_REFRESH_TOKEN`
@@ -51,7 +53,11 @@ case whose `contactEmail` matches the signed-in email.
 
 Current frontend URL (latest Next.js UI):
 
-- `https://kyc-agent-frontend-767566934621.asia-east2.run.app`
+- `https://kyc-agent-frontend-20130272975.asia-east2.run.app`
+
+Note: `https://kyc-agent-frontend-767566934621.asia-east2.run.app` belongs to a
+Google Cloud project that is not visible to `liubetty007@gmail.com`; deploy the
+current repository to project `kyc-agent-staging-20260610` instead.
 
 Legacy staging URL (backend framework demo only — not the KYC Agent UI):
 
@@ -68,20 +74,29 @@ configured. Without those variables it falls back to demo mailbox ingestion.
 Required Gmail OAuth scope:
 
 - `https://www.googleapis.com/auth/gmail.modify`
+- `https://www.googleapis.com/auth/drive`
 
 Recommended setup:
 
 1. Create an OAuth client in Google Cloud for the KYC mailbox operator.
-2. Authorize the KYC Gmail account and store the refresh token in Secret Manager
-   or Cloud Run environment variables.
+2. Authorize the KYC Gmail account with both Gmail and Drive scopes, then store
+   the refresh token in Secret Manager or Cloud Run environment variables.
 3. Set `GMAIL_SENDER_EMAIL` to the mailbox that sends opening/follow-up emails.
-4. Configure `ANTHROPIC_API_KEY` for LLM email intake analysis.
+4. Configure `ANTHROPIC_API_KEY` for cloud LLM email intake analysis, or set
+   `LLM_PROVIDER=ollama` with a local Ollama model during local development.
 5. Keep KYC Team approval before external sends and document acceptance.
+
+Ollama note:
+
+- `127.0.0.1` points to the runtime container. It works for local `npm run dev`
+  when Ollama runs on the same machine, but not for Cloud Run unless you provide
+  a separately hosted, private Ollama endpoint.
 
 Helper scripts:
 
 - Generate a Gmail refresh token locally:
   `GMAIL_CLIENT_ID=... GMAIL_CLIENT_SECRET=... node scripts/gmail-oauth-token.mjs`
+  Use `OAUTH_SCOPES` to override the default Gmail + Drive scopes if needed.
 - Store secrets and update Cloud Run:
   `./scripts/configure-real-email-secrets.sh`
 

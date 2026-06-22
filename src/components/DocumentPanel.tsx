@@ -44,7 +44,7 @@ function DocumentClassificationDetails({ doc }: { doc: BackendDocument }) {
       </button>
       {open && (
         <div style={{ marginTop: 8, padding: 10, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          <div><strong>Method:</strong> {method === 'llm' ? 'LLM (Claude)' : 'Keyword rules'}</div>
+          <div><strong>Method:</strong> {method === 'llm' ? 'LLM' : 'Keyword rules'}</div>
           {reason && <div style={{ marginTop: 6 }}><strong>Reason:</strong> {reason}</div>}
           {preview ? (
             <div style={{ marginTop: 6 }}>
@@ -85,11 +85,16 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
 
   async function upsertDocument(doc: Partial<ReceivedDocument> & { requirementId: string; name: string }) {
     setLoading(doc.requirementId);
-    await fetch(`/api/cases/${caseData.id}/documents`, {
+    const response = await fetch(`/api/cases/${caseData.id}/documents`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(doc),
     });
+    if (!response.ok) {
+      alert(await readResponseError(response, 'Upload failed.'));
+      setLoading(null);
+      return;
+    }
     window.location.reload();
   }
 
@@ -108,6 +113,24 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     window.location.reload();
   }
 
+  function renderUploadButton(requirementId: string, label: string) {
+    return (
+      <label className="button upload-button">
+        {loading === requirementId ? `${label}...` : label}
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.csv"
+          disabled={loading === requirementId}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            uploadDocument(requirementId, file);
+          }}
+        />
+      </label>
+    );
+  }
+
   async function reviewBackend(documentId: string, action: 'accept' | 'reject', docType?: string) {
     setLoading(documentId);
     const response = await fetch(`/api/cases/${caseData.id}/backend-documents/${documentId}/review`, {
@@ -124,6 +147,17 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     setLoading(null);
   }
 
+  async function regenerateChecklist() {
+    setLoading('checklist');
+    const response = await fetch(`/api/cases/${caseData.id}/checklist`, { method: 'POST' });
+    if (!response.ok) {
+      alert(await readResponseError(response, 'Regenerate checklist failed.'));
+      setLoading(null);
+      return;
+    }
+    window.location.reload();
+  }
+
   function docForRequirement(requirementId: string): BackendDocument | undefined {
     const matches = backendDocs.filter((doc) => doc.doc_type === requirementId);
     if (!matches.length) return undefined;
@@ -134,7 +168,8 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     );
   }
 
-  function statusBadgeBackend(doc?: BackendDocument) {
+  function statusBadgeBackend(doc?: BackendDocument, localDoc?: ReceivedDocument) {
+    if (!doc && localDoc) return statusBadgeLocal(localDoc);
     if (!doc) return <span className="badge medium">missing</span>;
     if (doc.review.status === 'accepted') return <span className="badge accepted">accepted</span>;
     if (doc.review.status === 'rejected') return <span className="badge prohibited">revision requested</span>;
@@ -153,23 +188,44 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
   const unmatchedBackendDocs = backendDocs.filter(
     (doc) => !doc.doc_type || !(caseData.checklist || []).some((item) => item.id === doc.doc_type),
   );
+  const locallyReceivedIds = new Set(
+    caseData.receivedDocuments
+      .filter((doc) => doc.status === 'received' || doc.status === 'accepted')
+      .map((doc) => doc.requirementId),
+  );
+  const backendChecklistDisplay = backendChecklist
+    ? {
+      ...backendChecklist,
+      missing_required: backendChecklist.missing_required.filter((docType) => !locallyReceivedIds.has(docType)),
+      received_doc_types: Array.from(new Set([...backendChecklist.received_doc_types, ...locallyReceivedIds])),
+    }
+    : null;
 
   return (
     <div className="card">
-      <h2>Document Checklist</h2>
+      <div className="card-heading">
+        <h2>Document Checklist</h2>
+        {viewerRole !== 'client' && (
+          <div className="actions" style={{ justifyContent: 'flex-end' }}>
+            <button className="button" type="button" disabled={Boolean(loading)} onClick={regenerateChecklist}>
+              {loading === 'checklist' ? 'Regenerating…' : 'Regenerate Checklist'}
+            </button>
+          </div>
+        )}
+      </div>
       <p>
         {backendMode
           ? 'Files from client replies are auto-classified. Accept a document to mark the checklist item as received.'
-          : 'Click “Fetch Client Reply” to import attachments, or upload files manually.'}
+          : 'Use “Fetch Email Reply” above to import attachments, or upload files directly from each checklist item.'}
       </p>
 
-      {backendMode && backendChecklist && (
+      {backendMode && backendChecklistDisplay && (
         <div className="small" style={{ marginBottom: 12 }}>
-          <strong>Accepted:</strong> {backendChecklist.received_doc_types.map(formatDocType).join(', ') || 'none'}
+          <strong>Accepted:</strong> {backendChecklistDisplay.received_doc_types.map(formatDocType).join(', ') || 'none'}
           <br />
-          <strong>Pending review:</strong> {backendChecklist.pending_doc_types.map(formatDocType).join(', ') || 'none'}
+          <strong>Pending review:</strong> {backendChecklistDisplay.pending_doc_types.map(formatDocType).join(', ') || 'none'}
           <br />
-          <strong>Still missing:</strong> {backendChecklist.missing_required.map(formatDocType).join(', ') || 'none'}
+          <strong>Still missing:</strong> {backendChecklistDisplay.missing_required.map(formatDocType).join(', ') || 'none'}
         </div>
       )}
 
@@ -179,6 +235,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
           {(caseData.checklist || []).map((requirement) => {
             if (backendMode) {
               const doc = docForRequirement(requirement.id);
+              const localDoc = receivedByRequirement.get(requirement.id);
               return (
                 <tr key={requirement.id}>
                   <td>
@@ -192,10 +249,18 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                         <DocumentClassificationDetails doc={doc} />
                       </div>
                     )}
+                    {!doc && localDoc && (
+                      <div className="document-meta small">
+                        <strong>{localDoc.name}</strong>
+                        {localDoc.source === 'gmail' && <> · imported from Gmail</>}
+                        {localDoc.source === 'manual' && <> · uploaded manually</>}
+                      </div>
+                    )}
                   </td>
                   <td>{requirement.category}</td>
-                  <td>{statusBadgeBackend(doc)}</td>
+                  <td>{statusBadgeBackend(doc, localDoc)}</td>
                   <td>
+                    {viewerRole !== 'client' && renderUploadButton(requirement.id, doc || localDoc ? 'Replace file' : 'Upload file')}
                     {viewerRole !== 'client' && viewerRole !== 'compliance' && doc && doc.review.status === 'pending' && (
                       <>
                         <button className="button primary" disabled={loading === doc.document_id} onClick={() => reviewBackend(doc.document_id, 'accept')}>
@@ -227,10 +292,19 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                 <td>{requirement.category}</td>
                 <td>{statusBadgeLocal(receivedDoc)}</td>
                 <td>
-                  {!receivedDoc && (
+                  {viewerRole !== 'client' && (
                     <label className="button upload-button">
-                      {loading === requirement.id ? 'Uploading...' : 'Upload file'}
-                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" disabled={loading === requirement.id} onChange={(event) => uploadDocument(requirement.id, event.target.files?.[0])} />
+                      {loading === requirement.id ? (receivedDoc ? 'Replacing...' : 'Uploading...') : receivedDoc ? 'Replace file' : 'Upload file'}
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.csv"
+                        disabled={loading === requirement.id}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = '';
+                          uploadDocument(requirement.id, file);
+                        }}
+                      />
                     </label>
                   )}
                 </td>

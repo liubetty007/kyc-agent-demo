@@ -16,6 +16,17 @@ function db() {
   return firestore;
 }
 
+function firestoreData<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => firestoreData(item)) as T;
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .map(([key, entryValue]) => [key, firestoreData(entryValue)]),
+  ) as T;
+}
+
 async function ensureDataFile() {
   await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
   try {
@@ -44,7 +55,7 @@ export async function listCases(): Promise<KYCCase[]> {
 export async function saveCases(cases: KYCCase[]) {
   if (useFirestore) {
     const batch = db().batch();
-    for (const caseData of cases) batch.set(db().collection(COLLECTION).doc(caseData.id), caseData);
+    for (const caseData of cases) batch.set(db().collection(COLLECTION).doc(caseData.id), firestoreData(caseData));
     await batch.commit();
     return;
   }
@@ -104,7 +115,7 @@ export async function createCase(input: {
   newCase.status = newCase.jurisdiction === 'Mainland China' ? 'prohibited' : 'checklist_generated';
 
   if (useFirestore) {
-    await db().collection(COLLECTION).doc(newCase.id).set(newCase);
+    await db().collection(COLLECTION).doc(newCase.id).set(firestoreData(newCase));
     return newCase;
   }
   const cases = await listCases();
@@ -119,7 +130,7 @@ export async function updateCase(caseId: string, patch: Partial<KYCCase>): Promi
     const snapshot = await reference.get();
     if (!snapshot.exists) return undefined;
     const updated = { ...(snapshot.data() as KYCCase), ...patch, updatedAt: new Date().toISOString() };
-    await reference.set(updated);
+    await reference.set(firestoreData(updated));
     return updated;
   }
   const cases = await listCases();

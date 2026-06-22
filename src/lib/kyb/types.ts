@@ -204,6 +204,17 @@ export type ReviewResult = {
 export type MatrixConfig = {
   ubo_rule: { threshold_percentage: number; operator: '>='; description: string };
   address_proof_rule: { max_age_months: number; applies_to: string[]; required: boolean };
+  standard_kyc_rules: {
+    kyc_validity_months: number;
+    required_file_format: string;
+    signed_document_requirements: string[];
+    coi_recent_issue_months_except: { max_age_months: number; excluded_jurisdictions: string[] };
+    certificate_of_incumbency_max_age_months: number;
+    nda_validity_years: number;
+    allowed_nda_counterparties: string[];
+    email_sla_hours: number;
+    external_date_formats: string[];
+  };
   jurisdiction_rules: {
     accepted_standard: string[];
     requires_state: string[];
@@ -215,6 +226,12 @@ export type MatrixConfig = {
   base_documents: DocumentRequirement[];
   hk_specific_documents: DocumentRequirement[];
   internal_forms: DocumentRequirement[];
+  us_state_rules: Record<string, DocumentRequirement[]>;
+  risk_based_documents: {
+    financial_or_user_asset_manager: DocumentRequirement[];
+    entity_shareholder: DocumentRequirement[];
+    worldcheck_alert: DocumentRequirement[];
+  };
   associated_individual_documents: { roles: string[]; documents: DocumentRequirement[] };
   crypto_business_rules: {
     source_of_crypto_assets_required: boolean;

@@ -116,6 +116,16 @@ export function listBackendDocuments(caseId: string) {
   return backendFetch<BackendDocument[]>(`/cases/${encodeURIComponent(caseId)}/documents`);
 }
 
+export function createBackendDocument(
+  caseId: string,
+  body: { filename: string; storage_uri?: string; text?: string },
+) {
+  return backendFetch<BackendDocument>(`/cases/${encodeURIComponent(caseId)}/documents`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function ingestBackendEmail(caseId: string) {
   return backendFetch<BackendIngestEmailResponse>(`/cases/${encodeURIComponent(caseId)}/ingest_email`, {
     method: 'POST',

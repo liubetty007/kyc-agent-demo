@@ -1,6 +1,11 @@
 import { requireApiUser } from '@/lib/auth/admin';
 import { getCase } from '@/lib/kyb/storage';
-import { listOpeningEmailStandardDocuments, storeOpeningEmailUpload } from '@/lib/kyb/documentStorage';
+import {
+  listOpeningEmailStandardDocumentPackages,
+  listOpeningEmailStandardDocuments,
+  storeOpeningEmailUpload,
+} from '@/lib/kyb/documentStorage';
+import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { NextResponse } from 'next/server';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
@@ -22,7 +27,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
   try {
-    return NextResponse.json({ standard: await listOpeningEmailStandardDocuments() });
+    const packages = await listOpeningEmailStandardDocumentPackages();
+    const standard = packages.length
+      ? packages.flatMap((item) => item.attachments)
+      : await listOpeningEmailStandardDocuments();
+    return NextResponse.json({ packages, standard });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not load attachments.' }, { status: 500 });
   }
@@ -45,7 +54,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (!ALLOWED_TYPES.has(file.type)) return NextResponse.json({ error: 'Only PDF, Word, Excel, JPEG, and PNG files are allowed.' }, { status: 400 });
 
   try {
-    return NextResponse.json({ attachment: await storeOpeningEmailUpload(caseId, file) });
+    const driveFolderId = await ensureCaseDriveFolder(caseId);
+    return NextResponse.json({ attachment: await storeOpeningEmailUpload(caseId, file, driveFolderId) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed.' }, { status: 500 });
   }

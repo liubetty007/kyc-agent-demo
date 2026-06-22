@@ -24,7 +24,7 @@ export function CaseSnapshotEditor({ caseData, readOnly = false }: { caseData: K
   }
 
   return (
-    <div className="card">
+    <div className="card" id="case-details">
       <h2>Case Snapshot</h2>
       <div className="form compact-form">
         <label>

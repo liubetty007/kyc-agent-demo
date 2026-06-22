@@ -13,7 +13,7 @@ A fast local-first demo for corporate KYC onboarding automation.
 - Generate compliance pack summary
 - Send real KYC emails through Gmail when OAuth is configured
 - Fetch Gmail replies and attachments into the case timeline
-- Use an LLM-backed Email Intake Agent for intent, keyword and attachment analysis
+- Use an Anthropic or local Ollama LLM-backed Email Intake Agent for intent, keyword and attachment analysis
 
 ## Confirmed rules in this demo
 
@@ -35,6 +35,24 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+## Local Ollama analysis
+
+The app can use a local Ollama model for email intake and compliance reply
+analysis. Start Ollama and make sure the configured model exists:
+
+```bash
+ollama serve
+ollama pull qwen2.5:0.5b
+```
+
+Then set local environment variables, for example in `.env.local`:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:0.5b
+```
 
 ## Demo script
 

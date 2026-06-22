@@ -1,0 +1,110 @@
+'use client';
+
+import { useState } from 'react';
+import type { DocumentAnalysis } from '@/lib/kyb/documentAnalysis';
+import type { KYCCase } from '@/lib/kyb/types';
+
+type AnalyzeResponse = {
+  provider: string;
+  analyses: DocumentAnalysis[];
+};
+
+function formatConfidence(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
+  const [analyses, setAnalyses] = useState<DocumentAnalysis[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [provider, setProvider] = useState('');
+
+  const checklistFiles = caseData.receivedDocuments.filter((doc) => Boolean(doc.storageObject));
+
+  async function analyzeChecklistFiles() {
+    if (!checklistFiles.length) return;
+    setLoading(true);
+    setError('');
+    const form = new FormData();
+    for (const doc of checklistFiles) form.append('documentIds', doc.id);
+    const response = await fetch(`/api/cases/${caseData.id}/document-analysis`, { method: 'POST', body: form });
+    const data = (await response.json().catch(() => ({}))) as Partial<AnalyzeResponse> & { error?: string };
+    if (!response.ok) {
+      setError(data.error || 'Analysis failed.');
+      setLoading(false);
+      return;
+    }
+    setAnalyses(data.analyses || []);
+    setProvider(data.provider || '');
+    setLoading(false);
+  }
+
+  return (
+    <div className="card document-analysis-card">
+      <div className="card-heading">
+        <h2>Analyze</h2>
+        <span className="small">LLM review for checklist files</span>
+      </div>
+      <p>Analyze files already received in the checklist. No extra upload step is needed here.</p>
+
+      <div className="document-toolbar">
+        <button className="button primary" type="button" disabled={loading || !checklistFiles.length} onClick={analyzeChecklistFiles}>
+          {loading ? 'Analyzing…' : 'Analyze checklist files'}
+        </button>
+        {provider && <span className="small">Provider: {provider}</span>}
+      </div>
+
+      {error && <p className="form-error">{error}</p>}
+
+      {checklistFiles.length > 0 && (
+        <div className="analysis-file-list">
+          {checklistFiles.map((doc) => (
+            <div className="analysis-file-row" key={doc.id}>
+              <div>
+                <strong>{doc.name}</strong>
+                <div className="small">{doc.status} · {doc.source || 'received'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {analyses.length > 0 && (
+        <table className="table" style={{ marginTop: 16 }}>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Match</th>
+              <th>Confidence</th>
+              <th>Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analyses.map((analysis) => (
+              <tr key={`${analysis.filename}-${analysis.storageObject || analysis.summary}`}>
+                <td>
+                  <strong>{analysis.filename}</strong>
+                  <div className="small">{analysis.extractionMethod}</div>
+                </td>
+                <td>
+                  <div>{analysis.suggestedRequirementName || 'Unmatched'}</div>
+                  {analysis.suggestedRequirementId && <div className="small">{analysis.suggestedRequirementId}</div>}
+                </td>
+                <td>
+                  <span className={`badge ${analysis.confidence >= 0.8 ? 'accepted' : analysis.confidence >= 0.5 ? 'medium' : 'prohibited'}`}>
+                    {formatConfidence(analysis.confidence)}
+                  </span>
+                </td>
+                <td>
+                  <div>{analysis.summary}</div>
+                  {analysis.keyPoints.length > 0 && <div className="small">{analysis.keyPoints.join(' · ')}</div>}
+                  {analysis.riskFlags.length > 0 && <div className="small">Flags: {analysis.riskFlags.join(', ')}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}

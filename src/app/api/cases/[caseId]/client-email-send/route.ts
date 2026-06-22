@@ -27,6 +27,12 @@ function apiError(error: unknown, fallback: string) {
   return NextResponse.json({ error: raw || fallback }, { status: 502 });
 }
 
+function backendStatus(error: unknown): number | null {
+  const raw = error instanceof Error ? error.message : '';
+  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
+  return statusMatch ? Number(statusMatch[1]) : null;
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
@@ -51,26 +57,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   try {
     if (isBackendEnabled() && isBackendCaseId(caseId)) {
-      const sent = await sendBackendClientFollowUpEmail(caseId, {
-        subject: parsed.subject,
-        body_text: parsed.body,
-      });
-      const updated = await updateCase(caseId, {
-        emailDraft: draft,
-        status: 'awaiting_client_information',
-        mailboxMessages: appendMailboxMessage(caseData, {
-          provider: 'gmail',
-          providerMessageId: sent.gmail_message_id,
-          threadId: sent.gmail_thread_id || threadId,
-          from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-          to: customerEmail(caseData),
-          subject: sent.subject,
-          body: parsed.body,
-          direction: 'outbound',
-          status: 'sent',
-        }),
-      });
-      return NextResponse.json(updated);
+      try {
+        const sent = await sendBackendClientFollowUpEmail(caseId, {
+          subject: parsed.subject,
+          body_text: parsed.body,
+        });
+        const updated = await updateCase(caseId, {
+          emailDraft: draft,
+          status: 'awaiting_client_information',
+          mailboxMessages: appendMailboxMessage(caseData, {
+            provider: 'gmail',
+            providerMessageId: sent.gmail_message_id,
+            threadId: sent.gmail_thread_id || threadId,
+            from: kycMailboxAddress() || KYC_TEAM_EMAIL,
+            to: customerEmail(caseData),
+            subject: sent.subject,
+            body: parsed.body,
+            direction: 'outbound',
+            status: 'sent',
+          }),
+        });
+        return NextResponse.json(updated);
+      } catch (error) {
+        const status = backendStatus(error);
+        if (status !== 404) {
+          return apiError(error, 'Client email send failed.');
+        }
+      }
     }
 
     if (!threadId) {

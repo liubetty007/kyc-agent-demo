@@ -9,6 +9,24 @@
     "applies_to": ["director", "authorized_representative", "ubo"],
     "required": true
   },
+  "standard_kyc_rules": {
+    "kyc_validity_months": 6,
+    "required_file_format": "pdf",
+    "signed_document_requirements": ["signer_name", "signer_title", "signature_date"],
+    "coi_recent_issue_months_except": {
+      "max_age_months": 6,
+      "excluded_jurisdictions": ["Hong Kong", "Singapore"]
+    },
+    "certificate_of_incumbency_max_age_months": 6,
+    "nda_validity_years": 2,
+    "allowed_nda_counterparties": [
+      "Antalpha Digital Pte. Ltd.",
+      "Northstar Digital (HK) Limited",
+      "URSALPHA DIGITAL LLC"
+    ],
+    "email_sla_hours": 4,
+    "external_date_formats": ["dd MMM yyyy", "MM/dd/yyyy"]
+  },
   "jurisdiction_rules": {
     "accepted_standard": ["Hong Kong", "Singapore", "BVI", "Cayman"],
     "requires_state": ["United States"],
@@ -23,6 +41,7 @@
   },
   "base_documents": [
     {"id":"certificate_of_incorporation","name":"Certificate of Incorporation","category":"Constitutional","required":true,"reason":"Required for all companies"},
+    {"id":"certificate_of_incumbency","name":"Certificate of Incumbency","category":"Constitutional","required":true,"reason":"Must be issued within the last 6 months"},
     {"id":"business_registration_certificate","name":"Business Registration Certificate","category":"Constitutional","required":true,"reason":"Required for all companies if applicable"},
     {"id":"articles_of_association","name":"Articles of Association","category":"Constitutional","required":true,"reason":"Required for all companies"},
     {"id":"register_of_directors","name":"Register of Directors","category":"Constitutional","required":true,"reason":"Required for all companies"},
@@ -32,7 +51,8 @@
     {"id":"source_of_funds","name":"Source of Funds","category":"Constitutional","required":true,"reason":"Required for AML assessment"}
   ],
   "hk_specific_documents": [
-    {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"reason":"Required for Hong Kong registered companies"}
+    {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"reason":"Required for Hong Kong registered companies"},
+    {"id":"hk_nnc1_or_nar1","name":"NNC1 or NAR1","category":"HK Specific","required":true,"reason":"Hong Kong companies must provide NNC1 if incorporated within 1 year, or NAR1 if incorporated for 1 year or more"}
   ],
   "internal_forms": [
     {"id":"institution_onboarding_form","name":"Institution Onboarding Form","category":"Internal Form","required":true,"reason":"Required internal onboarding form"},
@@ -41,6 +61,57 @@
     {"id":"board_resolution","name":"Board Resolution","category":"Internal Form","required":true,"reason":"Required to authorize account opening and signatories"},
     {"id":"declaration_source_of_fund_wealth","name":"Declaration of Source of Fund/Wealth","category":"Internal Form","required":true,"reason":"Required source of fund/wealth declaration"}
   ],
+  "us_state_rules": {
+    "Delaware": [
+      {"id":"us_de_formation_or_incorporation","name":"Formation / Incorporation Document","category":"US State Specific","required":true,"reason":"Required for Delaware entities"},
+      {"id":"us_de_good_standing","name":"Good Standing Certificate","category":"US State Specific","required":true,"reason":"Delaware Good Standing must be issued within the last 6 months"},
+      {"id":"us_de_operating_agreement_or_bylaws","name":"Operating Agreement / Bylaws","category":"US State Specific","required":true,"reason":"Required for Delaware entities"},
+      {"id":"us_de_ein_confirmation_letter","name":"EIN Confirmation Letter","category":"US State Specific","required":true,"reason":"Required for Delaware entities"}
+    ],
+    "Wyoming": [
+      {"id":"us_wy_articles","name":"Articles","category":"US State Specific","required":true,"reason":"Required for Wyoming entities"},
+      {"id":"us_wy_good_standing","name":"Good Standing Certificate","category":"US State Specific","required":true,"reason":"Required for Wyoming entities"},
+      {"id":"us_wy_operating_agreement","name":"Operating Agreement","category":"US State Specific","required":true,"reason":"Required for Wyoming entities"},
+      {"id":"us_wy_ein_confirmation_letter","name":"EIN Confirmation Letter","category":"US State Specific","required":true,"reason":"Required for Wyoming entities"},
+      {"id":"us_wy_certificate_of_incumbency","name":"Certificate of Incumbency","category":"US State Specific","required":true,"reason":"Required for Wyoming entities"},
+      {"id":"us_wy_county_clerk_check","name":"County Clerk Search Evidence","category":"US State Specific","required":true,"reason":"Wyoming has limited public records; County Clerk search is required"}
+    ],
+    "Nevada": [
+      {"id":"us_nv_articles","name":"Articles","category":"US State Specific","required":true,"reason":"Required for Nevada entities"},
+      {"id":"us_nv_certificate_of_existence","name":"Certificate of Existence","category":"US State Specific","required":true,"reason":"Required for Nevada entities"},
+      {"id":"us_nv_business_license","name":"Nevada State Business License","category":"US State Specific","required":true,"reason":"Required for Nevada entities"},
+      {"id":"us_nv_operating_agreement","name":"Operating Agreement","category":"US State Specific","required":true,"reason":"Required for Nevada entities"}
+    ],
+    "California": [
+      {"id":"us_ca_articles","name":"Articles","category":"US State Specific","required":true,"reason":"Required for California entities"},
+      {"id":"us_ca_statement_of_information","name":"Statement of Information (Form SI-550)","category":"US State Specific","required":true,"reason":"Required for California entities"},
+      {"id":"us_ca_ein_confirmation_letter","name":"EIN Confirmation Letter","category":"US State Specific","required":true,"reason":"Required for California entities"}
+    ],
+    "Texas": [
+      {"id":"us_tx_certificate_of_formation","name":"Certificate of Formation","category":"US State Specific","required":true,"reason":"Required for Texas entities"},
+      {"id":"us_tx_certificate_of_fact_status","name":"Certificate of Fact - Status","category":"US State Specific","required":true,"reason":"Texas equivalent of Good Standing"},
+      {"id":"us_tx_operating_agreement","name":"Operating Agreement","category":"US State Specific","required":true,"reason":"Required for Texas entities"},
+      {"id":"us_tx_ein_confirmation_letter","name":"EIN Confirmation Letter","category":"US State Specific","required":true,"reason":"Required for Texas entities"}
+    ],
+    "New York": [
+      {"id":"us_ny_publication_proof","name":"Publication Proof for LLC","category":"US State Specific","required":true,"reason":"Required for New York LLC onboarding review"}
+    ],
+    "Washington D.C.": [
+      {"id":"us_dc_basic_business_license","name":"Basic Business License","category":"US State Specific","required":true,"reason":"Required due to Washington D.C. local BSA controls"}
+    ]
+  },
+  "risk_based_documents": {
+    "financial_or_user_asset_manager": [
+      {"id":"aml_questionnaire","name":"AML Questionnaire","category":"Risk Based","required":true,"reason":"Required for financial institutions or entities managing user assets"}
+    ],
+    "entity_shareholder": [
+      {"id":"ubo_no_other_shareholder_declaration","name":"UBO No Other Shareholder Declaration","category":"Risk Based","required":true,"reason":"Required when ownership structure cannot be fully traced to UBOs with >=25% beneficial ownership"}
+    ],
+    "worldcheck_alert": [
+      {"id":"ncrs_pep_form","name":"NCRS & PEP Form","category":"Risk Based","required":true,"reason":"Required when Worldcheck alert indicates no prior NCRS & PEP form on file"},
+      {"id":"worldcheck_news_explanation","name":"Worldcheck Alert News Explanation","category":"Risk Based","required":true,"reason":"Required when prior NCRS & PEP form exists and a new Worldcheck news alert needs explanation"}
+    ]
+  },
   "associated_individual_documents": {
     "roles": ["director", "authorized_representative", "ubo"],
     "documents": [

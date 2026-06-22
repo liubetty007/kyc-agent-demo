@@ -4,7 +4,7 @@ import { readOpeningEmailAttachment, type OpeningEmailAttachmentRef } from '@/li
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { generateOpeningEmail } from '@/lib/kyb/openingEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
-import { isBackendEnabled, sendBackendOpeningEmail, sendBackendOpeningEmailMock } from '@/lib/kyc-backend/client';
+import { isBackendEnabled, sendBackendOpeningEmailMock } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
 
 function apiError(error: unknown, fallback: string) {
@@ -75,27 +75,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   if (body.action === 'send_real') {
     try {
-      if (isBackendEnabled()) {
-        const sent = await sendBackendOpeningEmail(caseId);
-        const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
-        const updated = await updateCase(caseId, {
-          openingEmailDraft: draft,
-          openingEmailSentAt: new Date().toISOString(),
-          mailboxMessages: appendMailboxMessage(caseData, {
-            provider: 'gmail',
-            providerMessageId: sent.gmail_message_id,
-            threadId: sent.gmail_thread_id,
-            from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-            to: customerEmail(caseData),
-            subject: sent.subject,
-            body: draft,
-            direction: 'outbound',
-            status: 'sent',
-          }),
-        });
-        return NextResponse.json(updated);
-      }
-
       if (!hasGmailConfigured()) return NextResponse.json({ error: 'Gmail is not configured.' }, { status: 503 });
       const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
       const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');

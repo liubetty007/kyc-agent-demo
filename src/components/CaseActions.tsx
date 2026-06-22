@@ -35,13 +35,16 @@ export function CaseActions({ caseData }: { caseData: KYCCase }) {
   }
 
   return (
-    <div className="actions">
-      <button className="button" disabled={Boolean(loading)} onClick={() => post('checklist')}>Regenerate Checklist</button>
-      <button className="button" disabled={Boolean(loading)} onClick={() => post('email-ingest')}>Fetch Client Reply</button>
-      <button className="button primary" disabled={Boolean(loading)} onClick={() => post('review')}>Run Agent Review</button>
-      <button className="button" disabled={Boolean(loading)} onClick={() => post('email')}>Generate Email Draft</button>
-      <button className="button" disabled={Boolean(loading)} onClick={() => post('compliance-pack')}>Generate Compliance Pack</button>
-      {loading && <span className="small">Running {loading}…</span>}
+    <div className="card">
+      <div className="card-heading">
+        <h2>Workflow Actions</h2>
+        <span className="small">Review and compliance tools</span>
+      </div>
+      <div className="actions">
+        <button className="button primary" disabled={Boolean(loading)} onClick={() => post('review')}>Run Agent Review</button>
+        <button className="button" disabled={Boolean(loading)} onClick={() => post('compliance-pack')}>Generate Compliance Pack</button>
+        {loading && <span className="small">Running {loading}…</span>}
+      </div>
     </div>
   );
 }

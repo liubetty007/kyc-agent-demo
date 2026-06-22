@@ -11,6 +11,7 @@ const languages: Array<{ value: CaseLanguage; label: string }> = [
 
 export function CaseForm() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({
     companyName: '',
     contactEmail: '',
@@ -25,13 +26,22 @@ export function CaseForm() {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
-    const response = await fetch('/api/cases', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const created = await response.json();
-    window.location.href = `/cases/${created.id}`;
+    setError('');
+    try {
+      const response = await fetch('/api/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const created = await response.json();
+      if (!response.ok || !created.id) {
+        throw new Error(created.error || 'Unable to create case.');
+      }
+      window.location.href = `/cases/${created.id}`;
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Unable to create case.');
+      setLoading(false);
+    }
   }
 
   return (
@@ -84,6 +94,7 @@ export function CaseForm() {
         Source of Funds / Business Notes
         <textarea value={form.sourceOfFunds} onChange={(e) => setForm({ ...form, sourceOfFunds: e.target.value })} />
       </label>
+      {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button primary" disabled={loading}>{loading ? 'Creating…' : 'Create Case + Generate Checklist'}</button>
     </form>
   );

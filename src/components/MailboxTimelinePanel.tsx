@@ -1,12 +1,73 @@
-import type { KYCCase } from '@/lib/kyb/types';
+import type { KYCCase, MailboxMessage } from '@/lib/kyb/types';
+
+function normalize(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function emailAddress(value: string): string {
+  const match = value.match(/<([^>]+)>/);
+  return (match ? match[1] : value).trim().toLowerCase();
+}
+
+function caseNeedles(caseData: KYCCase): string[] {
+  return [caseData.id, caseData.companyName]
+    .map((value) => normalize(value || ''))
+    .filter((value) => value.length >= 3);
+}
+
+function hasCaseContext(caseData: KYCCase, message: MailboxMessage): boolean {
+  const text = normalize([
+    message.subject,
+    message.body,
+    ...(message.attachments || []),
+  ].join('\n'));
+  return caseNeedles(caseData).some((needle) => text.includes(needle));
+}
+
+function customerAddress(caseData: KYCCase): string {
+  return (caseData.contactEmail || '').toLowerCase();
+}
+
+function involvesCustomer(caseData: KYCCase, message: MailboxMessage): boolean {
+  const customer = customerAddress(caseData);
+  if (!customer) return true;
+  return emailAddress(message.from) === customer || emailAddress(message.to) === customer || message.to.toLowerCase().includes(customer);
+}
+
+function openingThread(caseData: KYCCase): string | undefined {
+  const customer = customerAddress(caseData);
+  const messages = caseData.mailboxMessages || [];
+  const opening = [...messages]
+    .reverse()
+    .find((message) => (
+      message.direction === 'outbound'
+      && message.status === 'sent'
+      && message.provider === 'gmail'
+      && message.threadId
+      && (!customer || message.to.toLowerCase().includes(customer))
+    ));
+  return opening?.threadId;
+}
+
+function isCurrentCaseMessage(caseData: KYCCase, message: MailboxMessage, threadId?: string): boolean {
+  const sameThread = Boolean(threadId && message.threadId && message.threadId === threadId);
+  const hasContext = hasCaseContext(caseData, message);
+  const hasCustomer = involvesCustomer(caseData, message);
+
+  if (sameThread) return hasContext || hasCustomer;
+  return hasContext && hasCustomer;
+}
 
 export function MailboxTimelinePanel({ caseData }: { caseData: KYCCase }) {
-  const messages = [...(caseData.mailboxMessages || [])].reverse();
+  const threadId = openingThread(caseData);
+  const messages = [...(caseData.mailboxMessages || [])]
+    .filter((message) => isCurrentCaseMessage(caseData, message, threadId))
+    .reverse();
 
   return (
     <div className="card">
       <h2>Email Timeline</h2>
-      <p>Real Gmail messages appear here when Gmail OAuth is configured. Email Intake Agent analysis is shown for inbound client messages.</p>
+      <p>Only messages tied to this case, customer, or Gmail thread are shown here.</p>
       {messages.length ? (
         <div className="mailbox-list">
           {messages.map((message) => (

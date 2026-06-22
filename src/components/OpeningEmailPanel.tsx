@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { readResponseError } from '@/lib/http';
 import type { KYCCase } from '@/lib/kyb/types';
@@ -11,6 +12,16 @@ type OpeningAttachment = {
   contentType?: string;
   size?: number;
   source: 'standard' | 'uploaded';
+  packageId?: string;
+  packageName?: string;
+};
+
+type OpeningAttachmentPackage = {
+  id: string;
+  name: string;
+  description: string;
+  defaultSelected: boolean;
+  attachments: OpeningAttachment[];
 };
 
 function formatBytes(value?: number): string {
@@ -29,6 +40,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   const [loading, setLoading] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [standardAttachments, setStandardAttachments] = useState<OpeningAttachment[]>([]);
+  const [attachmentPackages, setAttachmentPackages] = useState<OpeningAttachmentPackage[]>([]);
   const [uploadedAttachments, setUploadedAttachments] = useState<OpeningAttachment[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [attachmentError, setAttachmentError] = useState('');
@@ -50,8 +62,15 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
         return;
       }
       const standard = body.standard || [];
+      const packages = body.packages || [];
       setStandardAttachments(standard);
-      setSelectedIds((current) => new Set([...current, ...standard.map((attachment: OpeningAttachment) => attachment.id)]));
+      setAttachmentPackages(packages);
+      const defaultAttachments = packages.length
+        ? packages
+          .filter((item: OpeningAttachmentPackage) => item.defaultSelected)
+          .flatMap((item: OpeningAttachmentPackage) => item.attachments)
+        : standard;
+      setSelectedIds((current) => new Set([...current, ...defaultAttachments.map((attachment: OpeningAttachment) => attachment.id)]));
     }
     loadAttachments();
     return () => { alive = false; };
@@ -62,6 +81,22 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       const next = new Set(current);
       if (next.has(attachmentId)) next.delete(attachmentId);
       else next.add(attachmentId);
+      return next;
+    });
+  }
+
+  function packageSelected(attachmentPackage: OpeningAttachmentPackage): boolean {
+    return attachmentPackage.attachments.length > 0 && attachmentPackage.attachments.every((attachment) => selectedIds.has(attachment.id));
+  }
+
+  function togglePackage(attachmentPackage: OpeningAttachmentPackage) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      const allSelected = attachmentPackage.attachments.every((attachment) => next.has(attachment.id));
+      for (const attachment of attachmentPackage.attachments) {
+        if (allSelected) next.delete(attachment.id);
+        else next.add(attachment.id);
+      }
       return next;
     });
   }
@@ -156,7 +191,10 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
 
   return (
     <div className="card">
-      <h2>KYC Email to Client</h2>
+      <div className="card-heading">
+        <h2>KYC Email to Client</h2>
+        <Link className="small" href="#case-details">Edit case details →</Link>
+      </div>
       <p>Prepare the opening email for the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
       {!draft ? (
         readOnly ? <p className="small">No opening email draft yet.</p> : (
@@ -188,8 +226,39 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
             </div>
             {attachmentError && <p className="form-error">{attachmentError}</p>}
             <div className="attachment-list">
-              {[...standardAttachments, ...uploadedAttachments].length ? (
-                [...standardAttachments, ...uploadedAttachments].map((attachment) => (
+              {attachmentPackages.length ? (
+                attachmentPackages.map((attachmentPackage) => (
+                  <div className="attachment-package" key={attachmentPackage.id}>
+                    <label className="attachment-package-heading">
+                      <input
+                        type="checkbox"
+                        checked={packageSelected(attachmentPackage)}
+                        onChange={() => togglePackage(attachmentPackage)}
+                      />
+                      <span>
+                        <strong>{attachmentPackage.name}</strong>
+                        <small>{attachmentPackage.description} · {attachmentPackage.attachments.length} files</small>
+                      </span>
+                    </label>
+                    <div className="attachment-package-files">
+                      {attachmentPackage.attachments.map((attachment) => (
+                        <label className="attachment-row compact" key={attachment.id}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(attachment.id)}
+                            onChange={() => toggleAttachment(attachment.id)}
+                          />
+                          <span>
+                            <strong>{attachment.name}</strong>
+                            <small>Google Drive file{attachment.size ? ` · ${formatBytes(attachment.size)}` : ''}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : standardAttachments.length ? (
+                standardAttachments.map((attachment) => (
                   <label className="attachment-row" key={attachment.id}>
                     <input
                       type="checkbox"
@@ -198,13 +267,26 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
                     />
                     <span>
                       <strong>{attachment.name}</strong>
-                      <small>{attachment.source === 'standard' ? 'Cloud Storage standard file' : 'Uploaded for this email'}{attachment.size ? ` · ${formatBytes(attachment.size)}` : ''}</small>
+                      <small>{attachment.source === 'standard' ? 'Standard file' : 'Uploaded for this email'}{attachment.size ? ` · ${formatBytes(attachment.size)}` : ''}</small>
                     </span>
                   </label>
                 ))
               ) : (
-                <p className="small">No standard attachments found under kyc_agent_documents/.</p>
+                <p className="small">No standard attachments found in Google Drive.</p>
               )}
+              {uploadedAttachments.map((attachment) => (
+                <label className="attachment-row" key={attachment.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(attachment.id)}
+                    onChange={() => toggleAttachment(attachment.id)}
+                  />
+                  <span>
+                    <strong>{attachment.name}</strong>
+                    <small>Uploaded for this email{attachment.size ? ` · ${formatBytes(attachment.size)}` : ''}</small>
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
           )}

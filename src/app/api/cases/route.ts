@@ -13,16 +13,21 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
-  const body = await request.json();
-  const created = await createCase({
-    companyName: body.companyName,
-    contactEmail: body.contactEmail,
-    jurisdiction: body.jurisdiction as Jurisdiction,
-    usState: body.usState,
-    businessType: body.businessType as BusinessType,
-    sourceOfFunds: body.sourceOfFunds,
-    needsNsBusiness: Boolean(body.needsNsBusiness),
-    language: (body.language as CaseLanguage) || 'zh',
-  });
-  return NextResponse.json(created);
+  try {
+    const body = await request.json();
+    const created = await createCase({
+      companyName: body.companyName,
+      contactEmail: body.contactEmail,
+      jurisdiction: body.jurisdiction as Jurisdiction,
+      usState: body.usState,
+      businessType: body.businessType as BusinessType,
+      sourceOfFunds: body.sourceOfFunds,
+      needsNsBusiness: Boolean(body.needsNsBusiness),
+      language: (body.language as CaseLanguage) || 'zh',
+    });
+    return NextResponse.json(created);
+  } catch (error) {
+    console.error('Failed to create case', error);
+    return NextResponse.json({ error: 'Failed to create case' }, { status: 500 });
+  }
 }

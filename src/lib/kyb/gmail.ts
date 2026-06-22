@@ -16,6 +16,7 @@ type GmailMessageResponse = {
   threadId?: string;
   internalDate?: string;
   snippet?: string;
+  labelIds?: string[];
   payload?: GmailPart;
 };
 
@@ -28,6 +29,7 @@ export type GmailAttachment = {
 export type GmailMessage = {
   id: string;
   threadId?: string;
+  labelIds?: string[];
   from: string;
   to: string;
   subject: string;
@@ -138,6 +140,7 @@ async function getGmailMessage(messageId: string): Promise<GmailMessage> {
   return {
     id: message.id,
     threadId: message.threadId,
+    labelIds: message.labelIds || [],
     from: header(message.payload, 'From'),
     to: header(message.payload, 'To'),
     subject: header(message.payload, 'Subject'),
@@ -146,6 +149,10 @@ async function getGmailMessage(messageId: string): Promise<GmailMessage> {
     receivedAt: message.internalDate ? new Date(Number(message.internalDate)).toISOString() : new Date().toISOString(),
     attachments: await attachmentsFromPayload(message.id, message.payload),
   };
+}
+
+export async function getCaseGmailMessage(messageId: string): Promise<GmailMessage> {
+  return getGmailMessage(messageId);
 }
 
 export async function listCaseGmailMessages(caseData: KYCCase): Promise<GmailMessage[]> {
@@ -160,8 +167,56 @@ export async function listCaseGmailMessages(caseData: KYCCase): Promise<GmailMes
   return messages.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
 }
 
+export async function listThreadMessageIds(threadId: string): Promise<string[]> {
+  const thread = await gmailFetch<{ messages?: Array<{ id?: string }> }>(`/threads/${encodeURIComponent(threadId)}?format=minimal`);
+  return (thread.messages || []).map((message) => String(message.id || '')).filter(Boolean);
+}
+
+function escapeGmailQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').trim();
+}
+
+function caseMailboxSearchQueries(caseData: KYCCase): string[] {
+  const queryFragments = [
+    `in:anywhere newer_than:180d "${escapeGmailQueryValue(caseData.id)}"`,
+    caseData.contactEmail && caseData.companyName
+      ? `in:anywhere newer_than:180d from:${escapeGmailQueryValue(caseData.contactEmail)} subject:"${escapeGmailQueryValue(caseData.companyName)}"`
+      : '',
+    caseData.contactEmail
+      ? `in:anywhere newer_than:180d from:${escapeGmailQueryValue(caseData.contactEmail)} "${escapeGmailQueryValue(caseData.id)}"`
+      : '',
+  ].filter(Boolean);
+
+  return Array.from(new Set(queryFragments));
+}
+
+async function searchMessageIds(query: string): Promise<string[]> {
+  const response = await gmailFetch<{ messages?: Array<{ id?: string }> }>(`/messages?q=${encodeURIComponent(query)}&maxResults=50`);
+  return (response.messages || []).map((item) => String(item.id || '')).filter(Boolean);
+}
+
+export async function searchCaseMailboxThreadIds(caseData: KYCCase): Promise<string[]> {
+  const threadIds: string[] = [];
+  const seenThreads = new Set<string>();
+  for (const query of caseMailboxSearchQueries(caseData)) {
+    for (const messageId of await searchMessageIds(query)) {
+      const message = await getGmailMessage(messageId);
+      if (!message.threadId || seenThreads.has(message.threadId)) continue;
+      seenThreads.add(message.threadId);
+      threadIds.push(message.threadId);
+    }
+  }
+  return threadIds;
+}
+
 function escapeHeaderValue(value: string): string {
   return value.replace(/[\r\n"]/g, ' ').trim();
+}
+
+function encodeMimeHeaderValue(value: string): string {
+  const cleaned = escapeHeaderValue(value);
+  if (/^[\x00-\x7F]*$/.test(cleaned)) return cleaned;
+  return `=?UTF-8?B?${Buffer.from(cleaned, 'utf8').toString('base64')}?=`;
 }
 
 function wrapBase64(input: Buffer): string {
@@ -179,7 +234,7 @@ function buildRawEmail(input: {
     return Buffer.from([
       `From: ${input.from}`,
       `To: ${input.to}`,
-      `Subject: ${input.subject}`,
+      `Subject: ${encodeMimeHeaderValue(input.subject)}`,
       'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=UTF-8',
       '',
@@ -191,7 +246,7 @@ function buildRawEmail(input: {
   const lines = [
     `From: ${input.from}`,
     `To: ${input.to}`,
-    `Subject: ${input.subject}`,
+    `Subject: ${encodeMimeHeaderValue(input.subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',

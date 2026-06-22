@@ -1,5 +1,5 @@
 import { generateChecklist } from './checklist';
-import { getClaudeJson, hasClaudeConfigured } from './claude';
+import { getLlmJson, hasLlmConfigured } from './claude';
 import type { EmailIntakeAnalysis, KYCCase } from './types';
 
 type IntakeInput = {
@@ -11,18 +11,33 @@ type IntakeInput = {
 
 const attachmentRules: Array<{ requirementId: string; documentType: string; keywords: string[] }> = [
   { requirementId: 'certificate_of_incorporation', documentType: 'Certificate of Incorporation', keywords: ['coi', 'certificate of incorporation', 'incorporation'] },
+  { requirementId: 'certificate_of_incumbency', documentType: 'Certificate of Incumbency', keywords: ['certificate of incumbency', 'incumbency'] },
   { requirementId: 'business_registration_certificate', documentType: 'Business Registration Certificate', keywords: ['business registration', 'br certificate'] },
   { requirementId: 'articles_of_association', documentType: 'Articles of Association', keywords: ['articles of association', 'aoa', 'memorandum'] },
   { requirementId: 'register_of_directors', documentType: 'Register of Directors', keywords: ['register of directors', 'directors'] },
   { requirementId: 'register_of_shareholders', documentType: 'Register of Shareholders', keywords: ['register of shareholders', 'shareholders'] },
   { requirementId: 'ownership_structure_chart', documentType: 'Ownership Structure Chart', keywords: ['ownership chart', 'ownership structure', 'structure chart'] },
   { requirementId: 'source_of_funds', documentType: 'Source of Funds', keywords: ['source of funds', 'source of fund', 'sof'] },
+  { requirementId: 'hk_nnc1_or_nar1', documentType: 'NNC1 or NAR1', keywords: ['nnc1', 'nar1', 'annual return'] },
   { requirementId: 'passport_or_id', documentType: 'Passport / ID', keywords: ['passport', 'national id', 'id card'] },
   { requirementId: 'proof_of_current_residential_address', documentType: 'Proof of Current Residential Address', keywords: ['address proof', 'proof of address', 'utility bill', 'bank statement address'] },
   { requirementId: 'source_of_crypto_assets', documentType: 'Source of Crypto Assets Evidence', keywords: ['source of crypto', 'exchange statement', 'transaction history', 'custodian statement'] },
   { requirementId: 'mining_proof', documentType: 'Mining Proof', keywords: ['antpool', 'mining proof', 'observer link', 'mining pool'] },
   { requirementId: 'financing_agreement', documentType: 'Financing Agreement', keywords: ['financing agreement', 'loan agreement'] },
   { requirementId: 'proof_of_fund_transfer', documentType: 'Proof of Fund Transfer', keywords: ['fund transfer', 'transfer proof', 'payment proof'] },
+  { requirementId: 'aml_questionnaire', documentType: 'AML Questionnaire', keywords: ['aml questionnaire', 'aml form'] },
+  { requirementId: 'ubo_no_other_shareholder_declaration', documentType: 'UBO No Other Shareholder Declaration', keywords: ['no other shareholders', 'ubo declaration', 'beneficial ownership declaration'] },
+  { requirementId: 'ncrs_pep_form', documentType: 'NCRS & PEP Form', keywords: ['ncrs', 'pep form', 'ncrs pep'] },
+  { requirementId: 'worldcheck_news_explanation', documentType: 'Worldcheck Alert News Explanation', keywords: ['worldcheck', 'world check', 'news explanation'] },
+  { requirementId: 'us_de_good_standing', documentType: 'Good Standing Certificate', keywords: ['good standing'] },
+  { requirementId: 'us_wy_good_standing', documentType: 'Good Standing Certificate', keywords: ['good standing'] },
+  { requirementId: 'us_nv_certificate_of_existence', documentType: 'Certificate of Existence', keywords: ['certificate of existence'] },
+  { requirementId: 'us_nv_business_license', documentType: 'Nevada State Business License', keywords: ['business license'] },
+  { requirementId: 'us_ca_statement_of_information', documentType: 'Statement of Information', keywords: ['statement of information', 'si-550', 'si 550'] },
+  { requirementId: 'us_tx_certificate_of_formation', documentType: 'Certificate of Formation', keywords: ['certificate of formation'] },
+  { requirementId: 'us_tx_certificate_of_fact_status', documentType: 'Certificate of Fact - Status', keywords: ['certificate of fact', 'fact status'] },
+  { requirementId: 'us_ny_publication_proof', documentType: 'Publication Proof', keywords: ['publication proof', 'newspaper publication'] },
+  { requirementId: 'us_dc_basic_business_license', documentType: 'Basic Business License', keywords: ['basic business license'] },
 ];
 
 function fallbackAnalysis(caseData: KYCCase, input: IntakeInput): EmailIntakeAnalysis {
@@ -78,7 +93,7 @@ function normalizeAnalysis(candidate: EmailIntakeAnalysis, fallback: EmailIntake
 
 export async function analyzeEmailForCase(caseData: KYCCase, input: IntakeInput): Promise<EmailIntakeAnalysis> {
   const fallback = fallbackAnalysis(caseData, input);
-  if (!hasClaudeConfigured()) return fallback;
+  if (!hasLlmConfigured()) return fallback;
   const checklist = (caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData))
     .map((item) => ({ id: item.id, name: item.name, category: item.category, required: item.required }));
   const prompt = `You are the Email Intake Agent for a KYC workflow.
@@ -114,6 +129,6 @@ Required JSON shape:
     {"filename":"string","suggestedRequirementId":"checklist id or omit","documentType":"string","confidence":0.0,"reason":"string"}
   ]
 }`;
-  const analysis = await getClaudeJson<EmailIntakeAnalysis>(prompt, fallback);
+  const analysis = await getLlmJson<EmailIntakeAnalysis>(prompt, fallback);
   return normalizeAnalysis(analysis, fallback);
 }

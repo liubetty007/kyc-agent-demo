@@ -1,7 +1,11 @@
 import { addMonths, isAfter, parseISO } from './time';
-import { generateChecklist, isCryptoRelated, isFinancingSource, isMiningRelated } from './checklist';
+import { generateChecklist, isCryptoRelated, isFinancialInstitutionOrAssetManager, isFinancingSource, isMiningRelated } from './checklist';
 import { getMatrix } from './matrix';
 import type { DocumentRequirement, KYCCase, ReviewIssue, ReviewResult } from './types';
+
+function uniqueById(docs: DocumentRequirement[]): DocumentRequirement[] {
+  return Array.from(new Map(docs.map((doc) => [doc.id, doc])).values());
+}
 
 function jurisdictionAssessment(caseData: KYCCase): ReviewResult['jurisdictionAssessment'] {
   const matrix = getMatrix();
@@ -33,9 +37,31 @@ function isAddressProofExpired(issueDate?: string): boolean {
   return isAfter(new Date(), maxAgeDate);
 }
 
+function isDocumentOlderThan(issueDate: string | undefined, months: number): boolean {
+  if (!issueDate) return false;
+  const maxAgeDate = addMonths(parseISO(issueDate), months);
+  return isAfter(new Date(), maxAgeDate);
+}
+
+function isPdfDocument(filename: string): boolean {
+  return /\.pdf$/i.test(filename.trim());
+}
+
+function hasDocument(caseData: KYCCase, requirementId: string): boolean {
+  return caseData.receivedDocuments.some(
+    (doc) => doc.requirementId === requirementId && (doc.status === 'received' || doc.status === 'accepted'),
+  );
+}
+
+function firstDocument(caseData: KYCCase, requirementIds: string[]) {
+  return caseData.receivedDocuments.find(
+    (doc) => requirementIds.includes(doc.requirementId) && (doc.status === 'received' || doc.status === 'accepted'),
+  );
+}
+
 export function runReview(caseData: KYCCase): ReviewResult {
   const matrix = getMatrix();
-  const requiredDocuments = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const requiredDocuments = uniqueById([...(caseData.checklist || []), ...generateChecklist(caseData)]);
   const requiredDocumentIds = new Set(requiredDocuments.filter((doc) => doc.required).map((doc) => doc.id));
   const acceptedOrReceived = new Set(
     caseData.receivedDocuments
@@ -54,12 +80,88 @@ export function runReview(caseData: KYCCase): ReviewResult {
     issues.push({ severity: 'high', code: 'legal_review_required', message: jurisdiction.notes[0] });
   }
 
+  for (const doc of caseData.receivedDocuments) {
+    if (!isPdfDocument(doc.name)) {
+      issues.push({ severity: 'medium', code: 'non_pdf_document', message: `${doc.name} is not a PDF. Standard KYC rules require all submitted documents to be provided in PDF format.` });
+      questionsForClient.push(`Please resubmit ${doc.name} in PDF format.`);
+    }
+  }
+
   const hasUbo = caseData.individuals.some(
     (person) => person.role === 'ubo' || (person.ownershipPercentage ?? 0) >= matrix.ubo_rule.threshold_percentage,
   );
   if (!hasUbo) {
     issues.push({ severity: 'high', code: 'ubo_not_identified', message: 'No natural person UBO with ownership >= 25% was identified.' });
     questionsForClient.push('Please provide ownership information identifying all natural person UBOs with ownership of 25% or more.');
+  }
+
+  const coi = firstDocument(caseData, ['certificate_of_incorporation']);
+  const coiFreshnessRule = matrix.standard_kyc_rules.coi_recent_issue_months_except;
+  if (coi && !coiFreshnessRule.excluded_jurisdictions.includes(caseData.jurisdiction)) {
+    if (!coi.issueDate) {
+      issues.push({ severity: 'medium', code: 'coi_issue_date_missing', message: `${coi.name} has no issue date; manual review must confirm it was issued within ${coiFreshnessRule.max_age_months} months.` });
+    } else if (isDocumentOlderThan(coi.issueDate, coiFreshnessRule.max_age_months)) {
+      issues.push({ severity: 'high', code: 'coi_expired', message: `${coi.name} is older than ${coiFreshnessRule.max_age_months} months for a non-HK/non-SG entity.` });
+      questionsForClient.push(`Please provide a Certificate of Incorporation issued within the last ${coiFreshnessRule.max_age_months} months, unless Compliance confirms an exception.`);
+    }
+  }
+
+  const certificateOfIncumbency = firstDocument(caseData, ['certificate_of_incumbency', 'us_wy_certificate_of_incumbency']);
+  if (certificateOfIncumbency) {
+    const maxAge = matrix.standard_kyc_rules.certificate_of_incumbency_max_age_months;
+    if (!certificateOfIncumbency.issueDate) {
+      issues.push({ severity: 'medium', code: 'incumbency_issue_date_missing', message: `${certificateOfIncumbency.name} has no issue date; manual review must confirm it was issued within ${maxAge} months.` });
+    } else if (isDocumentOlderThan(certificateOfIncumbency.issueDate, maxAge)) {
+      issues.push({ severity: 'high', code: 'incumbency_expired', message: `${certificateOfIncumbency.name} is older than ${maxAge} months.` });
+      questionsForClient.push(`Please provide a Certificate of Incumbency issued within the last ${maxAge} months.`);
+    }
+  }
+
+  const stateStatusDocument = firstDocument(caseData, [
+    'us_de_good_standing',
+    'us_wy_good_standing',
+    'us_nv_certificate_of_existence',
+    'us_tx_certificate_of_fact_status',
+  ]);
+  if (stateStatusDocument && !stateStatusDocument.issueDate) {
+    issues.push({ severity: 'medium', code: 'us_status_document_date_missing', message: `${stateStatusDocument.name} has no issue date; manual review must confirm state status evidence is current.` });
+  } else if (stateStatusDocument && isDocumentOlderThan(stateStatusDocument.issueDate, 6)) {
+    issues.push({ severity: 'high', code: 'us_status_document_expired', message: `${stateStatusDocument.name} is older than 6 months.` });
+    questionsForClient.push('Please provide current US state status evidence, such as Good Standing, Certificate of Existence, or Certificate of Fact - Status issued within the last 6 months.');
+  }
+
+  if (!hasDocument(caseData, 'articles_of_association')) {
+    const operatingAgreementProvided = caseData.receivedDocuments.some((doc) =>
+      doc.requirementId.includes('operating_agreement') && (doc.status === 'received' || doc.status === 'accepted'),
+    );
+    if (!operatingAgreementProvided) {
+      issues.push({ severity: 'medium', code: 'articles_or_operating_agreement_missing', message: 'Articles of Association are missing and no Operating Agreement / equivalent fallback is on file.' });
+      questionsForClient.push('Please provide Articles of Association, or Operating Agreement if Articles are not available.');
+    }
+  }
+
+  const sourceEvidenceText = [
+    caseData.sourceOfFunds,
+    ...caseData.receivedDocuments
+      .filter((doc) => ['source_of_funds', 'source_of_crypto_assets', 'declaration_source_of_fund_wealth'].includes(doc.requirementId))
+      .map((doc) => `${doc.name} ${doc.notes || ''}`),
+  ].join(' ').toLowerCase();
+  if (!sourceEvidenceText.includes('usd') && !sourceEvidenceText.includes('$')) {
+    issues.push({ severity: 'medium', code: 'expected_transaction_volume_usd_missing', message: 'SOW/SOF evidence should include expected annual or monthly transaction volume in fiat USD.' });
+    questionsForClient.push('Please provide expected monthly or annual transaction volume in USD as part of the source of funds / source of wealth information.');
+  }
+
+  const signedDocumentIds = new Set(['board_resolution', 'mutual_nda', 'institution_onboarding_form', 'authorization_letter']);
+  for (const doc of caseData.receivedDocuments.filter((item) => signedDocumentIds.has(item.requirementId) && (item.status === 'received' || item.status === 'accepted'))) {
+    issues.push({ severity: 'low', code: 'signed_document_details_review_required', message: `${doc.name} must be manually checked for signer name, title, and signing date.` });
+  }
+
+  if (hasDocument(caseData, 'board_resolution')) {
+    issues.push({ severity: 'low', code: 'board_resolution_scope_review_required', message: 'Board Resolution must identify all authorized persons and define their permitted business scope, even for one-director entities.' });
+  }
+
+  if (hasDocument(caseData, 'mutual_nda')) {
+    issues.push({ severity: 'low', code: 'nda_counterparty_review_required', message: `NDA must use the correct current counterparty: ${matrix.standard_kyc_rules.allowed_nda_counterparties.join(', ')}. Template changes require Legal confirmation; third-party templates require Legal and Business confirmation.` });
   }
 
   for (const doc of caseData.receivedDocuments) {
@@ -89,6 +191,11 @@ export function runReview(caseData: KYCCase): ReviewResult {
     }
   }
 
+  if (isFinancialInstitutionOrAssetManager(caseData) && !acceptedOrReceived.has('aml_questionnaire')) {
+    issues.push({ severity: 'high', code: 'missing_aml_questionnaire', message: 'Financial institutions or entities managing user assets must provide an AML Questionnaire.' });
+    questionsForClient.push('Please provide the AML Questionnaire because the applicant appears to be a financial institution or manages user/client assets.');
+  }
+
   if (isMiningRelated(caseData) && !acceptedOrReceived.has('mining_proof')) {
     issues.push({ severity: 'high', code: 'missing_mining_proof', message: 'Mining business requires mining proof such as Antpool Observer Link or equivalent evidence.' });
     questionsForClient.push('Please provide mining proof, such as an Antpool Observer Link or equivalent mining pool observer link, mining revenue records, or other evidence showing source of mining proceeds.');
@@ -111,6 +218,7 @@ export function runReview(caseData: KYCCase): ReviewResult {
       ...(isCryptoRelated(caseData) ? ['Crypto-related business'] : []),
       ...(isMiningRelated(caseData) ? ['Mining business'] : []),
       ...(isFinancingSource(caseData) ? ['Financing source of funds'] : []),
+      ...(isFinancialInstitutionOrAssetManager(caseData) ? ['Financial institution / manages user assets'] : []),
       ...(getMatrix().jurisdiction_rules.offshore.includes(caseData.jurisdiction) ? ['Offshore jurisdiction'] : []),
     ],
   };

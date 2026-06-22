@@ -1,4 +1,4 @@
-import { getClaudeJson, hasClaudeConfigured, optionallyPolishText } from './claude';
+import { getLlmJson, hasLlmConfigured, optionallyPolishText } from './claude';
 import { inferComplianceOutcomeFromText, outcomeForAutomaticComplianceHandling } from './complianceOutcome';
 import { extractNewReplyText } from './complianceReplyText';
 import type { KYCCase } from './types';
@@ -34,7 +34,7 @@ export async function analyzeComplianceReplyAndDraftClientEmail(
 ): Promise<ComplianceReplyAnalysis> {
   const strippedBody = extractNewReplyText(complianceReply.body);
   const fallback = fallbackAnalysis(caseData, complianceReply.body);
-  if (!hasClaudeConfigured()) return fallback;
+  if (!hasLlmConfigured()) return fallback;
 
   const prompt = `You are a KYC operations assistant. A compliance reviewer replied to a KYC case by email.
 
@@ -66,7 +66,7 @@ Important:
 - If compliance only asks the client/KYC to provide missing documents (e.g. COI, 补齐, 缺少), outcome MUST be request_more_info, NOT rejected.
 - Use rejected only when compliance clearly refuses onboarding.`;
 
-  const parsed = await getClaudeJson(prompt, fallback);
+  const parsed = await getLlmJson(prompt, fallback);
   parsed.outcome = outcomeForAutomaticComplianceHandling(parsed.outcome, complianceReply.body);
   if (!parsed.client_email_body?.trim()) {
     parsed.client_email_body = await optionallyPolishText(
