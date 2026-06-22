@@ -1,6 +1,7 @@
 import { requireApiUser } from '@/lib/auth/admin';
 import { generateComplianceEmail } from '@/lib/kyb/complianceEmail';
 import { acceptedDocumentNames, backendAcceptedDocumentNames } from '@/lib/kyb/complianceAttachments';
+import { defaultComplianceEmail } from '@/lib/kyb/mailbox';
 import { localChecklistSnapshot } from '@/lib/kyb/complianceSubmit';
 import { generateCompliancePack } from '@/lib/kyb/compliancePack';
 import { runReview } from '@/lib/kyb/review';
@@ -49,13 +50,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     isBackendEnabled() && isBackendCaseId(caseId)
       ? await backendAcceptedDocumentNames(caseId)
       : acceptedDocumentNames(caseData);
-  const complianceEmailDraft = caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames);
+  const complianceEmailTo = caseData.complianceEmailTo || defaultComplianceEmail(caseData);
+  const complianceEmailDraft = caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, complianceEmailTo);
   const submittedAt = new Date().toISOString();
 
   const updated = await updateCase(caseId, {
     review,
     compliancePack,
     complianceEmailDraft,
+    complianceEmailTo,
     status: 'compliance_review',
     complianceSubmittedAt: submittedAt,
     complianceSubmitSnapshot: {

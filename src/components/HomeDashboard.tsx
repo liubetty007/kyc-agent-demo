@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { CaseSearchBox } from '@/components/CaseSearchBox';
-import { filterCases, isCaseCompleted } from '@/lib/kyb/caseViews';
-import { caseStatusBadgeClass } from '@/lib/kyb/complianceReview';
+import { filterCases } from '@/lib/kyb/caseViews';
+import { caseStatusBadgeClass, caseStatusLabel } from '@/lib/kyb/complianceReview';
 import { businessTypeLabel } from '@/lib/kyb/types';
 import type { KYCCase } from '@/lib/kyb/types';
 
@@ -15,9 +15,7 @@ function statusBadgeClass(caseData: KYCCase): string {
 }
 
 function statusBadgeLabel(caseData: KYCCase): string {
-  if (isCaseCompleted(caseData)) return caseData.status === 'approved' ? '通过' : '不通过';
-  if (caseStatusBadgeClass(caseData) === 'compliance-feedback-pending') return '合规已回复';
-  return '流程中';
+  return caseStatusLabel(caseData);
 }
 
 export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {

@@ -32,6 +32,20 @@ export function openingThreadId(caseData: KYCCase): string | undefined {
   return opening?.threadId || messages.find((message) => message.threadId && message.direction === 'outbound')?.threadId;
 }
 
+export function openingEmailSubject(caseData: KYCCase): string {
+  const messages = caseData.mailboxMessages || [];
+  const opening = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        message.direction === 'outbound'
+        && message.status === 'sent'
+        && message.to.toLowerCase().includes(customerEmail(caseData).toLowerCase().split('@')[0]),
+    );
+  const subject = opening?.subject?.trim() || `KYC Account Opening – ${caseData.companyName}`;
+  return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
+}
+
 export function complianceThreadId(caseData: KYCCase): string | undefined {
   return (
     caseData.complianceGmailThreadId

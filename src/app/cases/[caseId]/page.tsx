@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { CaseActions } from '@/components/CaseActions';
 import { EmailReplyFetchPanel } from '@/components/EmailReplyFetchPanel';
 import { CaseSnapshotEditor } from '@/components/CaseSnapshotEditor';
+import { ClientFollowUpEmailPanel } from '@/components/ClientFollowUpEmailPanel';
+import { ClientUploadedFilesPanel } from '@/components/ClientUploadedFilesPanel';
 import { ComplianceReplySummary } from '@/components/ComplianceReplySummary';
 import { DocumentAnalysisPanel } from '@/components/DocumentAnalysisPanel';
 import { DocumentPanel } from '@/components/DocumentPanel';
-import { ClientFollowUpEmailPanel } from '@/components/ClientFollowUpEmailPanel';
 import { KycComplianceSubmitPanel } from '@/components/KycComplianceSubmitPanel';
 import { MailboxTimelinePanel } from '@/components/MailboxTimelinePanel';
 import { OpeningEmailPanel } from '@/components/OpeningEmailPanel';
@@ -77,6 +78,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
       <EmailReplyFetchPanel caseData={caseData} readOnly={!kycCanOperate} />
       <DocumentPanel caseData={caseData} viewerRole={user.role} />
       <DocumentAnalysisPanel caseData={caseData} />
+      <ClientUploadedFilesPanel caseData={caseData} />
       <ClientFollowUpEmailPanel caseData={caseData} readOnly={!kycCanOperate} />
       {kycCanOperate && <CaseActions caseData={caseData} />}
       <MailboxTimelinePanel caseData={caseData} />

@@ -192,10 +192,10 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   return (
     <div className="card">
       <div className="card-heading">
-        <h2>KYC Email to Client</h2>
+        <h2>Opening Email</h2>
         <Link className="small" href="#case-details">Edit case details →</Link>
       </div>
-      <p>Prepare the opening email for the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
+      <p>Prepare and send the opening email to the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
       {!draft ? (
         readOnly ? <p className="small">No opening email draft yet.</p> : (
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Opening Email</button>

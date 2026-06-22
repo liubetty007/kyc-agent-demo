@@ -197,7 +197,10 @@ export function ingestBackendComplianceEmail(caseId: string) {
   );
 }
 
-export function sendBackendClientFollowUpEmail(caseId: string, body: { subject: string; body_text: string }) {
+export function sendBackendClientFollowUpEmail(
+  caseId: string,
+  body: { subject: string; body_text: string; include_package_attachments?: boolean },
+) {
   return backendFetch<BackendSendEmailResponse>(`/cases/${encodeURIComponent(caseId)}/send_client_follow_up_email`, {
     method: 'POST',
     body: JSON.stringify(body),

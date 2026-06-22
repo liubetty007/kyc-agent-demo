@@ -187,6 +187,48 @@ export async function storeOpeningEmailUpload(
   };
 }
 
+export type ClientEmailAttachmentRef = {
+  id: string;
+  name: string;
+  objectName: string;
+  contentType?: string;
+  size?: number;
+};
+
+export async function storeClientEmailUpload(caseId: string, file: File): Promise<ClientEmailAttachmentRef> {
+  const safeName = safeFilename(file.name);
+  const objectName = `cases/${caseId}/client-email-attachments/${crypto.randomUUID()}-${safeName}`;
+  await bucket().file(objectName).save(Buffer.from(await file.arrayBuffer()), {
+    resumable: false,
+    contentType: file.type || 'application/octet-stream',
+    metadata: { cacheControl: 'private, no-store' },
+  });
+  return {
+    id: `client-email:${objectName}`,
+    name: file.name,
+    objectName,
+    contentType: file.type || 'application/octet-stream',
+    size: file.size,
+  };
+}
+
+export async function readClientEmailUpload(caseId: string, attachment: ClientEmailAttachmentRef): Promise<{
+  filename: string;
+  contentType?: string;
+  data: Buffer;
+}> {
+  const prefix = `cases/${caseId}/client-email-attachments/`;
+  if (!attachment.objectName.startsWith(prefix)) throw new Error('Attachment path is not allowed.');
+  const file = bucket().file(attachment.objectName);
+  const [metadata] = await file.getMetadata();
+  const [data] = await file.download();
+  return {
+    filename: attachment.name || filenameFromObject(attachment.objectName),
+    contentType: attachment.contentType || metadata.contentType,
+    data,
+  };
+}
+
 export async function readOpeningEmailAttachment(caseId: string, attachment: OpeningEmailAttachmentRef): Promise<{
   filename: string;
   contentType?: string;

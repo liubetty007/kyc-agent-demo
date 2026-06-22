@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ComplianceWorkflowPanel } from '@/components/ComplianceWorkflowPanel';
 import { requirePageUser } from '@/lib/auth/admin';
-import { canAccessCase, canPerformKycOperations } from '@/lib/auth/roles';
+import { canAccessCase, canPerformKycOperations, canSubmitComplianceDecision } from '@/lib/auth/roles';
 import { caseStatusBadgeClass, caseStatusLabel } from '@/lib/kyb/complianceReview';
 import { getCase } from '@/lib/kyb/storage';
 
@@ -19,6 +19,7 @@ export default async function ComplianceCasePage({ params }: { params: Promise<{
   }
 
   const kycCanOperate = canPerformKycOperations(user);
+  const canDecide = canSubmitComplianceDecision(user) || kycCanOperate;
 
   return (
     <div className="grid page-stack">
@@ -32,7 +33,7 @@ export default async function ComplianceCasePage({ params }: { params: Promise<{
         <span className={`badge ${caseStatusBadgeClass(caseData)}`}>{caseStatusLabel(caseData)}</span>
       </section>
 
-      <ComplianceWorkflowPanel caseData={caseData} readOnly={!kycCanOperate} />
+      <ComplianceWorkflowPanel caseData={caseData} kycCanOperate={kycCanOperate} canDecide={canDecide} />
     </div>
   );
 }

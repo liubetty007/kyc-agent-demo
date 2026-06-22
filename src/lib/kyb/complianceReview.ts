@@ -1,5 +1,5 @@
 import type { CaseStatus, ComplianceDecision, ComplianceDecisionOutcome, KYCCase } from './types';
-import { hasComplianceReply, isCaseCompleted } from './caseViews';
+import { hasComplianceReply, isCaseCompleted, wasSubmittedToCompliance } from './caseViews';
 
 export const COMPLIANCE_OUTCOME_LABELS: Record<ComplianceDecisionOutcome, string> = {
   approved: '通过',
@@ -50,26 +50,31 @@ export function isCaseAwaitingKycComplianceFeedback(caseData: Pick<KYCCase, 'com
 }
 
 export function caseStatusBadgeClass(caseData: KYCCase): string {
+  if (caseData.status === 'approved') return 'accepted';
+  if (caseData.status === 'rejected' || caseData.status === 'prohibited') return 'prohibited';
   if (hasComplianceReply(caseData) && !isCaseCompleted(caseData)) return 'compliance-feedback-pending';
   if (isCaseAwaitingKycComplianceFeedback(caseData)) return 'compliance-feedback-pending';
-  const { status } = caseData;
-  if (status === 'ready_for_compliance' || status === 'approved') return 'ready';
-  if (status === 'prohibited' || status === 'rejected') return 'prohibited';
-  if (status === 'compliance_review') return 'needs-review';
-  if (status === 'awaiting_client_information' || status === 'edd_required') return 'medium';
-  return '';
+  if (caseData.status === 'compliance_review' || wasSubmittedToCompliance(caseData)) return 'needs-review';
+  if (caseData.status === 'awaiting_client_information' || caseData.status === 'edd_required') return 'medium';
+  return 'medium';
 }
 
 export function caseStatusLabel(caseData: KYCCase): string {
-  if (isCaseCompleted(caseData)) {
-    return caseData.status === 'approved' ? '通过' : '不通过';
-  }
+  if (caseData.status === 'approved') return '合规通过';
+  if (caseData.status === 'rejected') return '合规拒绝';
+  if (caseData.status === 'prohibited') return '禁止开户';
+
   if (hasComplianceReply(caseData) || isCaseAwaitingKycComplianceFeedback(caseData)) {
     return '合规已回复，等待补齐资料';
   }
-  if (caseData.status === 'compliance_review') return '合规审核中';
+
+  if (caseData.status === 'compliance_review' || wasSubmittedToCompliance(caseData)) {
+    if (caseData.complianceEmailSentAt) return '合规审批中';
+    return '已提交合规，待发送邮件';
+  }
+
   if (caseData.status === 'awaiting_client_information') return '等待客户补充资料';
   if (caseData.status === 'edd_required') return '需 EDD';
-  if (caseData.status === 'ready_for_compliance') return '待送合规';
-  return caseData.status;
+
+  return '文件上传中';
 }

@@ -167,6 +167,7 @@ export type KYCCase = {
   emailDraft?: string;
   compliancePack?: string;
   complianceEmailDraft?: string;
+  complianceEmailTo?: string;
   complianceEmailSentAt?: string;
   complianceGmailThreadId?: string;
   complianceSubmittedAt?: string;

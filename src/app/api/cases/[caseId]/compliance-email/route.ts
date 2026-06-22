@@ -1,7 +1,7 @@
 import { generateComplianceEmail } from '@/lib/kyb/complianceEmail';
 import { requireApiUser } from '@/lib/auth/admin';
 import { acceptedDocumentNames, backendAcceptedDocumentNames, loadAcceptedDocumentAttachments } from '@/lib/kyb/complianceAttachments';
-import { appendMailboxMessage, COMPLIANCE_TEAM_EMAIL, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { appendMailboxMessage, defaultComplianceEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
@@ -45,7 +45,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const caseData = await getCase(caseId);
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
-  let body: { action?: string; draft?: string } = {};
+  let body: { action?: string; draft?: string; toEmail?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -54,18 +54,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const review = caseData.review || runReview(caseData);
   const attachmentNames = await resolveAttachmentNames(caseId, caseData);
-  const draft = body.draft || caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames);
+  const toEmail = (body.toEmail || caseData.complianceEmailTo || defaultComplianceEmail(caseData)).trim();
+  const draft = body.draft || caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, toEmail);
   const parsed = splitEmailDraft(draft, `Compliance Review Request – ${caseData.companyName} (${caseId})`);
 
   if (body.action === 'send_demo') {
     const updated = await updateCase(caseId, {
       review,
       complianceEmailDraft: draft,
+      complianceEmailTo: toEmail,
       complianceEmailSentAt: new Date().toISOString(),
       status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
       mailboxMessages: appendMailboxMessage(caseData, {
         from: KYC_TEAM_EMAIL,
-        to: COMPLIANCE_TEAM_EMAIL,
+        to: toEmail,
         subject: parsed.subject,
         body: parsed.body,
         direction: 'outbound',
@@ -80,13 +82,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     try {
       if (isBackendEnabled() && isBackendCaseId(caseId)) {
         const sent = await sendBackendComplianceEmail(caseId, {
-          to_email: COMPLIANCE_TEAM_EMAIL,
+          to_email: toEmail,
           subject: parsed.subject,
           body_text: parsed.body,
         });
         const updated = await updateCase(caseId, {
           review,
           complianceEmailDraft: draft,
+          complianceEmailTo: toEmail,
           complianceEmailSentAt: new Date().toISOString(),
           complianceGmailThreadId: sent.gmail_thread_id,
           status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
@@ -95,7 +98,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             providerMessageId: sent.gmail_message_id,
             threadId: sent.gmail_thread_id,
             from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-            to: COMPLIANCE_TEAM_EMAIL,
+            to: toEmail,
             subject: sent.subject,
             body: parsed.body,
             direction: 'outbound',
@@ -112,7 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
       const attachments = await loadAcceptedDocumentAttachments(caseData);
       const sent = await sendGmailMessage({
-        to: COMPLIANCE_TEAM_EMAIL,
+        to: toEmail,
         subject: parsed.subject,
         body: parsed.body,
         threadId: caseData.complianceGmailThreadId,
@@ -121,6 +124,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const updated = await updateCase(caseId, {
         review,
         complianceEmailDraft: draft,
+        complianceEmailTo: toEmail,
         complianceEmailSentAt: new Date().toISOString(),
         complianceGmailThreadId: sent.threadId || caseData.complianceGmailThreadId,
         status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
@@ -129,7 +133,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           providerMessageId: sent.id,
           threadId: sent.threadId,
           from: kycMailboxAddress(),
-          to: COMPLIANCE_TEAM_EMAIL,
+          to: toEmail,
           subject: parsed.subject,
           body: parsed.body,
           direction: 'outbound',

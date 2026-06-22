@@ -143,6 +143,14 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
       setLoading(null);
       return;
     }
+    if (action === 'reject') {
+      const draftResponse = await fetch(`/api/cases/${caseData.id}/client-email-draft`, { method: 'POST' });
+      if (!draftResponse.ok) {
+        alert(await readResponseError(draftResponse, 'Revision saved, but follow-up draft generation failed.'));
+      }
+      window.location.reload();
+      return;
+    }
     await refreshBackend();
     setLoading(null);
   }
@@ -271,6 +279,17 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                         </button>
                       </>
                     )}
+                    {doc?.storage_uri && (
+                      <a
+                        className="button"
+                        href={`/api/cases/${caseData.id}/backend-documents/${doc.document_id}/download`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ marginLeft: 8 }}
+                      >
+                        下载
+                      </a>
+                    )}
                   </td>
                 </tr>
               );
@@ -307,6 +326,16 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       />
                     </label>
                   )}
+                  {receivedDoc?.storageObject && (
+                    <a
+                      className="button"
+                      href={`/api/cases/${caseData.id}/documents/${receivedDoc.id}/download`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      下载
+                    </a>
+                  )}
                 </td>
               </tr>
             );
@@ -334,6 +363,17 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       <button className="button primary" disabled={loading === doc.document_id} onClick={() => reviewBackend(doc.document_id, 'accept')}>
                         Accept anyway
                       </button>
+                    )}
+                    {doc.storage_uri && (
+                      <a
+                        className="button"
+                        href={`/api/cases/${caseData.id}/backend-documents/${doc.document_id}/download`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ marginLeft: 8 }}
+                      >
+                        下载
+                      </a>
                     )}
                   </td>
                 </tr>

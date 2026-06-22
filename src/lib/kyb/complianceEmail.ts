@@ -1,7 +1,12 @@
-import { COMPLIANCE_TEAM_EMAIL, KYC_TEAM_EMAIL } from './mailbox';
+import { defaultComplianceEmail, KYC_TEAM_EMAIL } from './mailbox';
 import type { KYCCase, ReviewResult } from './types';
 
-export function generateComplianceEmail(caseData: KYCCase, review: ReviewResult, attachmentNames: string[] = []): string {
+export function generateComplianceEmail(
+  caseData: KYCCase,
+  review: ReviewResult,
+  attachmentNames: string[] = [],
+  toEmail: string = defaultComplianceEmail(caseData),
+): string {
   const riskFlags = review.businessAssessment.riskFlags.length
     ? review.businessAssessment.riskFlags.map((flag) => `- ${flag}`).join('\n')
     : '- No major business risk flags identified by the Agent.';
@@ -19,7 +24,7 @@ export function generateComplianceEmail(caseData: KYCCase, review: ReviewResult,
   return `Subject: Compliance Review Request – ${caseData.companyName} (${caseData.id})
 
 From: ${KYC_TEAM_EMAIL}
-To: ${COMPLIANCE_TEAM_EMAIL}
+To: ${toEmail}
 
 Dear Compliance Team,
 
