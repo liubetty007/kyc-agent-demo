@@ -3,6 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
+import { customAuthEnabled, verifyCustomSessionToken } from './custom-session';
 import { roleForEmail, type AppRole, type AppUser } from './roles';
 
 export const SESSION_COOKIE = 'kyc_session';
@@ -25,6 +26,9 @@ function adminAuth() {
 
 export async function verifySessionCookie(value?: string): Promise<AppUser | null> {
   if (!value) return null;
+  const customUser = verifyCustomSessionToken(value);
+  if (customUser) return customUser;
+  if (!process.env.FIREBASE_API_KEY) return null;
   try {
     const decoded = await adminAuth().verifySessionCookie(value, true);
     const email = decoded.email?.toLowerCase();

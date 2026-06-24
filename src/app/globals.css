@@ -368,6 +368,16 @@ pre { white-space: pre-wrap; background: #171512; color: #fff7ed; padding: 16px;
 .account-menu span { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .login-shell { min-height: calc(100vh - 56px); display: grid; place-items: center; padding: 24px; }
 .login-card { width: min(420px, 100%); }
+.login-form { display: grid; gap: 14px; margin-top: 16px; }
+.login-form .field { display: grid; gap: 6px; }
+.login-form .field span { font-size: 14px; font-weight: 600; color: var(--muted); }
+.login-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
 .form-error { color: var(--danger); margin: 0; }
 .upload-button { display: inline-flex; }
 .upload-button input { display: none; }

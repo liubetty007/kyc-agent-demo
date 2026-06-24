@@ -1,35 +1,33 @@
 'use client';
 
-import { browserAuth } from '@/lib/auth/firebase-client';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 export function LoginForm() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function signIn() {
+  async function signInWithPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const auth = await browserAuth();
-      const result = await signInWithPopup(auth, new GoogleAuthProvider());
-      const idToken = await result.user.getIdToken();
-      const response = await fetch('/api/auth/session', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Sign in failed.');
+        throw new Error(payload.error || '登录失败，请检查邮箱和密码。');
       }
       router.push('/');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed.');
+      setError(err instanceof Error ? err.message : '登录失败。');
     } finally {
       setLoading(false);
     }
@@ -39,10 +37,34 @@ export function LoginForm() {
     <div className="login-shell">
       <section className="card login-card">
         <h1>KYC Agent</h1>
-        <p className="small">使用已授权的 Google 账号登录。</p>
-        <button className="button primary" type="button" onClick={signIn} disabled={loading}>
-          {loading ? '登录中…' : '使用 Google 登录'}
-        </button>
+        <p className="small">请使用已授权的邮箱账号登录。</p>
+        <form className="login-form" onSubmit={signInWithPassword}>
+          <label className="field">
+            <span>邮箱</span>
+            <input
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@example.com"
+              required
+            />
+          </label>
+          <label className="field">
+            <span>密码</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="请输入密码"
+              required
+            />
+          </label>
+          <button className="button primary" type="submit" disabled={loading}>
+            {loading ? '登录中…' : '登录'}
+          </button>
+        </form>
         {error ? <p className="form-error">{error}</p> : null}
       </section>
     </div>

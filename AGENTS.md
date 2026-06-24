@@ -13,6 +13,7 @@ Read this before making changes in this repository.
 | What | URL |
 |------|-----|
 | **Frontend (use this)** | `https://kyc-agent-frontend-767566934621.asia-east2.run.app` |
+| **Login** | `/login` — authorized emails only (see `KYC_AUTH_PASSWORDS`) |
 | Local dev | `http://localhost:3000` |
 | Backend API (local) | `http://127.0.0.1:8012` |
 | ~~Legacy demo~~ | ~~`https://kyc-agent-staging-20130272975.asia-east2.run.app`~~ — **void, API-only** |
