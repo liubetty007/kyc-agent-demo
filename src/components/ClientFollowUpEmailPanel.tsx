@@ -6,10 +6,6 @@ import { openingThreadId } from '@/lib/kyb/caseMailThreads';
 import { splitEmailDraft } from '@/lib/kyb/gmail';
 import type { KYCCase } from '@/lib/kyb/types';
 
-function isBackendCaseId(caseId: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
-}
-
 export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseData: KYCCase; readOnly?: boolean }) {
   const [draft, setDraft] = useState(caseData.emailDraft || '');
   const [loading, setLoading] = useState<string | null>(null);
@@ -52,10 +48,6 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
   }
 
   async function replyInThread() {
-    if (!isBackendCaseId(caseData.id)) {
-      alert('This demo case cannot send via backend. Please create a new case from "New Case".');
-      return;
-    }
     if (!threadId && !caseData.openingEmailSentAt) {
       alert('请先通过 Gmail 发送开户邮件，再在同一邮件线程里回复客户。');
       return;

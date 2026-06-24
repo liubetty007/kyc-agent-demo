@@ -30,10 +30,6 @@ function formatBytes(value?: number): string {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function isBackendCaseId(caseId: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
-}
-
 export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KYCCase; readOnly?: boolean }) {
   const [draft, setDraft] = useState(caseData.openingEmailDraft || '');
   const [sentAt, setSentAt] = useState(caseData.openingEmailSentAt);
@@ -141,11 +137,6 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   }
 
   async function demoSend() {
-    if (!isBackendCaseId(caseData.id)) {
-      alert('This demo case cannot send via backend. Please create a new case from "New Case".');
-      return;
-    }
-
     setLoading('send');
     await save();
     const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
@@ -164,10 +155,6 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   }
 
   async function realSend() {
-    if (!isBackendCaseId(caseData.id)) {
-      alert('This demo case cannot send via backend. Please create a new case from "New Case".');
-      return;
-    }
     if (sentAt && !window.confirm('开户邮件已发送过。再次发送会在同一 Gmail 线程里追加一封邮件。确定要继续吗？')) {
       return;
     }

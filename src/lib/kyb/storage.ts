@@ -93,7 +93,7 @@ export async function createCase(input: {
 
   const now = new Date().toISOString();
   const newCase: KYCCase = {
-    id: `KYC-${Date.now().toString().slice(-6)}`,
+    id: crypto.randomUUID(),
     companyName: input.companyName,
     contactEmail: input.contactEmail,
     jurisdiction: input.jurisdiction,
