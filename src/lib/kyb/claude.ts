@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk';
 type LlmProvider = 'anthropic' | 'ollama' | 'none';
 
 export function hasClaudeConfigured(): boolean {
+  const model = process.env.ANTHROPIC_MODEL?.toLowerCase();
+  if (model === 'disabled' || model === 'none' || model === 'off') return false;
   return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 }
 

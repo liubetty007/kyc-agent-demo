@@ -13,6 +13,18 @@ function formatConfidence(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function AnalysisList({ title, items }: { title: string; items?: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div className="analysis-detail-list">
+      <strong>{title}</strong>
+      <ul>
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </div>
+  );
+}
+
 export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
   const [analyses, setAnalyses] = useState<DocumentAnalysis[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,7 +88,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
               <th>File</th>
               <th>Match</th>
               <th>Confidence</th>
-              <th>Summary</th>
+              <th>Review Feedback</th>
             </tr>
           </thead>
           <tbody>
@@ -94,10 +106,14 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
                   <span className={`badge ${analysis.confidence >= 0.8 ? 'accepted' : analysis.confidence >= 0.5 ? 'medium' : 'prohibited'}`}>
                     {formatConfidence(analysis.confidence)}
                   </span>
+                  {analysis.severity && <div className="small">Severity: {analysis.severity}</div>}
                 </td>
                 <td>
                   <div>{analysis.summary}</div>
-                  {analysis.keyPoints.length > 0 && <div className="small">{analysis.keyPoints.join(' · ')}</div>}
+                  <AnalysisList title="Missing / incomplete fields" items={analysis.missingFields} />
+                  <AnalysisList title="Issues" items={analysis.issues} />
+                  <AnalysisList title="Recommendations" items={analysis.recommendations} />
+                  <AnalysisList title="Follow-up points" items={analysis.followUpPoints} />
                   {analysis.riskFlags.length > 0 && <div className="small">Flags: {analysis.riskFlags.join(', ')}</div>}
                 </td>
               </tr>

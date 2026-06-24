@@ -148,6 +148,16 @@ export async function updateCase(caseId: string, patch: Partial<KYCCase>): Promi
 export async function upsertReceivedDocument(caseId: string, doc: ReceivedDocument): Promise<KYCCase | undefined> {
   const caseData = await getCase(caseId);
   if (!caseData) return undefined;
+  const acceptedExisting = caseData.receivedDocuments.find(
+    (existing) => existing.requirementId === doc.requirementId && existing.status === 'accepted',
+  );
+  if (acceptedExisting && doc.id !== acceptedExisting.id) {
+    const docs = [
+      ...caseData.receivedDocuments.filter((existing) => existing.requirementId !== doc.requirementId),
+      acceptedExisting,
+    ];
+    return updateCase(caseId, { receivedDocuments: docs, status: 'documents_received' });
+  }
   const docs = caseData.receivedDocuments.filter((existing) => existing.requirementId !== doc.requirementId);
   docs.push(doc);
   return updateCase(caseId, { receivedDocuments: docs, status: 'documents_received' });

@@ -77,23 +77,54 @@ function normalizedUsState(usState?: string): string | undefined {
   return aliases[state] || usState.trim();
 }
 
-export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
+function docsById(docs: DocumentRequirement[], ids: string[]): DocumentRequirement[] {
+  const byId = new Map(docs.map((doc) => [doc.id, doc]));
+  return ids.flatMap((id) => {
+    const doc = byId.get(id);
+    return doc ? [doc] : [];
+  });
+}
+
+function regionalCoreDocuments(caseData: KYCCase): DocumentRequirement[] {
   const matrix = getMatrix();
-  const docs: DocumentRequirement[] = [
-    ...matrix.base_documents,
-    ...matrix.internal_forms,
-  ];
+  const base = matrix.base_documents;
 
   if (caseData.jurisdiction === 'Hong Kong') {
-    docs.push(...matrix.hk_specific_documents);
+    return [
+      ...docsById(base, [
+        'certificate_of_incorporation',
+        'business_registration_certificate',
+        'articles_of_association',
+        'ownership_structure_chart',
+        'source_of_funds',
+      ]),
+      ...docsById(matrix.hk_specific_documents, ['hk_nnc1_or_nar1', 'non_us_person_non_solicitation_hk_confirmation']),
+    ];
   }
 
   if (caseData.jurisdiction === 'United States') {
     const state = normalizedUsState(caseData.usState);
-    if (state && matrix.us_state_rules[state]) {
-      docs.push(...matrix.us_state_rules[state]);
-    }
+    return [
+      ...(state && matrix.us_state_rules[state] ? matrix.us_state_rules[state] : []),
+      ...docsById(base, ['ownership_structure_chart', 'business_description', 'source_of_funds']),
+    ];
   }
+
+  return docsById(base, [
+    'certificate_of_incorporation',
+    'articles_of_association',
+    'ownership_structure_chart',
+    'business_description',
+    'source_of_funds',
+  ]);
+}
+
+export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
+  const matrix = getMatrix();
+  const docs: DocumentRequirement[] = [
+    ...regionalCoreDocuments(caseData),
+    ...matrix.internal_forms,
+  ];
 
   const hasUbo = caseData.individuals.some(
     (person) => person.role === 'ubo' || (person.ownershipPercentage ?? 0) >= matrix.ubo_rule.threshold_percentage,

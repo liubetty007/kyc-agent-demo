@@ -49,8 +49,8 @@ export function ClientUploadedFilesPanel({ caseData }: { caseData: KYCCase }) {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h2>客户上传文件</h2>
-          <p className="small">下载客户通过邮件或上传提交的全部材料。</p>
+          <h2>原始文件库</h2>
+          <p className="small">下载客户通过邮件或上传提交的全部材料；KYC Accept / Request Revision 请在 Document Checklist 每一行操作。</p>
         </div>
         {caseData.driveFolderId && (
           <a

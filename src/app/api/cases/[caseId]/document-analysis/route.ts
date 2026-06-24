@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
-import { activeLlmProvider } from '@/lib/kyb/claude';
-import { analyzeCaseDocument } from '@/lib/kyb/documentAnalysis';
+import { analyzeCaseDocument, llmProviderLabel } from '@/lib/kyb/documentAnalysis';
 import { readCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { getCase } from '@/lib/kyb/storage';
 
@@ -52,7 +51,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       analyses.push(analysis);
     }
     return NextResponse.json({
-      provider: activeLlmProvider(),
+      provider: llmProviderLabel(),
       analyses,
     });
   }
@@ -82,7 +81,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   }
 
   return NextResponse.json({
-    provider: activeLlmProvider(),
+    provider: llmProviderLabel(),
     analyses,
   });
 }

@@ -98,6 +98,16 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     window.location.reload();
   }
 
+  async function reviewLocalDocument(doc: ReceivedDocument, status: 'accepted' | 'invalid') {
+    await upsertDocument({
+      ...doc,
+      status,
+      notes: status === 'accepted'
+        ? `${doc.notes || ''} Accepted by KYC team and locked.`
+        : `${doc.notes || ''} Revision requested by KYC team.`,
+    });
+  }
+
   async function uploadDocument(requirementId: string, file?: File) {
     if (!file) return;
     setLoading(requirementId);
@@ -296,6 +306,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
             }
 
             const receivedDoc = receivedByRequirement.get(requirement.id);
+            const acceptedAndLocked = receivedDoc?.status === 'accepted';
             return (
               <tr key={requirement.id}>
                 <td>
@@ -305,13 +316,16 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                     <div className="document-meta small">
                       <strong>{receivedDoc.name}</strong>
                       {receivedDoc.source === 'email_demo' && <> · imported from email</>}
+                      {receivedDoc.source === 'gmail' && <> · imported from Gmail</>}
+                      {receivedDoc.source === 'manual' && <> · uploaded manually</>}
+                      {acceptedAndLocked && <> · locked after Accept</>}
                     </div>
                   )}
                 </td>
                 <td>{requirement.category}</td>
                 <td>{statusBadgeLocal(receivedDoc)}</td>
                 <td>
-                  {viewerRole !== 'client' && (
+                  {viewerRole !== 'client' && !acceptedAndLocked && (
                     <label className="button upload-button">
                       {loading === requirement.id ? (receivedDoc ? 'Replacing...' : 'Uploading...') : receivedDoc ? 'Replace file' : 'Upload file'}
                       <input
@@ -326,6 +340,25 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       />
                     </label>
                   )}
+                  {viewerRole !== 'client' && viewerRole !== 'compliance' && receivedDoc && !acceptedAndLocked && (
+                    <>
+                      <button
+                        className="button primary"
+                        disabled={loading === requirement.id}
+                        onClick={() => reviewLocalDocument(receivedDoc, 'accepted')}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        className="button"
+                        disabled={loading === requirement.id}
+                        onClick={() => reviewLocalDocument(receivedDoc, 'invalid')}
+                      >
+                        Request Revision
+                      </button>
+                    </>
+                  )}
+                  {acceptedAndLocked && <span className="small">Accepted - locked</span>}
                   {receivedDoc?.storageObject && (
                     <a
                       className="button"
