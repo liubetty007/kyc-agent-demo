@@ -37,9 +37,13 @@ async function postOllamaGenerate(prompt: string, format?: 'json'): Promise<stri
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Number(process.env.OLLAMA_TIMEOUT_MS || 120000));
   try {
+    const baseUrl = ollamaBaseUrl();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const idToken = await cloudRunIdToken(baseUrl);
+    if (idToken) headers.Authorization = `Bearer ${idToken}`;
     const response = await fetch(`${ollamaBaseUrl()}/api/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: ollamaModel(),
         prompt,
@@ -58,6 +62,23 @@ async function postOllamaGenerate(prompt: string, format?: 'json'): Promise<stri
     return data.response || '';
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function cloudRunIdToken(audience: string): Promise<string | undefined> {
+  const authMode = process.env.OLLAMA_AUTH_MODE?.toLowerCase();
+  if (authMode === 'none' || authMode === 'public') return undefined;
+  if (authMode !== 'google_id_token' && !audience.includes('.run.app')) return undefined;
+
+  try {
+    const response = await fetch(
+      `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=${encodeURIComponent(audience)}`,
+      { headers: { 'Metadata-Flavor': 'Google' } },
+    );
+    if (!response.ok) return undefined;
+    return (await response.text()).trim() || undefined;
+  } catch {
+    return undefined;
   }
 }
 
