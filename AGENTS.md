@@ -52,6 +52,9 @@ Role mappings live in `src/lib/auth/roles.ts` and require deployment after chang
 - Backend lives in separate repo: `alenw0620-cmyk/kyc-ai-framework` (FastAPI, no product UI).
 - Target multi-agent workflow: `docs/AGENT_WORKFLOW.md`
 - Google Cloud setup: `docs/GOOGLE_CLOUD_DEPLOYMENT.md`
-- Opening-email standard attachments: GCS prefixes `kyc_agent_documents/` and `-kyc_agent_documents/`
+- Opening-email standard attachments: Google Drive `KYC文件/KYC Standard Documents/Region Packs`
+  via `KYC_STANDARD_DRIVE_FOLDER_ID`; `Generic` plus the case jurisdiction pack
+  are default-selected. GCS prefixes `kyc_agent_documents/` and
+  `-kyc_agent_documents/` remain as legacy fallback.
 - Gmail sending: real MIME attachments via backend or frontend OAuth
 - Follow-up emails attach opening templates minus already-accepted doc types.

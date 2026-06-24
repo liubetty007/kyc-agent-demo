@@ -7,6 +7,7 @@ import {
   readMetadataFromDrive,
   uploadBytesToDrive,
 } from './googleDrive';
+import type { KYCCase } from './types';
 
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
@@ -31,6 +32,8 @@ export type OpeningEmailAttachmentPackage = {
   defaultSelected: boolean;
   attachments: OpeningEmailAttachmentRef[];
 };
+
+type StandardPackageCaseContext = Pick<KYCCase, 'jurisdiction' | 'businessType'>;
 
 function bucket() {
   const name = process.env.KYC_DOCUMENT_BUCKET;
@@ -124,7 +127,26 @@ export async function listOpeningEmailStandardDocuments(): Promise<OpeningEmailA
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function listOpeningEmailStandardDocumentPackages(): Promise<OpeningEmailAttachmentPackage[]> {
+function normalizePackageName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseContext): boolean {
+  const normalized = normalizePackageName(folderName);
+  if (['generic', 'general', 'common', 'universal'].includes(normalized) || folderName.includes('通用')) return true;
+  if (!caseData) return false;
+
+  const jurisdiction = normalizePackageName(caseData.jurisdiction);
+  const aliases: Record<string, string[]> = {
+    'hong kong': ['hong kong', 'hk', '香港'],
+    singapore: ['singapore', 'sg', '新加坡'],
+    'united states': ['united states', 'united states of america', 'usa', 'us', '美国', '美國'],
+  };
+  const candidates = aliases[jurisdiction] || [jurisdiction];
+  return candidates.some((candidate) => normalized === normalizePackageName(candidate) || folderName.includes(candidate));
+}
+
+export async function listOpeningEmailStandardDocumentPackages(caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage[]> {
   const folderId = standardDriveFolderId();
   if (!folderId) return [];
 
@@ -152,7 +174,7 @@ export async function listOpeningEmailStandardDocumentPackages(): Promise<Openin
       id: packageId,
       name: folder.name,
       description: '按地区或场景选择的开户文件夹',
-      defaultSelected: false,
+      defaultSelected: packageMatchesCase(folder.name, caseData),
       attachments: files
         .map((file) => driveAttachment(file, packageId, folder.name))
         .sort((a, b) => a.name.localeCompare(b.name)),

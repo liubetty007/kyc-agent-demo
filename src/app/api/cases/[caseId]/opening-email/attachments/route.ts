@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
   try {
-    const packages = await listOpeningEmailStandardDocumentPackages();
+    const packages = await listOpeningEmailStandardDocumentPackages(caseData);
     const standard = packages.length
       ? packages.flatMap((item) => item.attachments)
       : await listOpeningEmailStandardDocuments();
