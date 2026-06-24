@@ -148,13 +148,5 @@ export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
     docs.push(...matrix.risk_based_documents.financial_or_user_asset_manager);
   }
 
-  if (isMiningRelated(caseData)) {
-    docs.push(...matrix.mining_business_rules.documents);
-  }
-
-  if (isFinancingSource(caseData)) {
-    docs.push(...matrix.financing_source_rules.required_documents);
-  }
-
   return uniqueById(docs);
 }

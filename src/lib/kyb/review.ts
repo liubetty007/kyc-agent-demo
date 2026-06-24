@@ -196,20 +196,6 @@ export function runReview(caseData: KYCCase): ReviewResult {
     questionsForClient.push('Please provide the AML Questionnaire because the applicant appears to be a financial institution or manages user/client assets.');
   }
 
-  if (isMiningRelated(caseData) && !acceptedOrReceived.has('mining_proof')) {
-    issues.push({ severity: 'high', code: 'missing_mining_proof', message: 'Mining business requires mining proof such as Antpool Observer Link or equivalent evidence.' });
-    questionsForClient.push('Please provide mining proof, such as an Antpool Observer Link or equivalent mining pool observer link, mining revenue records, or other evidence showing source of mining proceeds.');
-  }
-
-  if (isFinancingSource(caseData)) {
-    const financingDocs = ['financing_agreement', 'investor_lender_information', 'proof_of_fund_transfer'];
-    const missingFinancing = financingDocs.filter((docId) => !acceptedOrReceived.has(docId));
-    if (missingFinancing.length) {
-      issues.push({ severity: 'high', code: 'missing_financing_evidence', message: 'Source of funds is financing but financing evidence is incomplete.' });
-      questionsForClient.push('Please provide financing agreement, investor/lender information, and proof of fund transfer showing source and movement of funds.');
-    }
-  }
-
   const businessAssessment = {
     cryptoRelated: isCryptoRelated(caseData),
     miningRelated: isMiningRelated(caseData),
