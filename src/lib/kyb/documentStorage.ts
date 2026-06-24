@@ -8,6 +8,7 @@ import {
   uploadBytesToDrive,
 } from './googleDrive';
 import type { KYCCase } from './types';
+import { STANDARD_DRIVE_TEMPLATES } from './standardDriveTemplates';
 
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
@@ -64,6 +65,40 @@ function driveAttachment(file: { id: string; name: string; mimeType?: string; si
     packageId,
     packageName,
   };
+}
+
+function mappedStandardDriveAttachments(): OpeningEmailAttachmentPackage[] {
+  const grouped = new Map<string, OpeningEmailAttachmentPackage>();
+  for (const template of STANDARD_DRIVE_TEMPLATES) {
+    const packageId = `mapped:${template.packageName}`;
+    const existing = grouped.get(packageId) || {
+      id: packageId,
+      name: template.packageName,
+      description: template.defaultSelected ? '每次开户邮件默认附件' : '按场景补充的标准附件',
+      defaultSelected: template.defaultSelected,
+      attachments: [],
+    };
+    existing.defaultSelected = existing.defaultSelected || template.defaultSelected;
+    existing.attachments.push({
+      id: `standard-drive:${template.driveFileId}`,
+      name: template.displayName,
+      objectName: `drive://${template.driveFileId}`,
+      source: 'standard',
+      packageId,
+      packageName: template.packageName,
+    });
+    grouped.set(packageId, existing);
+  }
+
+  return [...grouped.values()]
+    .map((item) => ({
+      ...item,
+      attachments: item.attachments.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => {
+      if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 export async function storeCaseDocument(caseId: string, file: File): Promise<string> {
@@ -148,43 +183,51 @@ function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseCo
 
 export async function listOpeningEmailStandardDocumentPackages(caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage[]> {
   const folderId = standardDriveFolderId();
-  if (!folderId) return [];
+  if (!folderId) return mappedStandardDriveAttachments();
 
-  const rootFiles = await listDriveFolderFiles(folderId);
-  const packages: OpeningEmailAttachmentPackage[] = [];
-  const rootPackageId = `drive-folder:${folderId}`;
-  if (rootFiles.length) {
-    packages.push({
-      id: rootPackageId,
-      name: 'KYC标准文件',
-      description: '每次开户邮件必发文件',
-      defaultSelected: true,
-      attachments: rootFiles
-        .map((file) => driveAttachment(file, rootPackageId, 'KYC标准文件'))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    });
+  try {
+    const rootFiles = await listDriveFolderFiles(folderId);
+    const packages: OpeningEmailAttachmentPackage[] = [];
+    const rootPackageId = `drive-folder:${folderId}`;
+    if (rootFiles.length) {
+      packages.push({
+        id: rootPackageId,
+        name: 'KYC标准文件',
+        description: '每次开户邮件必发文件',
+        defaultSelected: true,
+        attachments: rootFiles
+          .map((file) => driveAttachment(file, rootPackageId, 'KYC标准文件'))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    }
+
+    const subfolders = await listDriveSubfolders(folderId);
+    for (const folder of subfolders) {
+      const files = await listDriveFolderFiles(folder.id);
+      if (!files.length) continue;
+      const packageId = `drive-folder:${folder.id}`;
+      packages.push({
+        id: packageId,
+        name: folder.name,
+        description: '按地区或场景选择的开户文件夹',
+        defaultSelected: packageMatchesCase(folder.name, caseData),
+        attachments: files
+          .map((file) => driveAttachment(file, packageId, folder.name))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    }
+
+    if (packages.length) {
+      return packages.sort((a, b) => {
+        if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+  } catch {
+    // Fall back to static Drive template IDs when the configured folder is unavailable.
   }
 
-  const subfolders = await listDriveSubfolders(folderId);
-  for (const folder of subfolders) {
-    const files = await listDriveFolderFiles(folder.id);
-    if (!files.length) continue;
-    const packageId = `drive-folder:${folder.id}`;
-    packages.push({
-      id: packageId,
-      name: folder.name,
-      description: '按地区或场景选择的开户文件夹',
-      defaultSelected: packageMatchesCase(folder.name, caseData),
-      attachments: files
-        .map((file) => driveAttachment(file, packageId, folder.name))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    });
-  }
-
-  return packages.sort((a, b) => {
-    if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  return mappedStandardDriveAttachments();
 }
 
 export async function storeOpeningEmailUpload(
