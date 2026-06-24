@@ -83,12 +83,16 @@ export async function createCase(input: {
   language?: CaseLanguage;
 }): Promise<KYCCase> {
   if (isBackendEnabled()) {
-    const backend = await createBackendCase(toBackendIntake(input));
-    const mapped = backendCaseToKycCase(backend, input);
-    const cases = await listCases();
-    cases.unshift(mapped);
-    await saveCases(cases);
-    return mapped;
+    try {
+      const backend = await createBackendCase(toBackendIntake(input));
+      const mapped = backendCaseToKycCase(backend, input);
+      const cases = await listCases();
+      cases.unshift(mapped);
+      await saveCases(cases);
+      return mapped;
+    } catch (error) {
+      console.warn('Backend case creation failed; falling back to frontend case storage.', error);
+    }
   }
 
   const now = new Date().toISOString();
