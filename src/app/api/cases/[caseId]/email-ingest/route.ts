@@ -43,6 +43,11 @@ function backendStatus(error: unknown): number | null {
   return statusMatch ? Number(statusMatch[1]) : null;
 }
 
+function isBackendGmailScopeError(error: unknown): boolean {
+  const raw = error instanceof Error ? error.message : String(error || '');
+  return raw.includes('invalid_scope') || raw.includes('Google 授权缺少权限');
+}
+
 function normalize(value: string): string {
   return value.toLowerCase().replace(/\s+/g, ' ').trim();
 }
@@ -136,7 +141,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const summary = await ingestBackendEmail(caseId);
       return NextResponse.json({ mode: summary.mode, summary });
     } catch (error) {
-      if (backendStatus(error) !== 404) {
+      if (isBackendGmailScopeError(error)) {
+        console.warn('Backend Gmail ingest has invalid OAuth scope; falling back to Next.js Gmail ingest.', error);
+      } else if (backendStatus(error) !== 404) {
         const message = error instanceof Error ? error.message : 'Gmail ingest failed';
         return NextResponse.json(
           {
@@ -150,9 +157,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   }
 
   if (hasGmailConfigured()) {
-    const existingProviderIds = new Set((caseData.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
-    const gmailMessages = (await listCaseThreadGmailMessages(caseData)).filter((message) => !existingProviderIds.has(message.id));
-    let updated = caseData;
+    const startingCase = isBackendCaseId(caseId)
+      ? ((await updateCase(caseId, { checklist: generateChecklist(caseData) })) || { ...caseData, checklist: generateChecklist(caseData) })
+      : caseData;
+    const existingProviderIds = new Set((startingCase.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
+    const gmailMessages = (await listCaseThreadGmailMessages(startingCase)).filter((message) => !existingProviderIds.has(message.id));
+    let updated = startingCase;
     const importedDocuments = [];
     const importedMessages = [];
     const skippedAttachments = [];

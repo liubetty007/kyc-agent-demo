@@ -1,4 +1,5 @@
 import type { BackendCaseSummary } from './client';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import type { BusinessType, CaseLanguage, Jurisdiction, KYCCase } from '@/lib/kyb/types';
 
 const JURISDICTION_TO_COUNTRY: Record<Jurisdiction, string> = {
@@ -80,8 +81,7 @@ export function backendCaseToKycCase(
 ): KYCCase {
   const now = new Date().toISOString();
   const draft = `Subject: ${backend.email.subject}\n\n${backend.email.body_text}`;
-
-  return {
+  const caseData: KYCCase = {
     id: backend.case_id,
     companyName: input.companyName,
     contactEmail: input.contactEmail,
@@ -101,12 +101,6 @@ export function backendCaseToKycCase(
     receivedDocuments: [],
     openingEmailDraft: draft,
     driveFolderId: backend.drive_folder_id || undefined,
-    checklist: backend.selection.required_doc_types.map((docType) => ({
-      id: docType,
-      name: docType.replaceAll('_', ' '),
-      category: 'required',
-      required: true,
-      reason: backend.selection.package_name,
-    })),
   };
+  return { ...caseData, checklist: generateChecklist(caseData) };
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { BackendDocument } from '@/lib/kyc-backend/client';
 import { readResponseError } from '@/lib/http';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import type { KYCCase, ReceivedDocument } from '@/lib/kyb/types';
 
 function isBackendCaseId(caseId: string): boolean {
@@ -69,6 +70,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     received_doc_types: string[];
   } | null>(null);
   const backendMode = isBackendCaseId(caseData.id);
+  const checklistItems = backendMode ? generateChecklist(caseData) : (caseData.checklist || []);
 
   async function refreshBackend() {
     const [docsRes, checklistRes] = await Promise.all([
@@ -204,18 +206,24 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
   }
 
   const unmatchedBackendDocs = backendDocs.filter(
-    (doc) => !doc.doc_type || !(caseData.checklist || []).some((item) => item.id === doc.doc_type),
+    (doc) => !doc.doc_type || !checklistItems.some((item) => item.id === doc.doc_type),
   );
   const locallyReceivedIds = new Set(
     caseData.receivedDocuments
       .filter((doc) => doc.status === 'received' || doc.status === 'accepted')
       .map((doc) => doc.requirementId),
   );
-  const backendChecklistDisplay = backendChecklist
+  const backendChecklistDisplay = backendMode
     ? {
-      ...backendChecklist,
-      missing_required: backendChecklist.missing_required.filter((docType) => !locallyReceivedIds.has(docType)),
-      received_doc_types: Array.from(new Set([...backendChecklist.received_doc_types, ...locallyReceivedIds])),
+      received_doc_types: checklistItems
+        .filter((item) => docForRequirement(item.id)?.review.status === 'accepted' || receivedByRequirement.get(item.id)?.status === 'accepted')
+        .map((item) => item.id),
+      pending_doc_types: checklistItems
+        .filter((item) => docForRequirement(item.id)?.review.status === 'pending' || receivedByRequirement.get(item.id)?.status === 'received')
+        .map((item) => item.id),
+      missing_required: checklistItems
+        .filter((item) => item.required && !docForRequirement(item.id) && !locallyReceivedIds.has(item.id))
+        .map((item) => item.id),
     }
     : null;
 
@@ -250,10 +258,11 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
       <table className="table">
         <thead><tr><th>Document</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
-          {(caseData.checklist || []).map((requirement) => {
+          {checklistItems.map((requirement) => {
             if (backendMode) {
               const doc = docForRequirement(requirement.id);
               const localDoc = receivedByRequirement.get(requirement.id);
+              const acceptedAndLocked = localDoc?.status === 'accepted';
               return (
                 <tr key={requirement.id}>
                   <td>
@@ -278,7 +287,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                   <td>{requirement.category}</td>
                   <td>{statusBadgeBackend(doc, localDoc)}</td>
                   <td>
-                    {viewerRole !== 'client' && renderUploadButton(requirement.id, doc || localDoc ? 'Replace file' : 'Upload file')}
+                    {viewerRole !== 'client' && !acceptedAndLocked && renderUploadButton(requirement.id, doc || localDoc ? 'Replace file' : 'Upload file')}
                     {viewerRole !== 'client' && viewerRole !== 'compliance' && doc && doc.review.status === 'pending' && (
                       <>
                         <button className="button primary" disabled={loading === doc.document_id} onClick={() => reviewBackend(doc.document_id, 'accept')}>
@@ -289,6 +298,18 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                         </button>
                       </>
                     )}
+                    {viewerRole !== 'client' && viewerRole !== 'compliance' && localDoc && !acceptedAndLocked && (
+                      <>
+                        <button className="button primary" disabled={loading === localDoc.requirementId} onClick={() => reviewLocalDocument(localDoc, 'accepted')}>
+                          Accept
+                        </button>
+                        <button className="button" disabled={loading === localDoc.requirementId} onClick={() => reviewLocalDocument(localDoc, 'invalid')}>
+                          Request Revision
+                        </button>
+                      </>
+                    )}
+                    {acceptedAndLocked && <span className="small">Accepted - locked</span>}
+                    {!doc && !localDoc && <div className="small">Upload or fetch a file before Accept.</div>}
                     {doc?.storage_uri && (
                       <a
                         className="button"
