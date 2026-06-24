@@ -24,6 +24,14 @@ const BUSINESS_TAGS: Record<BusinessType, string[]> = {
   other: [],
 };
 
+function primaryContactEmail(value?: string): string {
+  return value
+    ?.split(/[\s,;]+/)
+    .map((email) => email.trim().toLowerCase())
+    .find((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    || 'client@example.com';
+}
+
 export function toBackendIntake(input: {
   companyName: string;
   contactEmail?: string;
@@ -49,7 +57,7 @@ export function toBackendIntake(input: {
     registration_country: registrationCountry,
     business_description: businessDescription,
     ubo_residence_country: registrationCountry,
-    contact_email: input.contactEmail || 'client@example.com',
+    contact_email: primaryContactEmail(input.contactEmail),
     language,
     needs_ns: needsNs,
     tags,

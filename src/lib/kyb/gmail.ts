@@ -1,4 +1,5 @@
 import type { KYCCase } from './types';
+import { customerEmails } from './mailbox';
 
 type GmailHeader = { name: string; value: string };
 
@@ -156,7 +157,8 @@ export async function getCaseGmailMessage(messageId: string): Promise<GmailMessa
 }
 
 export async function listCaseGmailMessages(caseData: KYCCase): Promise<GmailMessage[]> {
-  const sender = caseData.contactEmail ? `from:${caseData.contactEmail}` : '';
+  const primaryEmail = customerEmails(caseData)[0];
+  const sender = primaryEmail ? `from:${primaryEmail}` : '';
   const query = [
     sender,
     `("${caseData.id}" OR "${caseData.companyName}")`,
@@ -177,14 +179,15 @@ function escapeGmailQueryValue(value: string): string {
 }
 
 function caseMailboxSearchQueries(caseData: KYCCase): string[] {
+  const contacts = customerEmails(caseData);
   const queryFragments = [
     `in:anywhere newer_than:180d "${escapeGmailQueryValue(caseData.id)}"`,
-    caseData.contactEmail && caseData.companyName
-      ? `in:anywhere newer_than:180d from:${escapeGmailQueryValue(caseData.contactEmail)} subject:"${escapeGmailQueryValue(caseData.companyName)}"`
-      : '',
-    caseData.contactEmail
-      ? `in:anywhere newer_than:180d from:${escapeGmailQueryValue(caseData.contactEmail)} "${escapeGmailQueryValue(caseData.id)}"`
-      : '',
+    ...contacts.flatMap((email) => [
+      caseData.companyName
+        ? `in:anywhere newer_than:180d from:${escapeGmailQueryValue(email)} subject:"${escapeGmailQueryValue(caseData.companyName)}"`
+        : '',
+      `in:anywhere newer_than:180d from:${escapeGmailQueryValue(email)} "${escapeGmailQueryValue(caseData.id)}"`,
+    ]),
   ].filter(Boolean);
 
   return Array.from(new Set(queryFragments));

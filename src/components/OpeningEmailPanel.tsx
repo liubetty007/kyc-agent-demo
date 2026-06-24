@@ -40,6 +40,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   const [uploadedAttachments, setUploadedAttachments] = useState<OpeningAttachment[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [attachmentError, setAttachmentError] = useState('');
+  const [sendNotice, setSendNotice] = useState('');
 
   const selectedAttachments = useMemo(
     () => [...standardAttachments, ...uploadedAttachments].filter((attachment) => selectedIds.has(attachment.id)),
@@ -160,6 +161,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
     }
 
     setLoading('real-send');
+    setSendNotice('');
     await save();
     const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
       method: 'POST',
@@ -172,6 +174,11 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       return;
     }
     const updated = await response.json();
+    const sentCount = typeof updated.attachments_sent === 'number' ? updated.attachments_sent : selectedAttachments.length;
+    if (selectedAttachments.length > 0 && sentCount === 0) {
+      alert('已发送邮件，但没有附件被实际发送。请检查附件是否仍可从 Google Drive 读取。');
+    }
+    setSendNotice(`Sent to ${updated.recipients || caseData.contactEmail || 'client'} with ${sentCount} attachment(s).`);
     setSentAt(updated.openingEmailSentAt);
     setLoading(null);
   }
@@ -283,6 +290,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
             <button className="button primary" disabled={Boolean(loading)} onClick={demoSend}>{loading === 'send' ? 'Sending…' : 'Demo Send'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={realSend}>{loading === 'real-send' ? 'Sending Gmail…' : 'Send via Gmail'}</button>
             {saved && <span className="small">Saved.</span>}
+            {sendNotice && <span className="small">{sendNotice}</span>}
             {sentAt && <span className="badge accepted">Demo sent: {new Date(sentAt).toLocaleString()}</span>}
           </div>
           )}

@@ -1,4 +1,4 @@
-import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { appendMailboxMessage, customerEmail, customerEmailRecipients, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { requireApiUser } from '@/lib/auth/admin';
 import { readOpeningEmailAttachment, type OpeningEmailAttachmentRef } from '@/lib/kyb/documentStorage';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
@@ -59,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         openingEmailSentAt: new Date().toISOString(),
         mailboxMessages: appendMailboxMessage(caseData, {
           from: KYC_TEAM_EMAIL,
-          to: customerEmail(caseData),
+          to: customerEmailRecipients(caseData),
           subject: 'Antalpha Institutional Cooperation Guide and Account Opening Documents',
           body: draft,
           direction: 'outbound',
@@ -79,8 +79,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
       const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
       const attachments = await Promise.all((body.attachments || []).map((attachment) => readOpeningEmailAttachment(caseId, attachment)));
+      const recipients = customerEmailRecipients(caseData);
       const sent = await sendGmailMessage({
-        to: customerEmail(caseData),
+        to: recipients,
         subject: parsed.subject,
         body: parsed.body,
         attachments,
@@ -93,7 +94,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           providerMessageId: sent.id,
           threadId: sent.threadId,
           from: kycMailboxAddress(),
-          to: customerEmail(caseData),
+          to: recipients,
           subject: parsed.subject,
           body: parsed.body,
           direction: 'outbound',
@@ -101,7 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           attachments: attachments.map((attachment) => attachment.filename),
         }),
       });
-      return NextResponse.json(updated);
+      return NextResponse.json({ ...updated, attachments_sent: attachments.length, recipients });
     } catch (error) {
       return apiError(error, 'Gmail send failed.');
     }

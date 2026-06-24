@@ -1,4 +1,4 @@
-import { COMPLIANCE_TEAM_EMAIL, customerEmail, KYC_TEAM_EMAIL } from './mailbox';
+import { COMPLIANCE_TEAM_EMAIL, customerEmail, customerEmails, KYC_TEAM_EMAIL } from './mailbox';
 import type { KYCCase } from './types';
 
 function normalizeEmail(value: string): string {
@@ -18,6 +18,13 @@ function isKycSender(from: string): boolean {
   return Boolean(sender && email === sender);
 }
 
+function messageTargetsCustomer(caseData: KYCCase, to: string): boolean {
+  const normalizedTo = to.toLowerCase();
+  const recipients = customerEmails(caseData);
+  if (!recipients.length) return normalizedTo.includes(customerEmail(caseData).toLowerCase().split('@')[0]);
+  return recipients.some((email) => normalizedTo.includes(email) || normalizedTo.includes(email.split('@')[0]));
+}
+
 export function openingThreadId(caseData: KYCCase): string | undefined {
   const messages = caseData.mailboxMessages || [];
   const opening = [...messages]
@@ -27,7 +34,7 @@ export function openingThreadId(caseData: KYCCase): string | undefined {
         message.direction === 'outbound'
         && message.status === 'sent'
         && message.provider === 'gmail'
-        && message.to.toLowerCase().includes(customerEmail(caseData).toLowerCase().split('@')[0]),
+        && messageTargetsCustomer(caseData, message.to),
     );
   return opening?.threadId || messages.find((message) => message.threadId && message.direction === 'outbound')?.threadId;
 }
@@ -40,7 +47,7 @@ export function openingEmailSubject(caseData: KYCCase): string {
       (message) =>
         message.direction === 'outbound'
         && message.status === 'sent'
-        && message.to.toLowerCase().includes(customerEmail(caseData).toLowerCase().split('@')[0]),
+        && messageTargetsCustomer(caseData, message.to),
     );
   const subject = opening?.subject?.trim() || `KYC Account Opening – ${caseData.companyName}`;
   return /^re:/i.test(subject) ? subject : `Re: ${subject}`;

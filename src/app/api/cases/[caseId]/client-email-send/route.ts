@@ -8,7 +8,7 @@ import {
   readOpeningEmailAttachment,
 } from '@/lib/kyb/documentStorage';
 import { followUpTemplateIdsForMissingDocs } from '@/lib/kyb/followUpAttachments';
-import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { appendMailboxMessage, customerEmailRecipients, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
@@ -163,7 +163,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             providerMessageId: sent.gmail_message_id,
             threadId: sent.gmail_thread_id || threadId,
             from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-            to: customerEmail(caseData),
+            to: customerEmailRecipients(caseData),
             subject: sent.subject,
             body: parsed.body,
             direction: 'outbound',
@@ -194,7 +194,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             providerMessageId: sent.gmail_message_id,
             threadId: sent.gmail_thread_id || threadId,
             from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-            to: customerEmail(caseData),
+            to: customerEmailRecipients(caseData),
             subject: sent.subject,
             body: parsed.body,
             direction: 'outbound',
@@ -219,8 +219,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
     const templateAttachments = attachMissingTemplates ? await localFollowUpAttachments(caseId, caseData) : [];
     const attachments = [...uploadedAttachments, ...templateAttachments];
+    const recipients = customerEmailRecipients(caseData);
     const sent = await sendGmailMessage({
-      to: customerEmail(caseData),
+      to: recipients,
       subject: parsed.subject,
       body: parsed.body,
       threadId,
@@ -234,7 +235,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         providerMessageId: sent.id,
         threadId: sent.threadId || threadId,
         from: kycMailboxAddress(),
-        to: customerEmail(caseData),
+        to: recipients,
         subject: parsed.subject,
         body: parsed.body,
         direction: 'outbound',
@@ -242,7 +243,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         attachments: attachments.map((attachment) => attachment.filename),
       }),
     });
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, attachments_sent: attachments.length, recipients });
   } catch (error) {
     return apiError(error, 'Client email send failed.');
   }

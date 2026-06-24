@@ -18,7 +18,15 @@ export function roleForEmail(email?: string | null): AppRole | undefined {
 }
 
 export function canAccessCase(user: AppUser, contactEmail?: string): boolean {
-  if (user.role === 'client') return contactEmail?.toLowerCase() === user.email;
+  if (user.role === 'client') {
+    return Boolean(
+      contactEmail
+        ?.split(/[\s,;]+/)
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean)
+        .includes(user.email),
+    );
+  }
   return user.role === 'kyc' || user.role === 'admin' || user.role === 'compliance';
 }
 

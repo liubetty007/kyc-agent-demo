@@ -9,7 +9,7 @@ import {
   listThreadMessageIds,
   searchCaseMailboxThreadIds,
 } from '@/lib/kyb/gmail';
-import { appendMailboxMessage, customerEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { appendMailboxMessage, customerEmail, customerEmails, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { generateChecklist } from '@/lib/kyb/checklist';
 import { storeCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
@@ -69,8 +69,9 @@ function messageHasCaseContext(caseData: KYCCase, message: GmailMessage): boolea
 }
 
 function messageIsFromContact(caseData: KYCCase, message: GmailMessage): boolean {
-  if (!caseData.contactEmail) return true;
-  return normalizeEmail(message.from) === caseData.contactEmail.toLowerCase();
+  const emails = customerEmails(caseData);
+  if (!emails.length) return true;
+  return emails.includes(normalizeEmail(message.from));
 }
 
 function shouldImportAttachment(caseData: KYCCase, message: GmailMessage, filename: string): boolean {

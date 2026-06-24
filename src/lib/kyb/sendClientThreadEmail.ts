@@ -1,6 +1,6 @@
 import { openingEmailSubject, openingThreadId } from './caseMailThreads';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft, type GmailAttachment } from './gmail';
-import { customerEmail, KYC_TEAM_EMAIL } from './mailbox';
+import { customerEmailRecipients, KYC_TEAM_EMAIL } from './mailbox';
 import type { KYCCase } from './types';
 import { isBackendEnabled, sendBackendClientFollowUpEmail } from '@/lib/kyc-backend/client';
 
@@ -26,6 +26,7 @@ export async function sendClientThreadEmail(
 ): Promise<ClientThreadEmailSent> {
   const parsed = splitEmailDraft(draft, openingEmailSubject(caseData));
   const threadId = openingThreadId(caseData);
+  const recipients = customerEmailRecipients(caseData);
 
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
     const sent = await sendBackendClientFollowUpEmail(caseId, {
@@ -39,7 +40,7 @@ export async function sendClientThreadEmail(
       providerMessageId: sent.gmail_message_id,
       threadId: sent.gmail_thread_id || threadId,
       from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-      to: customerEmail(caseData),
+      to: recipients,
     };
   }
 
@@ -51,7 +52,7 @@ export async function sendClientThreadEmail(
   }
 
   const sent = await sendGmailMessage({
-    to: customerEmail(caseData),
+    to: recipients,
     subject: parsed.subject,
     body: parsed.body,
     threadId,
@@ -65,6 +66,6 @@ export async function sendClientThreadEmail(
     providerMessageId: sent.id,
     threadId: sent.threadId || threadId,
     from: kycMailboxAddress(),
-    to: customerEmail(caseData),
+    to: recipients,
   };
 }
