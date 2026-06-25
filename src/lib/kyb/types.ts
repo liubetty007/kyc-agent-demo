@@ -55,6 +55,14 @@ export type ComplianceDecision = {
   decidedAt: string;
 };
 
+export type ComplianceReplyAnalysis = {
+  outcome: ComplianceDecisionOutcome | 'unclear';
+  riskLevel: 'low' | 'medium' | 'high' | 'unclear';
+  summary: string;
+  evidence: string[];
+  recommendedAction: string;
+};
+
 export type ComplianceSubmitSnapshot = {
   missing_required: string[];
   missing_recommended: string[];
@@ -172,6 +180,7 @@ export type KYCCase = {
   complianceGmailThreadId?: string;
   complianceSubmittedAt?: string;
   complianceSubmitSnapshot?: ComplianceSubmitSnapshot;
+  complianceReplyAnalysis?: ComplianceReplyAnalysis;
   complianceDecisions?: ComplianceDecision[];
   mailboxMessages?: MailboxMessage[];
   driveFolderId?: string;

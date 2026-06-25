@@ -9,6 +9,16 @@ type ComplianceReplyAnalysis = {
 
 function fallbackAnalysis(caseData: KYCCase, complianceText: string): ComplianceReplyAnalysis {
   const stripped = extractNewReplyText(complianceText);
+  if (caseData.language === 'zh') {
+    const body = stripped
+      ? `尊敬的 ${caseData.companyName} 团队：\n\n感谢贵司配合本次开户审核。\n\n根据合规团队的审核反馈，后续事项如下：\n\n${stripped}\n\n如有任何疑问，请随时与我们联系。\n\n此致，\nKYC Team`
+      : `尊敬的 ${caseData.companyName} 团队：\n\n感谢贵司配合。我们会尽快就后续步骤与您跟进。\n\n此致，\nKYC Team`;
+    return {
+      summary: stripped.slice(0, 400) || complianceText.slice(0, 200),
+      client_email_body: body,
+    };
+  }
+
   const body = stripped
     ? `Dear ${caseData.companyName} Team,\n\nThank you for your cooperation with our onboarding process.\n\nFollowing our internal compliance review:\n\n${stripped}\n\nPlease let us know if you have any questions.\n\nBest regards,\nKYC Team`
     : `Dear ${caseData.companyName} Team,\n\nThank you for your cooperation. We will follow up with you shortly regarding the next steps.\n\nBest regards,\nKYC Team`;
@@ -39,6 +49,7 @@ Write ONLY a client-facing email body based on what compliance said.
 - Do NOT list what the client already submitted.
 - Do NOT list checklist items, missing documents, or agent review unless compliance explicitly mentioned them in the reply above.
 - Translate compliance feedback into clear next steps for the client.
+- Write in ${caseData.language === 'zh' ? 'Simplified Chinese' : 'English'}.
 - Professional, plain-text email body only (no Subject line).
 
 Return JSON only:

@@ -209,9 +209,54 @@ function sourceOfFundsIssues(caseData: KYCCase, requirementId: string | undefine
   return missing.map((token) => `Case source of funds mentions ${token}, but this document does not clearly mention it.`);
 }
 
+function hasReceivedDoc(caseData: KYCCase, requirementIds: string[]): boolean {
+  return caseData.receivedDocuments.some(
+    (doc) => requirementIds.includes(doc.requirementId) && (doc.status === 'received' || doc.status === 'accepted'),
+  );
+}
+
+function crossDocumentConsistencyIssues(caseData: KYCCase, requirementId: string | undefined, text: string): string[] {
+  const normalized = text.toLowerCase();
+  const issues: string[] = [];
+
+  const hasOwnershipChart =
+    requirementId === 'ownership_structure_chart'
+    || hasReceivedDoc(caseData, ['ownership_structure_chart']);
+  const hasIndividualId = hasReceivedDoc(caseData, ['passport_or_id', 'online_identity_verification']);
+  const hasAddressProof = hasReceivedDoc(caseData, ['proof_of_current_residential_address']);
+  const hasLargeShareholder =
+    caseData.individuals.some((person) => (person.ownershipPercentage || 0) >= 25)
+    || /(?:25|二十五)\s*%|(?:[3-9]\d|100)\s*%|majority shareholder|controlling shareholder|ubo|beneficial owner/i.test(text);
+
+  if (hasOwnershipChart && hasLargeShareholder && (!hasIndividualId || !hasAddressProof)) {
+    issues.push('Ownership information indicates a shareholder/UBO at or above 25%, but corresponding individual ID/identity verification and address proof are not both on file.');
+  }
+
+  const caseMining = /mining|矿|miner|hashrate|antpool|mining pool/i.test(`${caseData.businessType} ${caseData.sourceOfFunds}`);
+  const documentMining = /mining|矿|miner|hashrate|antpool|mining pool/i.test(text);
+  const documentIt = /\bit\b|software|developer|development|technology service|技术开发|软件|信息技术/i.test(text);
+  if (caseMining && requirementId === 'institution_onboarding_form' && documentIt && !documentMining) {
+    issues.push('Case is described as mining-related, but the onboarding form appears to describe IT/software development rather than mining activity.');
+  }
+  if (!caseMining && documentMining && requirementId === 'business_description') {
+    issues.push('Business proof appears to describe mining activity, but the case business type/source of funds does not clearly identify mining.');
+  }
+
+  const scaleMatch = normalized.match(/(?:usd|us\$|\$)\s?([\d,.]+)\s?(m|million|k|thousand)?|([\d,.]+)\s?(m|million|k|thousand)?\s?(?:usd|us dollars)/i);
+  const sourceText = caseData.sourceOfFunds.toLowerCase();
+  if (scaleMatch && !/financial statement|bank statement|exchange statement|revenue|income|audit|loan|financing|treasury|财务|银行|收入|贷款|融资/.test(sourceText)) {
+    issues.push('Document mentions business scale or transaction amount, but the case source-of-funds note does not provide clear supporting basis for that scale.');
+  }
+
+  return issues;
+}
+
 function buildReviewSignals(caseData: KYCCase, requirementId: string | undefined, extractedText: string, extractionMethod: string) {
   const missingFields = missingFieldLabels(requirementId, extractedText);
-  const issues = [...sourceOfFundsIssues(caseData, requirementId, extractedText)];
+  const issues = [
+    ...sourceOfFundsIssues(caseData, requirementId, extractedText),
+    ...crossDocumentConsistencyIssues(caseData, requirementId, extractedText),
+  ];
   const riskFlags: string[] = [];
 
   if (!extractedText.trim()) {
@@ -225,6 +270,9 @@ function buildReviewSignals(caseData: KYCCase, requirementId: string | undefined
   if (sourceOfFundsIssues(caseData, requirementId, extractedText).length) {
     riskFlags.push('source_of_funds_needs_reconciliation');
   }
+  if (crossDocumentConsistencyIssues(caseData, requirementId, extractedText).length) {
+    riskFlags.push('cross_document_consistency_review');
+  }
   if (extractionMethod === 'binary') riskFlags.push('unsupported_or_scanned_file');
 
   const recommendations = issues.length
@@ -237,6 +285,7 @@ function buildReviewSignals(caseData: KYCCase, requirementId: string | undefined
   const followUpPoints = [
     ...missingFields.map((field) => `Please complete ${field}.`),
     ...sourceOfFundsIssues(caseData, requirementId, extractedText).map((issue) => `Please clarify: ${issue}`),
+    ...crossDocumentConsistencyIssues(caseData, requirementId, extractedText).map((issue) => `Please clarify: ${issue}`),
   ];
 
   return {
@@ -346,7 +395,14 @@ ${JSON.stringify({
   contactEmail: input.caseData.contactEmail,
   jurisdiction: input.caseData.jurisdiction,
   businessType: input.caseData.businessType,
+  sourceOfFunds: input.caseData.sourceOfFunds,
   status: input.caseData.status,
+  individuals: input.caseData.individuals,
+  receivedDocuments: input.caseData.receivedDocuments.map((doc) => ({
+    requirementId: doc.requirementId,
+    name: doc.name,
+    status: doc.status,
+  })),
 })}
 
 Checklist options:
@@ -379,6 +435,8 @@ Rules:
 - Use the file content, not the filename alone.
 - Only pick a suggestedRequirementId from the provided checklist options.
 - Check whether required fields appear blank, whether signature/date fields look incomplete, and whether source-of-funds statements are consistent with the case source of funds.
+- Check cross-document consistency: business scale vs source-of-funds basis; ownership chart with >=25% shareholders vs missing personal ID/address/identity verification; business proof activity vs onboarding form activity; mining/crypto/financing statements vs submitted evidence.
+- If the document says one business activity but case notes or other received documents indicate another, flag the mismatch clearly.
 - Do not claim a template wording comparison passed unless the supplied text clearly supports it.
 - If the evidence is weak or ambiguous, set suggestedRequirementId to null and confidence below 0.5.
 - Never approve or reject the customer.

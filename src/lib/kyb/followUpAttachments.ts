@@ -102,7 +102,10 @@ export function followUpTemplateIdsForMissingDocs(
   );
 }
 
-export function followUpAttachmentNote(templateIds: string[]): string {
+export function followUpAttachmentNote(templateIds: string[], language: KYCCase['language'] = 'en'): string {
   if (!templateIds.length) return '';
+  if (language === 'zh') {
+    return `附件中已包含仍需填写或补交的开户模板（已 Accept 的文件类型除外）：${templateIds.join(', ')}`;
+  }
   return `Please find attached the onboarding templates still required (same as our opening email, excluding documents already accepted): ${templateIds.join(', ')}`;
 }

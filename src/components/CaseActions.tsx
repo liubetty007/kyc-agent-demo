@@ -42,11 +42,14 @@ export function CaseActions({ caseData }: { caseData: KYCCase }) {
     <div className="card">
       <div className="card-heading">
         <h2>Workflow Actions</h2>
-        <span className="small">Review and compliance tools</span>
+        <span className="small">内部辅助工具</span>
       </div>
+      <p className="small">
+        这一步不会发送邮件。`Run Agent Review` 会重新计算缺失文件、风险点和下一步建议；`Generate Compliance Pack` 会生成给合规看的案件摘要。
+      </p>
       <div className="actions">
-        <button className="button primary" disabled={Boolean(loading)} onClick={() => post('review')}>Run Agent Review</button>
-        <button className="button" disabled={Boolean(loading)} onClick={() => post('compliance-pack')}>Generate Compliance Pack</button>
+        <button className="button primary" disabled={Boolean(loading)} onClick={() => post('review')}>重新运行 KYC 初审</button>
+        <button className="button" disabled={Boolean(loading)} onClick={() => post('compliance-pack')}>生成合规摘要</button>
         {loading && <span className="small">Running {loading}…</span>}
       </div>
     </div>

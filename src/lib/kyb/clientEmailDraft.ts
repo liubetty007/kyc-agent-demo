@@ -133,6 +133,39 @@ export function buildClientFollowUpEmailDraft(caseData: KYCCase, summary: Client
     item.note ? `${item.label}: ${item.note}` : `${item.label}: please revise and resubmit`,
   );
 
+  if (caseData.language === 'zh') {
+    const bodyParts = [
+      `尊敬的 ${caseData.companyName} 团队：`,
+      '',
+      '感谢您的回复。我们已初步查看您提交的文件。',
+      '',
+      ...buildSummarySection('已收到的文件：', receivedLines),
+      ...buildSummarySection('已接受的文件：', summary.accepted),
+      ...buildSummarySection('仍需补充的文件：', summary.missing),
+      ...buildSummarySection('需修改后重新提交的文件：', revisionLines),
+      ...buildSummarySection('仍在审核中的文件：', summary.pendingReview),
+    ];
+
+    const stillNeeded = summary.missing.length + summary.needsRevision.length;
+    if (stillNeeded > 0) {
+      const templateIds = followUpTemplateIdsForMissingDocs(caseData, {
+        neededDocTypes: summary.neededDocTypes,
+        acceptedDocTypes: summary.acceptedDocTypes,
+        rejectedDocTypes: summary.rejectedDocTypes,
+      });
+      const attachmentNote = followUpAttachmentNote(templateIds, caseData.language);
+      if (attachmentNote) bodyParts.push(attachmentNote);
+      bodyParts.push('请在本邮件线程中回复并提交缺失或修订后的文件；如适用，请优先提供 PDF 版本。', '');
+    } else if (summary.pendingReview.length > 0) {
+      bodyParts.push('剩余文件审核完成后，我们会继续跟进。', '');
+    } else {
+      bodyParts.push('现阶段暂不需要进一步补充文件，我们会继续处理贵司申请。', '');
+    }
+
+    bodyParts.push('此致，', 'KYC Team');
+    return `Subject: ${subject}\n\n${bodyParts.join('\n')}`;
+  }
+
   const bodyParts = [
     `Dear ${caseData.companyName} Team,`,
     '',
@@ -152,7 +185,7 @@ export function buildClientFollowUpEmailDraft(caseData: KYCCase, summary: Client
       acceptedDocTypes: summary.acceptedDocTypes,
       rejectedDocTypes: summary.rejectedDocTypes,
     });
-    const attachmentNote = followUpAttachmentNote(templateIds);
+    const attachmentNote = followUpAttachmentNote(templateIds, caseData.language);
     if (attachmentNote) bodyParts.push(attachmentNote);
     bodyParts.push(
       'Please reply to this email thread with the missing or revised documents in PDF format where applicable.',

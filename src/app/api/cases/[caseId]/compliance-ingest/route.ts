@@ -6,6 +6,7 @@ import { ingestBackendComplianceEmail, isBackendEnabled } from '@/lib/kyc-backen
 import { complianceThreadId, latestComplianceReply } from '@/lib/kyb/caseMailThreads';
 import { statusAfterComplianceDecision } from '@/lib/kyb/complianceReview';
 import { inferComplianceOutcomeFromText, outcomeForAutomaticComplianceHandling } from '@/lib/kyb/complianceOutcome';
+import { analyzeComplianceReplyText } from '@/lib/kyb/complianceReplyAnalysis';
 import { hasGmailConfigured, listCaseGmailMessages } from '@/lib/kyb/gmail';
 import { NextResponse } from 'next/server';
 
@@ -38,9 +39,10 @@ function applyComplianceReplyStatus(caseData: Awaited<ReturnType<typeof getCase>
     inferComplianceOutcomeFromText(reply.body),
     reply.body,
   );
+  const complianceReplyAnalysis = analyzeComplianceReplyText(reply.body);
   if (caseData.status === 'approved') return {};
   if (caseData.status === 'rejected' && outcome === 'rejected') return {};
-  return { status: statusAfterComplianceDecision(outcome) };
+  return { status: statusAfterComplianceDecision(outcome), complianceReplyAnalysis };
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

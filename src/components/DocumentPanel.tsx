@@ -318,7 +318,18 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                         rel="noreferrer"
                         style={{ marginLeft: 8 }}
                       >
-                        下载
+                        Download file
+                      </a>
+                    )}
+                    {!doc && localDoc?.storageObject && (
+                      <a
+                        className="button"
+                        href={`/api/cases/${caseData.id}/documents/${localDoc.id}/download`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ marginLeft: 8 }}
+                      >
+                        Download file
                       </a>
                     )}
                   </td>
@@ -387,7 +398,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       target="_blank"
                       rel="noreferrer"
                     >
-                      下载
+                      Download file
                     </a>
                   )}
                 </td>

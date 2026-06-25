@@ -54,14 +54,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       }
 
       const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
+      const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
       const updated = await updateCase(caseId, {
         openingEmailDraft: draft,
         openingEmailSentAt: new Date().toISOString(),
         mailboxMessages: appendMailboxMessage(caseData, {
           from: KYC_TEAM_EMAIL,
           to: customerEmailRecipients(caseData),
-          subject: 'Antalpha Institutional Cooperation Guide and Account Opening Documents',
-          body: draft,
+          subject: parsed.subject,
+          body: parsed.body,
           direction: 'outbound',
           status: 'sent',
           attachments: ['Antalpha Institutional Cooperation Guide_XXX.pdf'],

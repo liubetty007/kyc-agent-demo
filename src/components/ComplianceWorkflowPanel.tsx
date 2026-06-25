@@ -5,6 +5,7 @@ import { readResponseError } from '@/lib/http';
 import { complianceReplyMessages, openingEmailSubject } from '@/lib/kyb/caseMailThreads';
 import { extractNewReplyText } from '@/lib/kyb/complianceReplyText';
 import { canSubmitCaseToCompliance } from '@/lib/kyb/complianceSubmit';
+import { COMPLIANCE_OUTCOME_LABELS } from '@/lib/kyb/complianceReview';
 import type { ClientEmailAttachmentRef } from '@/lib/kyb/documentStorage';
 import { splitEmailDraft } from '@/lib/kyb/gmail';
 import { defaultComplianceEmail } from '@/lib/kyb/mailbox';
@@ -13,6 +14,13 @@ import type { KYCCase } from '@/lib/kyb/types';
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
 }
+
+const RISK_LABELS = {
+  low: '低风险',
+  medium: '中风险',
+  high: '高风险',
+  unclear: '待人工判断',
+} as const;
 
 async function loadAcceptedAttachmentNames(caseId: string, caseData: KYCCase): Promise<string[]> {
   if (isBackendCaseId(caseId)) {
@@ -297,6 +305,19 @@ export function ComplianceWorkflowPanel({
                 </button>
               )}
             </div>
+            {caseData.complianceReplyAnalysis && (
+              <div className="compliance-reply-result">
+                <span className="badge accepted">
+                  结果：{caseData.complianceReplyAnalysis.outcome === 'unclear'
+                    ? '待人工判断'
+                    : COMPLIANCE_OUTCOME_LABELS[caseData.complianceReplyAnalysis.outcome]}
+                </span>
+                <span className={`badge ${caseData.complianceReplyAnalysis.riskLevel === 'high' ? 'prohibited' : caseData.complianceReplyAnalysis.riskLevel === 'low' ? 'accepted' : 'medium'}`}>
+                  风险：{RISK_LABELS[caseData.complianceReplyAnalysis.riskLevel]}
+                </span>
+                <p className="small">{caseData.complianceReplyAnalysis.recommendedAction}</p>
+              </div>
+            )}
             {replies.length ? (
               replies.map((message) => (
                 <article key={message.id} className="compliance-reply-block">

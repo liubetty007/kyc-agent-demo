@@ -34,7 +34,7 @@ export type OpeningEmailAttachmentPackage = {
   attachments: OpeningEmailAttachmentRef[];
 };
 
-type StandardPackageCaseContext = Pick<KYCCase, 'jurisdiction' | 'businessType'>;
+type StandardPackageCaseContext = Pick<KYCCase, 'jurisdiction' | 'businessType' | 'needsNsBusiness'>;
 
 function bucket() {
   const name = process.env.KYC_DOCUMENT_BUCKET;
@@ -170,6 +170,9 @@ function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseCo
   const normalized = normalizePackageName(folderName);
   if (['generic', 'general', 'common', 'universal'].includes(normalized) || folderName.includes('通用')) return true;
   if (!caseData) return false;
+  if (caseData.needsNsBusiness && (/\bns\b/i.test(folderName) || normalized.includes('northstar') || folderName.includes('北星'))) {
+    return true;
+  }
 
   const jurisdiction = normalizePackageName(caseData.jurisdiction);
   const aliases: Record<string, string[]> = {
