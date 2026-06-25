@@ -58,8 +58,8 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
         <span className="small">LLM review for checklist files</span>
       </div>
       <p>
-        Analyze files already received in the checklist. Document Type Match only identifies which checklist item the file looks like;
-        issues and missing fields show whether the file is complete.
+        Analyze files already received in the checklist. Template percentage is shown only for NDA and Board Resolution,
+        where the submitted file should be compared with the standard template. Other files are reviewed for completeness and consistency.
       </p>
 
       <div className="document-toolbar">
@@ -90,7 +90,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
             <tr>
               <th>File</th>
               <th>Match</th>
-              <th>Document Type Match</th>
+              <th>Template Check</th>
               <th>Review Feedback</th>
             </tr>
           </thead>
@@ -106,14 +106,24 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
                   {analysis.suggestedRequirementId && <div className="small">{analysis.suggestedRequirementId}</div>}
                 </td>
                 <td>
-                  <span className={`badge ${analysis.confidence >= 0.8 ? 'accepted' : analysis.confidence >= 0.5 ? 'medium' : 'prohibited'}`}>
-                    {formatConfidence(analysis.confidence)}
-                  </span>
-                  <div className="small">Type match only</div>
+                  {analysis.templateMatchApplicable && typeof analysis.templateMatchScore === 'number' ? (
+                    <>
+                      <span className={`badge ${analysis.templateMatchScore >= 0.8 ? 'accepted' : analysis.templateMatchScore >= 0.5 ? 'medium' : 'prohibited'}`}>
+                        {formatConfidence(analysis.templateMatchScore)}
+                      </span>
+                      <div className="small">Template consistency</div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="small">Not applicable</span>
+                      <div className="small">No template percentage for this document type</div>
+                    </>
+                  )}
                   {analysis.severity && <div className="small">Issue Severity: {analysis.severity}</div>}
                 </td>
                 <td>
                   <div>{analysis.summary}</div>
+                  {analysis.templateMatchSummary && <div className="small">{analysis.templateMatchSummary}</div>}
                   <AnalysisList title="Missing / incomplete fields" items={analysis.missingFields} />
                   <AnalysisList title="Issues" items={analysis.issues} />
                   <AnalysisList title="Recommendations" items={analysis.recommendations} />

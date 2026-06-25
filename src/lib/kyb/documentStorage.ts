@@ -6,6 +6,7 @@ import {
   readBytesFromDrive,
   readMetadataFromDrive,
   uploadBytesToDrive,
+  type DriveFileSummary,
 } from './googleDrive';
 import type { KYCCase } from './types';
 import { STANDARD_DRIVE_TEMPLATES } from './standardDriveTemplates';
@@ -13,7 +14,7 @@ import { STANDARD_DRIVE_TEMPLATES } from './standardDriveTemplates';
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
 const OPENING_DOCS_PREFIXES = Array.from(new Set([OPENING_DOCS_PREFIX, 'kyc_agent_documents/', '-kyc_agent_documents/']));
-const DEFAULT_STANDARD_DRIVE_FOLDER_ID = '1qkTqTWmMHO0febfYkFx4K-mmly5KPHcV';
+const DEFAULT_STANDARD_DRIVE_FOLDER_ID = '1xhrFtBtxFGzlT3Q4l0yiLsnYU6pFHzhT';
 
 export type OpeningEmailAttachmentRef = {
   id: string;
@@ -166,9 +167,22 @@ function normalizePackageName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function isStandardPackageName(folderName: string): boolean {
+  const normalized = normalizePackageName(folderName);
+  return (
+    ['canonical templates', 'kyc standard documents', 'standard documents', 'standard files'].includes(normalized)
+    || folderName.includes('标准')
+    || folderName.includes('標準')
+  );
+}
+
 function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseContext): boolean {
   const normalized = normalizePackageName(folderName);
-  if (['generic', 'general', 'common', 'universal'].includes(normalized) || folderName.includes('通用')) return true;
+  if (
+    isStandardPackageName(folderName)
+    || ['generic', 'general', 'common', 'universal'].includes(normalized)
+    || folderName.includes('通用')
+  ) return true;
   if (!caseData) return false;
   if (caseData.needsNsBusiness && (/\bns\b/i.test(folderName) || normalized.includes('northstar') || folderName.includes('北星'))) {
     return true;
@@ -184,12 +198,27 @@ function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseCo
   return candidates.some((candidate) => normalized === normalizePackageName(candidate) || folderName.includes(candidate));
 }
 
+async function packageFromFolder(folder: DriveFileSummary, caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage | null> {
+  const files = await listDriveFolderFiles(folder.id);
+  if (!files.length) return null;
+  const packageId = `drive-folder:${folder.id}`;
+  return {
+    id: packageId,
+    name: folder.name,
+    description: isStandardPackageName(folder.name) ? '每次开户邮件必发标准文件' : '按地区或场景选择的开户文件夹',
+    defaultSelected: packageMatchesCase(folder.name, caseData),
+    attachments: files
+      .map((file) => driveAttachment(file, packageId, folder.name))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
 export async function listOpeningEmailStandardDocumentPackages(caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage[]> {
   const folderId = standardDriveFolderId();
   if (!folderId) return mappedStandardDriveAttachments();
 
   try {
-    const rootFiles = await listDriveFolderFiles(folderId);
+    const rootFiles = (await listDriveFolderFiles(folderId)).filter((file) => file.name.toLowerCase() !== 'manifest.json');
     const packages: OpeningEmailAttachmentPackage[] = [];
     const rootPackageId = `drive-folder:${folderId}`;
     if (rootFiles.length) {
@@ -206,18 +235,14 @@ export async function listOpeningEmailStandardDocumentPackages(caseData?: Standa
 
     const subfolders = await listDriveSubfolders(folderId);
     for (const folder of subfolders) {
-      const files = await listDriveFolderFiles(folder.id);
-      if (!files.length) continue;
-      const packageId = `drive-folder:${folder.id}`;
-      packages.push({
-        id: packageId,
-        name: folder.name,
-        description: '按地区或场景选择的开户文件夹',
-        defaultSelected: packageMatchesCase(folder.name, caseData),
-        attachments: files
-          .map((file) => driveAttachment(file, packageId, folder.name))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      });
+      const directPackage = await packageFromFolder(folder, caseData);
+      if (directPackage) packages.push(directPackage);
+
+      const nestedFolders = await listDriveSubfolders(folder.id);
+      for (const nestedFolder of nestedFolders) {
+        const nestedPackage = await packageFromFolder(nestedFolder, caseData);
+        if (nestedPackage) packages.push(nestedPackage);
+      }
     }
 
     if (packages.length) {

@@ -17,6 +17,9 @@ export type DocumentAnalysis = {
   suggestedRequirementId?: string;
   suggestedRequirementName?: string;
   confidence: number;
+  templateMatchApplicable?: boolean;
+  templateMatchScore?: number;
+  templateMatchSummary?: string;
   keyPoints: string[];
   riskFlags: string[];
   missingFields: string[];
@@ -135,6 +138,25 @@ function scoreChecklistMatch(options: ChecklistOption[], filename: string, extra
   if (best.score >= 5) return { item: best.item, confidence: 0.82 };
   if (best.score >= 3) return { item: best.item, confidence: 0.68 };
   return { item: best.item, confidence: 0.52 };
+}
+
+function isTemplateControlled(requirementId?: string): boolean {
+  return requirementId === 'board_resolution' || requirementId === 'mutual_nda' || requirementId === 'nda_mutual_confidentiality_agreement';
+}
+
+function scoreTemplateConsistency(requirementId: string | undefined, extractedText: string): { applicable: boolean; score?: number; summary?: string } {
+  if (!isTemplateControlled(requirementId)) return { applicable: false };
+  const normalized = extractedText.toLowerCase();
+  const expectedPhrases = requirementId === 'board_resolution'
+    ? ['board resolution', 'resolved', 'authorized', 'open and maintain', 'director']
+    : ['mutual', 'non-disclosure', 'confidential', 'recipient', 'disclosing party'];
+  const hits = expectedPhrases.filter((phrase) => normalized.includes(phrase)).length;
+  const blanks = (extractedText.match(/_{3,}|\[\s*\]|fill in|填写|待填写/gi) || []).length;
+  const score = Math.max(0.35, Math.min(0.98, hits / expectedPhrases.length - Math.min(blanks, 4) * 0.04 + 0.18));
+  const summary = hits >= Math.ceil(expectedPhrases.length * 0.7)
+    ? 'Template wording appears broadly consistent. KYC should still confirm no protected clauses were edited.'
+    : 'Template wording may have been changed or key protected wording is missing. Manual comparison with the standard template is required.';
+  return { applicable: true, score, summary };
 }
 
 const REQUIRED_FIELD_HINTS: Record<string, Array<{ label: string; patterns: RegExp[] }>> = {
@@ -308,6 +330,7 @@ function fallbackAnalysis(
   const match = scoreChecklistMatch(options, filename, extractedText);
 
   const signals = buildReviewSignals(caseData, match.item?.id, extractedText, extractionMethod);
+  const templateMatch = scoreTemplateConsistency(match.item?.id, extractedText);
   const keyPoints = extractedText
     ? [
         extractedText.slice(0, 140),
@@ -325,6 +348,9 @@ function fallbackAnalysis(
     suggestedRequirementId: match.item?.id,
     suggestedRequirementName: match.item?.name,
     confidence: match.confidence,
+    templateMatchApplicable: templateMatch.applicable,
+    templateMatchScore: templateMatch.score,
+    templateMatchSummary: templateMatch.summary,
     keyPoints,
     riskFlags: Array.from(new Set([...(extractedText ? ['manual_review_recommended'] : []), ...signals.riskFlags])),
     missingFields: signals.missingFields,
@@ -354,6 +380,9 @@ function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: Docu
     suggestedRequirementId: fallback.suggestedRequirementId,
     suggestedRequirementName: fallback.suggestedRequirementName,
     confidence: fallback.confidence,
+    templateMatchApplicable: fallback.templateMatchApplicable,
+    templateMatchScore: fallback.templateMatchScore,
+    templateMatchSummary: fallback.templateMatchSummary,
     keyPoints: fallback.keyPoints,
     riskFlags: fallback.riskFlags,
     missingFields: fallback.missingFields,
