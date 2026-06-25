@@ -35,10 +35,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         received_doc_types: checklist.received_doc_types,
       };
     } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to load checklist.' },
-        { status: 502 },
-      );
+      console.warn('Backend compliance checklist unavailable; falling back to local case data.', error);
+      checklistSnapshot = localChecklistSnapshot(caseData);
     }
   } else {
     checklistSnapshot = localChecklistSnapshot(caseData);
@@ -46,10 +44,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const review = caseData.review || runReview(caseData);
   const compliancePack = caseData.compliancePack || generateCompliancePack(caseData, review);
-  const attachmentNames =
-    isBackendEnabled() && isBackendCaseId(caseId)
-      ? await backendAcceptedDocumentNames(caseId)
-      : acceptedDocumentNames(caseData);
+  let attachmentNames = acceptedDocumentNames(caseData);
+  if (isBackendEnabled() && isBackendCaseId(caseId)) {
+    try {
+      attachmentNames = await backendAcceptedDocumentNames(caseId);
+    } catch (error) {
+      console.warn('Backend accepted document list unavailable; falling back to local case data.', error);
+    }
+  }
   const complianceEmailTo = caseData.complianceEmailTo || defaultComplianceEmail(caseData);
   const complianceEmailDraft = caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, complianceEmailTo);
   const submittedAt = new Date().toISOString();

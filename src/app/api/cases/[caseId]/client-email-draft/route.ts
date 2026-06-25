@@ -29,10 +29,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       ]);
       summary = buildClientFollowUpSummaryFromBackend(checklist, documents);
     } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to load checklist.' },
-        { status: 502 },
-      );
+      console.warn('Backend follow-up summary unavailable; falling back to local case data.', error);
+      summary = buildClientFollowUpSummaryFromLocal(caseData);
     }
   } else {
     summary = buildClientFollowUpSummaryFromLocal(caseData);

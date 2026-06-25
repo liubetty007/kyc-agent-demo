@@ -30,6 +30,10 @@ export function CaseActions({ caseData }: { caseData: KYCCase }) {
         setLoading(null);
         return;
       }
+    } else if (action === 'review') {
+      alert('Agent Review 已完成，页面将刷新。');
+    } else if (action === 'compliance-pack') {
+      alert('Compliance Pack 已生成，页面将刷新。');
     }
     window.location.reload();
   }

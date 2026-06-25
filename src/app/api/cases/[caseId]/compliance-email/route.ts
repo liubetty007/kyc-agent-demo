@@ -1,6 +1,6 @@
 import { generateComplianceEmail } from '@/lib/kyb/complianceEmail';
 import { requireApiUser } from '@/lib/auth/admin';
-import { acceptedDocumentNames, backendAcceptedDocumentNames, loadAcceptedDocumentAttachments } from '@/lib/kyb/complianceAttachments';
+import { acceptedDocumentNames, backendAcceptedDocumentNames, loadAcceptedDocumentsZipAttachment } from '@/lib/kyb/complianceAttachments';
 import { appendMailboxMessage, defaultComplianceEmail, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { runReview } from '@/lib/kyb/review';
@@ -15,7 +15,11 @@ function isBackendCaseId(caseId: string): boolean {
 async function resolveAttachmentNames(caseId: string, caseData: Awaited<ReturnType<typeof getCase>>) {
   if (!caseData) return [];
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
-    return backendAcceptedDocumentNames(caseId);
+    try {
+      return await backendAcceptedDocumentNames(caseId);
+    } catch (error) {
+      console.warn('Backend accepted document list unavailable; falling back to local case data.', error);
+    }
   }
   return acceptedDocumentNames(caseData);
 }
@@ -81,39 +85,44 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (body.action === 'send_real') {
     try {
       if (isBackendEnabled() && isBackendCaseId(caseId)) {
-        const sent = await sendBackendComplianceEmail(caseId, {
-          to_email: toEmail,
-          subject: parsed.subject,
-          body_text: parsed.body,
-        });
-        const updated = await updateCase(caseId, {
-          review,
-          complianceEmailDraft: draft,
-          complianceEmailTo: toEmail,
-          complianceEmailSentAt: new Date().toISOString(),
-          complianceGmailThreadId: sent.gmail_thread_id,
-          status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
-          mailboxMessages: appendMailboxMessage(caseData, {
-            provider: 'gmail',
-            providerMessageId: sent.gmail_message_id,
-            threadId: sent.gmail_thread_id,
-            from: kycMailboxAddress() || KYC_TEAM_EMAIL,
-            to: toEmail,
-            subject: sent.subject,
-            body: parsed.body,
-            direction: 'outbound',
-            status: 'sent',
-            attachments: attachmentNames,
-          }),
-        });
-        return NextResponse.json({ ...updated, attachments_sent: sent.attachments_sent });
+        try {
+          const sent = await sendBackendComplianceEmail(caseId, {
+            to_email: toEmail,
+            subject: parsed.subject,
+            body_text: parsed.body,
+          });
+          const updated = await updateCase(caseId, {
+            review,
+            complianceEmailDraft: draft,
+            complianceEmailTo: toEmail,
+            complianceEmailSentAt: new Date().toISOString(),
+            complianceGmailThreadId: sent.gmail_thread_id,
+            status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
+            mailboxMessages: appendMailboxMessage(caseData, {
+              provider: 'gmail',
+              providerMessageId: sent.gmail_message_id,
+              threadId: sent.gmail_thread_id,
+              from: kycMailboxAddress() || KYC_TEAM_EMAIL,
+              to: toEmail,
+              subject: sent.subject,
+              body: parsed.body,
+              direction: 'outbound',
+              status: 'sent',
+              attachments: attachmentNames,
+            }),
+          });
+          return NextResponse.json({ ...updated, attachments_sent: sent.attachments_sent });
+        } catch (error) {
+          console.warn('Backend compliance email send unavailable; falling back to local Gmail sender.', error);
+        }
       }
 
       if (!hasGmailConfigured()) {
         return NextResponse.json({ error: 'Gmail is not configured.' }, { status: 503 });
       }
 
-      const attachments = await loadAcceptedDocumentAttachments(caseData);
+      const zipAttachment = await loadAcceptedDocumentsZipAttachment(caseData);
+      const attachments = zipAttachment ? [zipAttachment] : [];
       const sent = await sendGmailMessage({
         to: toEmail,
         subject: parsed.subject,
