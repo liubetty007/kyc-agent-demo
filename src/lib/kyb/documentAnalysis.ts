@@ -34,6 +34,11 @@ type ChecklistOption = {
   required: boolean;
 };
 
+type ChecklistMatch = {
+  item?: ChecklistOption;
+  confidence: number;
+};
+
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
@@ -100,6 +105,36 @@ function checklistOptions(caseData: KYCCase): ChecklistOption[] {
     category: item.category,
     required: item.required,
   }));
+}
+
+function scoreChecklistMatch(options: ChecklistOption[], filename: string, extractedText: string): ChecklistMatch {
+  const haystack = `${filename}\n${extractedText}`.toLowerCase();
+  const best = options
+    .map((item) => {
+      let score = 0;
+      const normalizedId = item.id.replaceAll('_', ' ');
+      const normalizedName = item.name.toLowerCase();
+      if (haystack.includes(normalizedName)) score += 6;
+      if (haystack.includes(normalizedId)) score += 5;
+      if (haystack.includes(item.category.toLowerCase())) score += 1;
+      const tokens = [item.id, item.name, item.category]
+        .join(' ')
+        .toLowerCase()
+        .replace(/[_/()-]+/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token.length > 3);
+      score += tokens.reduce((count, token) => count + (haystack.includes(token) ? 1 : 0), 0);
+      return { item, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)[0];
+
+  if (!extractedText.trim()) return { confidence: 0.18 };
+  if (!best) return { confidence: 0.28 };
+  if (best.score >= 8) return { item: best.item, confidence: 0.95 };
+  if (best.score >= 5) return { item: best.item, confidence: 0.82 };
+  if (best.score >= 3) return { item: best.item, confidence: 0.68 };
+  return { item: best.item, confidence: 0.52 };
 }
 
 const REQUIRED_FIELD_HINTS: Record<string, Array<{ label: string; patterns: RegExp[] }>> = {
@@ -220,27 +255,10 @@ function fallbackAnalysis(
   extractedText: string,
   extractionMethod: string,
 ): DocumentAnalysis {
-  const haystack = `${filename}\n${extractedText}`.toLowerCase();
   const options = checklistOptions(caseData);
-  const match = options
-    .map((item) => {
-      let score = 0;
-      if (haystack.includes(item.name.toLowerCase())) score += 4;
-      if (haystack.includes(item.id.replaceAll('_', ' '))) score += 4;
-      if (haystack.includes(item.category.toLowerCase())) score += 1;
-    const tokens = [item.id, item.name, item.category]
-      .join(' ')
-      .toLowerCase()
-      .replace(/[_/()-]+/g, ' ')
-      .split(/\s+/)
-      .filter((token) => token.length > 3);
-      score += tokens.reduce((count, token) => count + (haystack.includes(token) ? 1 : 0), 0);
-      return { item, score };
-    })
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)[0]?.item;
+  const match = scoreChecklistMatch(options, filename, extractedText);
 
-  const signals = buildReviewSignals(caseData, match?.id, extractedText, extractionMethod);
+  const signals = buildReviewSignals(caseData, match.item?.id, extractedText, extractionMethod);
   const keyPoints = extractedText
     ? [
         extractedText.slice(0, 140),
@@ -253,11 +271,11 @@ function fallbackAnalysis(
     extractionMethod,
     extractedTextPreview: previewText(extractedText),
     summary: extractedText
-      ? `File content looks closest to ${match?.name || 'an unmatched checklist item'}.`
+      ? `File content looks closest to ${match.item?.name || 'an unmatched checklist item'}.`
       : 'Unable to extract meaningful text from the file. Please review manually.',
-    suggestedRequirementId: match?.id,
-    suggestedRequirementName: match?.name,
-    confidence: extractedText ? (match ? 0.62 : 0.28) : 0.18,
+    suggestedRequirementId: match.item?.id,
+    suggestedRequirementName: match.item?.name,
+    confidence: match.confidence,
     keyPoints,
     riskFlags: Array.from(new Set([...(extractedText ? ['manual_review_recommended'] : []), ...signals.riskFlags])),
     missingFields: signals.missingFields,
@@ -269,24 +287,10 @@ function fallbackAnalysis(
   };
 }
 
-function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: DocumentAnalysis, options: ChecklistOption[]): DocumentAnalysis {
-  const confidence = typeof candidate.confidence === 'number' ? Math.max(0, Math.min(1, candidate.confidence)) : fallback.confidence;
-  const candidateRequirementId = typeof candidate.suggestedRequirementId === 'string' && candidate.suggestedRequirementId.trim()
-    ? candidate.suggestedRequirementId.trim()
-    : undefined;
-  const candidateOption = candidateRequirementId ? options.find((option) => option.id === candidateRequirementId) : undefined;
-  const candidateName = candidate.suggestedRequirementName?.trim();
-  const candidateNameMatchesId = Boolean(
-    candidateOption
-    && (!candidateName
-      || normalizeText(candidateName).toLowerCase().includes(normalizeText(candidateOption.name).toLowerCase())
-      || normalizeText(candidateOption.name).toLowerCase().includes(normalizeText(candidateName).toLowerCase())),
-  );
-  const suggestedRequirementId = candidateNameMatchesId ? candidateOption?.id : fallback.suggestedRequirementId;
-  const suggestedRequirementName = candidateNameMatchesId ? candidateOption?.name : fallback.suggestedRequirementName;
-  const issues = mergeSignals(candidate.issues, fallback.issues, 12);
-  const recommendations = mergeSignals(candidate.recommendations, fallback.recommendations, 8)
-    .filter((item) => !/no action required/i.test(item));
+function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: DocumentAnalysis): DocumentAnalysis {
+  const issues = fallback.issues;
+  const recommendations = fallback.recommendations
+    .filter((item) => !/no action (?:required|needed)/i.test(item));
   if (issues.length && !recommendations.some((item) => /review|resubmit|clarify|follow/i.test(item))) {
     recommendations.unshift('KYC team should review the highlighted issues before accepting this document.');
   }
@@ -297,29 +301,19 @@ function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: Docu
     storageObject: candidate.storageObject || fallback.storageObject,
     extractionMethod: candidate.extractionMethod || fallback.extractionMethod,
     extractedTextPreview: candidate.extractedTextPreview || fallback.extractedTextPreview,
-    summary: candidate.summary || fallback.summary,
-    suggestedRequirementId,
-    suggestedRequirementName,
-    confidence,
-    keyPoints: Array.isArray(candidate.keyPoints) ? candidate.keyPoints.slice(0, 8) : fallback.keyPoints,
-    riskFlags: mergeSignals(candidate.riskFlags, fallback.riskFlags, 8),
-    missingFields: mergeSignals(candidate.missingFields, fallback.missingFields, 12),
+    summary: fallback.summary,
+    suggestedRequirementId: fallback.suggestedRequirementId,
+    suggestedRequirementName: fallback.suggestedRequirementName,
+    confidence: fallback.confidence,
+    keyPoints: fallback.keyPoints,
+    riskFlags: fallback.riskFlags,
+    missingFields: fallback.missingFields,
     issues,
     recommendations,
-    followUpPoints: mergeSignals(candidate.followUpPoints, fallback.followUpPoints, 8),
-    severity: candidate.severity || fallback.severity,
+    followUpPoints: fallback.followUpPoints,
+    severity: fallback.severity,
     requiresHumanReview: true,
   };
-}
-
-function mergeSignals(candidate: unknown, fallback: string[], limit: number): string[] {
-  const values = [
-    ...(Array.isArray(candidate) ? candidate : []),
-    ...fallback,
-  ]
-    .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
-    .map((item) => item.trim());
-  return Array.from(new Set(values)).slice(0, limit);
 }
 
 export async function analyzeCaseDocument(input: {
@@ -408,7 +402,6 @@ Rules:
       extractionMethod: extracted.method,
       extractedTextPreview: previewText(extracted.text),
     },
-    options,
   );
 }
 

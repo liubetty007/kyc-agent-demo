@@ -87,7 +87,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
             <tr>
               <th>File</th>
               <th>Match</th>
-              <th>Confidence</th>
+              <th>Match Confidence</th>
               <th>Review Feedback</th>
             </tr>
           </thead>
@@ -106,7 +106,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
                   <span className={`badge ${analysis.confidence >= 0.8 ? 'accepted' : analysis.confidence >= 0.5 ? 'medium' : 'prohibited'}`}>
                     {formatConfidence(analysis.confidence)}
                   </span>
-                  {analysis.severity && <div className="small">Severity: {analysis.severity}</div>}
+                  {analysis.severity && <div className="small">Issue Severity: {analysis.severity}</div>}
                 </td>
                 <td>
                   <div>{analysis.summary}</div>
