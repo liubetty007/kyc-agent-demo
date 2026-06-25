@@ -57,7 +57,10 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
         <h2>Analyze</h2>
         <span className="small">LLM review for checklist files</span>
       </div>
-      <p>Analyze files already received in the checklist. No extra upload step is needed here.</p>
+      <p>
+        Analyze files already received in the checklist. Document Type Match only identifies which checklist item the file looks like;
+        issues and missing fields show whether the file is complete.
+      </p>
 
       <div className="document-toolbar">
         <button className="button primary" type="button" disabled={loading || !checklistFiles.length} onClick={analyzeChecklistFiles}>
@@ -87,7 +90,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
             <tr>
               <th>File</th>
               <th>Match</th>
-              <th>Match Confidence</th>
+              <th>Document Type Match</th>
               <th>Review Feedback</th>
             </tr>
           </thead>
@@ -106,6 +109,7 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
                   <span className={`badge ${analysis.confidence >= 0.8 ? 'accepted' : analysis.confidence >= 0.5 ? 'medium' : 'prohibited'}`}>
                     {formatConfidence(analysis.confidence)}
                   </span>
+                  <div className="small">Type match only</div>
                   {analysis.severity && <div className="small">Issue Severity: {analysis.severity}</div>}
                 </td>
                 <td>
