@@ -11,8 +11,8 @@ const ROLE_BY_EMAIL: Record<string, AppRole> = {
   'liubetty007@gmail.com': 'admin',
   'liuy00066@gmail.com': 'admin',
   'alenw0620@gmail.com': 'admin',
-  'aaron.pang@antalpha.com': 'admin',
   'kexin.li@antalpha.com': 'admin',
+  'aaron.pang@antalpha.com': 'admin',
 };
 
 export function roleForEmail(email?: string | null): AppRole | undefined {

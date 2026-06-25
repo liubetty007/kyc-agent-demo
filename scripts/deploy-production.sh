@@ -10,7 +10,7 @@ REGION="${REGION:-asia-east2}"
 SERVICE="${SERVICE:-kyc-agent-frontend}"
 BUCKET="${BUCKET:-kyc-agent-docs-767566934621}"
 DEFAULT_PASSWORD="${KYC_DEFAULT_PASSWORD:-1234}"
-AUTH_USERS="${KYC_AUTH_USERS:-alenw0620@gmail.com,liubetty007@gmail.com}"
+AUTH_USERS="${KYC_AUTH_USERS:-alenw0620@gmail.com,liubetty007@gmail.com,kexin.li@antalpha.com,aaron.pang@antalpha.com}"
 SESSION_SECRET="${KYC_SESSION_SECRET:-$(openssl rand -base64 32)}"
 
 IFS=',' read -r -a USER_ARRAY <<< "$AUTH_USERS"
@@ -50,6 +50,9 @@ if ! gcloud storage buckets describe "gs://${BUCKET}" >/dev/null 2>&1; then
     --public-access-prevention
 fi
 
+GMAIL_SENDER_EMAIL="${GMAIL_SENDER_EMAIL:-alenw0620@gmail.com}"
+KYC_TEAM_EMAIL="${KYC_TEAM_EMAIL:-$GMAIL_SENDER_EMAIL}"
+
 echo "==> Deploying Cloud Run service..."
 ENV_FILE="$(mktemp)"
 cat >"$ENV_FILE" <<EOF
@@ -57,6 +60,8 @@ GOOGLE_CLOUD_PROJECT: ${PROJECT_ID}
 KYC_DOCUMENT_BUCKET: ${BUCKET}
 KYC_SESSION_SECRET: ${SESSION_SECRET}
 KYC_AUTH_PASSWORDS: ${AUTH_PASSWORDS}
+GMAIL_SENDER_EMAIL: ${GMAIL_SENDER_EMAIL}
+KYC_TEAM_EMAIL: ${KYC_TEAM_EMAIL}
 NODE_ENV: production
 EOF
 
