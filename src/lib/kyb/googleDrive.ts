@@ -24,6 +24,10 @@ function oauthRefreshToken(): string {
 }
 
 async function googleAccessToken(): Promise<string> {
+  if (!oauthClientId() || !oauthClientSecret() || !oauthRefreshToken()) {
+    throw new Error('Google OAuth is not configured. Please set Gmail/Drive OAuth credentials.');
+  }
+
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -35,7 +39,9 @@ async function googleAccessToken(): Promise<string> {
     }),
   });
   if (!response.ok) {
-    throw new Error(`Google OAuth failed: ${response.status}`);
+    const body = await response.json().catch(() => null) as { error?: string; error_description?: string } | null;
+    const reason = [body?.error, body?.error_description].filter(Boolean).join(': ');
+    throw new Error(`Google OAuth failed (${response.status})${reason ? `: ${reason}` : ''}`);
   }
   const body = await response.json() as { access_token?: string };
   if (!body.access_token) throw new Error('Google OAuth did not return an access token.');

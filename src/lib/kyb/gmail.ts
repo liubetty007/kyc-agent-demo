@@ -65,6 +65,10 @@ function decodeBase64UrlBuffer(input?: string): Buffer {
 }
 
 async function gmailAccessToken(): Promise<string> {
+  if (!process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_CLIENT_SECRET || !process.env.GMAIL_REFRESH_TOKEN) {
+    throw new Error('Gmail OAuth is not configured. Please set Gmail OAuth credentials.');
+  }
+
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -75,7 +79,11 @@ async function gmailAccessToken(): Promise<string> {
       grant_type: 'refresh_token',
     }),
   });
-  if (!response.ok) throw new Error(`Gmail OAuth failed: ${response.status}`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string; error_description?: string } | null;
+    const reason = [body?.error, body?.error_description].filter(Boolean).join(': ');
+    throw new Error(`Gmail OAuth failed (${response.status})${reason ? `: ${reason}` : ''}`);
+  }
   const body = await response.json() as { access_token?: string };
   if (!body.access_token) throw new Error('Gmail OAuth did not return an access token.');
   return body.access_token;
