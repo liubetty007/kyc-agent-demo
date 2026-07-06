@@ -115,6 +115,9 @@ Helper scripts:
 - Generate a Gmail refresh token locally:
   `GMAIL_CLIENT_ID=... GMAIL_CLIENT_SECRET=... node scripts/gmail-oauth-token.mjs`
   Use `OAUTH_SCOPES` to override the default Gmail + Drive scopes if needed.
+- Reauthorize Gmail/Drive and write the new refresh token directly to Secret
+  Manager without printing it:
+  `node scripts/reauthorize-google-oauth.mjs`
 - Store secrets and update Cloud Run:
   `./scripts/configure-real-email-secrets.sh`
 - Configure the company NewAPI/Qwen3-VL model for document analysis:
