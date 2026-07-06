@@ -1,11 +1,7 @@
 import { generateChecklist } from './checklist';
-import { getLlmJson, hasLlmConfigured, activeLlmProvider } from './claude';
+import { getDocumentLlmJson, hasLlmConfigured, activeLlmProvider } from './claude';
+import { convertDocumentForLlm } from './documentConversion';
 import type { KYCCase } from './types';
-
-type ExtractedDocumentText = {
-  text: string;
-  method: 'pdf' | 'docx' | 'text' | 'binary';
-};
 
 export type DocumentAnalysis = {
   filename: string;
@@ -28,6 +24,9 @@ export type DocumentAnalysis = {
   followUpPoints: string[];
   severity: 'low' | 'medium' | 'high';
   requiresHumanReview: boolean;
+  extractedFields?: Record<string, unknown>;
+  documentChecklistRows?: Array<Record<string, unknown>>;
+  conversionWarnings?: string[];
 };
 
 type ChecklistOption = {
@@ -42,63 +41,10 @@ type ChecklistMatch = {
   confidence: number;
 };
 
-function normalizeText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
 function previewText(text: string, maxChars = 2200): string {
-  const normalized = normalizeText(text);
+  const normalized = text.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxChars) return normalized;
   return `${normalized.slice(0, maxChars).trim()}…`;
-}
-
-async function extractDocumentText(content: Buffer, filename: string, mimeType?: string): Promise<ExtractedDocumentText> {
-  const lower = filename.toLowerCase();
-  const isPdf = mimeType === 'application/pdf' || lower.endsWith('.pdf');
-  const isDocx =
-    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    lower.endsWith('.docx');
-
-  if (isPdf) {
-    try {
-      const { PDFParse } = await import('pdf-parse');
-      const parser = new PDFParse({ data: content });
-      try {
-        const parsed = await parser.getText();
-        return { text: parsed.text || '', method: 'pdf' };
-      } finally {
-        await parser.destroy();
-      }
-    } catch {
-      return { text: '', method: 'binary' };
-    }
-  }
-
-  if (isDocx) {
-    try {
-      const JSZipModule = await import('jszip');
-      const JSZip = JSZipModule.default;
-      const archive = await JSZip.loadAsync(content);
-      const xmlFile = archive.file('word/document.xml');
-      if (!xmlFile) return { text: '', method: 'docx' };
-      const xml = await xmlFile.async('string');
-      const text = xml
-        .replace(/<\/w:p>/g, '\n')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
-      return { text: normalizeText(text), method: 'docx' };
-    } catch {
-      return { text: '', method: 'binary' };
-    }
-  }
-
-  const decoded = new TextDecoder('utf-8', { fatal: false }).decode(content);
-  const printable = decoded.replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, ' ');
-  return { text: normalizeText(printable), method: printable.trim() ? 'text' : 'binary' };
 }
 
 function checklistOptions(caseData: KYCCase): ChecklistOption[] {
@@ -363,12 +309,21 @@ function fallbackAnalysis(
 }
 
 function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: DocumentAnalysis): DocumentAnalysis {
-  const issues = fallback.issues;
-  const recommendations = fallback.recommendations
+  const unique = (items: Array<string | undefined>) => Array.from(new Set(items.filter((item): item is string => Boolean(item?.trim()))));
+  const severityRank = { low: 0, medium: 1, high: 2 };
+  const candidateIssues = candidate.issues?.filter((item) => !/no (?:issue|problem|risk)/i.test(item)) || [];
+  const issues = unique([...fallback.issues, ...candidateIssues]);
+  const recommendations = unique([
+    ...fallback.recommendations,
+    ...(candidate.recommendations || []),
+  ])
     .filter((item) => !/no action (?:required|needed)/i.test(item));
   if (issues.length && !recommendations.some((item) => /review|resubmit|clarify|follow/i.test(item))) {
     recommendations.unshift('KYC team should review the highlighted issues before accepting this document.');
   }
+  const candidateSeverity = candidate.severity && severityRank[candidate.severity] > severityRank[fallback.severity]
+    ? candidate.severity
+    : fallback.severity;
 
   return {
     filename: candidate.filename || fallback.filename,
@@ -376,21 +331,24 @@ function normalizeCandidate(candidate: Partial<DocumentAnalysis>, fallback: Docu
     storageObject: candidate.storageObject || fallback.storageObject,
     extractionMethod: candidate.extractionMethod || fallback.extractionMethod,
     extractedTextPreview: candidate.extractedTextPreview || fallback.extractedTextPreview,
-    summary: fallback.summary,
+    summary: candidate.summary || fallback.summary,
     suggestedRequirementId: fallback.suggestedRequirementId,
     suggestedRequirementName: fallback.suggestedRequirementName,
     confidence: fallback.confidence,
     templateMatchApplicable: fallback.templateMatchApplicable,
     templateMatchScore: fallback.templateMatchScore,
     templateMatchSummary: fallback.templateMatchSummary,
-    keyPoints: fallback.keyPoints,
-    riskFlags: fallback.riskFlags,
-    missingFields: fallback.missingFields,
+    keyPoints: unique([...(candidate.keyPoints || []), ...fallback.keyPoints]).slice(0, 10),
+    riskFlags: unique([...fallback.riskFlags, ...(candidate.riskFlags || [])]),
+    missingFields: unique([...fallback.missingFields, ...(candidate.missingFields || [])]),
     issues,
     recommendations,
-    followUpPoints: fallback.followUpPoints,
-    severity: fallback.severity,
+    followUpPoints: unique([...fallback.followUpPoints, ...(candidate.followUpPoints || [])]),
+    severity: candidateSeverity,
     requiresHumanReview: true,
+    extractedFields: candidate.extractedFields || fallback.extractedFields,
+    documentChecklistRows: candidate.documentChecklistRows || fallback.documentChecklistRows,
+    conversionWarnings: unique([...(fallback.conversionWarnings || []), ...(candidate.conversionWarnings || [])]),
   };
 }
 
@@ -401,10 +359,19 @@ export async function analyzeCaseDocument(input: {
   mimeType?: string;
   storageObject?: string;
 }): Promise<DocumentAnalysis> {
-  const extracted = await extractDocumentText(input.content, input.filename, input.mimeType);
-  const fallback = fallbackAnalysis(input.caseData, input.filename, extracted.text, extracted.method);
+  const converted = await convertDocumentForLlm({
+    filename: input.filename,
+    mimeType: input.mimeType,
+    content: input.content,
+  });
+  const extractedText = converted.text;
+  const fallback = {
+    ...fallbackAnalysis(input.caseData, input.filename, extractedText, converted.extractionMethod),
+    conversionWarnings: converted.warnings,
+  };
 
-  if (!hasLlmConfigured() || !extracted.text.trim()) {
+  const provider = activeLlmProvider();
+  if (!hasLlmConfigured() || (!extractedText.trim() && !(provider === 'newapi' && converted.kind === 'image'))) {
     return {
       ...fallback,
       mimeType: input.mimeType,
@@ -441,12 +408,34 @@ File:
 ${JSON.stringify({
   filename: input.filename,
   mimeType: input.mimeType,
-  textPreview: previewText(extracted.text, 6000),
+  convertedKind: converted.kind,
+  extractionMethod: converted.extractionMethod,
+  conversionWarnings: converted.warnings,
+  textPreview: previewText(extractedText, 6000),
 })}
 
 Required JSON shape:
 {
   "summary": "one concise paragraph",
+  "extractedFields": {
+    "姓名": null,
+    "出生日期": null,
+    "性别": null,
+    "国籍": null,
+    "证件类型": null,
+    "护照号": null,
+    "身份证号": null,
+    "签发机关": null,
+    "有效期": null,
+    "居住地址": null,
+    "手机": null,
+    "邮箱": null,
+    "职业": null,
+    "雇主": null,
+    "年收入": null,
+    "资金来源": null
+  },
+  "documentChecklistRows": [{"文件":"", "Received":"", "Verified Date": ""}],
   "suggestedRequirementId": "checklist id or null",
   "suggestedRequirementName": "matching checklist name or null",
   "confidence": 0.0,
@@ -462,6 +451,9 @@ Required JSON shape:
 
 Rules:
 - Use the file content, not the filename alone.
+- For KYC identity or onboarding forms, extract all visible fields: 姓名、出生日期、性别、国籍、证件类型、护照号、身份证号、签发机关、有效期、居住地址、手机、邮箱、职业、雇主、年收入、资金来源.
+- If the file has a document checklist table, return every row in documentChecklistRows.
+- If a field is not visible, set it to null. Do not invent values.
 - Only pick a suggestedRequirementId from the provided checklist options.
 - Check whether required fields appear blank, whether signature/date fields look incomplete, and whether source-of-funds statements are consistent with the case source of funds.
 - Check cross-document consistency: business scale vs source-of-funds basis; ownership chart with >=25% shareholders vs missing personal ID/address/identity verification; business proof activity vs onboarding form activity; mining/crypto/financing statements vs submitted evidence.
@@ -471,29 +463,35 @@ Rules:
 - Never approve or reject the customer.
 - Always set requiresHumanReview=true unless the match is very strong and unambiguous.`;
 
-  const llm = await getLlmJson<Partial<DocumentAnalysis>>(prompt, fallback);
+  const llm = await getDocumentLlmJson<Partial<DocumentAnalysis>>({
+    prompt,
+    convertedDocument: converted,
+    fallback,
+  });
   return normalizeCandidate(
     {
       ...llm,
       filename: input.filename,
       mimeType: input.mimeType,
       storageObject: input.storageObject,
-      extractionMethod: extracted.method,
-      extractedTextPreview: previewText(extracted.text),
+      extractionMethod: converted.extractionMethod,
+      extractedTextPreview: previewText(extractedText),
+      conversionWarnings: converted.warnings,
     },
     {
       ...fallback,
       filename: input.filename,
       mimeType: input.mimeType,
       storageObject: input.storageObject,
-      extractionMethod: extracted.method,
-      extractedTextPreview: previewText(extracted.text),
+      extractionMethod: converted.extractionMethod,
+      extractedTextPreview: previewText(extractedText),
     },
   );
 }
 
 export function llmProviderLabel(): string {
   const provider = activeLlmProvider();
+  if (provider === 'newapi') return 'NewAPI Qwen3-VL';
   if (provider === 'ollama') return 'Ollama';
   if (provider === 'anthropic') return 'Claude';
   return 'fallback rules';

@@ -24,6 +24,11 @@ case whose `contactEmail` matches the signed-in email.
 - `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
 - Optional local development only: `LLM_PROVIDER=ollama`,
   `OLLAMA_BASE_URL=http://127.0.0.1:11434`, and `OLLAMA_MODEL=qwen2.5:0.5b`
+- Optional company OpenAI-compatible vision model:
+  `LLM_PROVIDER=newapi`,
+  `NEWAPI_BASE_URL=https://newapi.elevatesphere.com/v1`,
+  `NEWAPI_MODEL=qwen3-vl-235b-a22b-instruct-fp8`, and Secret Manager value
+  `NEWAPI_API_KEY`
 - `GMAIL_CLIENT_ID`
 - `GMAIL_CLIENT_SECRET`
 - `GMAIL_REFRESH_TOKEN`
@@ -82,9 +87,22 @@ Recommended setup:
 2. Authorize the KYC Gmail account with both Gmail and Drive scopes, then store
    the refresh token in Secret Manager or Cloud Run environment variables.
 3. Set `GMAIL_SENDER_EMAIL` to the mailbox that sends opening/follow-up emails.
-4. Configure `ANTHROPIC_API_KEY` for cloud LLM email intake analysis, or set
-   `LLM_PROVIDER=ollama` with a local Ollama model during local development.
+4. Configure one LLM provider:
+   - `LLM_PROVIDER=newapi` with `NEWAPI_API_KEY` for the company
+     OpenAI-compatible Qwen3-VL model.
+   - `LLM_PROVIDER=ollama` for the Cloud Run Ollama service.
+   - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` for Claude.
 5. Keep KYC Team approval before external sends and document acceptance.
+
+Document analysis conversion:
+
+- Image files (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`) are sent to the
+  vision model as `image_url` data URLs.
+- PDF, DOCX, XLSX, TXT, CSV, JSON, XML, Markdown, and HTML are converted to
+  article text before analysis.
+- Scanned PDFs without embedded text require OCR/page rendering before the
+  model can read them. The current converter reports this as a conversion
+  warning instead of silently returning a blank analysis.
 
 Ollama note:
 
@@ -99,6 +117,8 @@ Helper scripts:
   Use `OAUTH_SCOPES` to override the default Gmail + Drive scopes if needed.
 - Store secrets and update Cloud Run:
   `./scripts/configure-real-email-secrets.sh`
+- Configure the company NewAPI/Qwen3-VL model for document analysis:
+  `NEWAPI_API_KEY=... ./scripts/configure-newapi-llm.sh`
 
 Inbound Gmail sync:
 

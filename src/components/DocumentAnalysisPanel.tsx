@@ -25,6 +25,39 @@ function AnalysisList({ title, items }: { title: string; items?: string[] }) {
   );
 }
 
+function AnalysisObject({ title, value }: { title: string; value?: Record<string, unknown> }) {
+  if (!value || !Object.keys(value).length) return null;
+  return (
+    <div className="analysis-detail-list">
+      <strong>{title}</strong>
+      <dl className="analysis-fields">
+        {Object.entries(value).map(([key, fieldValue]) => (
+          <div key={key}>
+            <dt>{key}</dt>
+            <dd>{fieldValue === null || fieldValue === undefined || fieldValue === '' ? 'Not found' : String(fieldValue)}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function AnalysisRows({ title, rows }: { title: string; rows?: Array<Record<string, unknown>> }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="analysis-detail-list">
+      <strong>{title}</strong>
+      <ul>
+        {rows.map((row, index) => (
+          <li key={`${title}-${index}`}>
+            {Object.entries(row).map(([key, value]) => `${key}: ${value ?? 'Not found'}`).join(' · ')}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
   const [analyses, setAnalyses] = useState<DocumentAnalysis[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,6 +161,9 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
                   <AnalysisList title="Issues" items={analysis.issues} />
                   <AnalysisList title="Recommendations" items={analysis.recommendations} />
                   <AnalysisList title="Follow-up points" items={analysis.followUpPoints} />
+                  <AnalysisObject title="Extracted KYC fields" value={analysis.extractedFields} />
+                  <AnalysisRows title="Document checklist rows" rows={analysis.documentChecklistRows} />
+                  <AnalysisList title="Conversion warnings" items={analysis.conversionWarnings} />
                   {analysis.riskFlags.length > 0 && <div className="small">Flags: {analysis.riskFlags.join(', ')}</div>}
                 </td>
               </tr>

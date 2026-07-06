@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type { ConvertedDocument } from './documentConversion';
 
-type LlmProvider = 'anthropic' | 'ollama' | 'none';
+type LlmProvider = 'anthropic' | 'ollama' | 'newapi' | 'none';
 
 export function hasClaudeConfigured(): boolean {
   const model = process.env.ANTHROPIC_MODEL?.toLowerCase();
@@ -12,11 +13,19 @@ export function hasOllamaConfigured(): boolean {
   return process.env.LLM_PROVIDER === 'ollama' || Boolean(process.env.OLLAMA_MODEL);
 }
 
+export function hasNewApiConfigured(): boolean {
+  const requested = process.env.LLM_PROVIDER?.toLowerCase();
+  return (requested === 'newapi' || requested === 'openai_compatible' || Boolean(process.env.NEWAPI_MODEL))
+    && Boolean(process.env.NEWAPI_API_KEY);
+}
+
 export function activeLlmProvider(): LlmProvider {
   const requested = process.env.LLM_PROVIDER?.toLowerCase();
   if (requested === 'ollama') return 'ollama';
+  if (requested === 'newapi' || requested === 'openai_compatible') return hasNewApiConfigured() ? 'newapi' : 'none';
   if (requested === 'anthropic' || requested === 'claude') return hasClaudeConfigured() ? 'anthropic' : 'none';
   if (hasClaudeConfigured()) return 'anthropic';
+  if (hasNewApiConfigured()) return 'newapi';
   if (hasOllamaConfigured()) return 'ollama';
   return 'none';
 }
@@ -31,6 +40,20 @@ function ollamaBaseUrl(): string {
 
 function ollamaModel(): string {
   return process.env.OLLAMA_MODEL || 'qwen2.5:0.5b';
+}
+
+function newApiBaseUrl(): string {
+  return (process.env.NEWAPI_BASE_URL || 'https://newapi.elevatesphere.com/v1').replace(/\/+$/, '');
+}
+
+function newApiModel(): string {
+  return process.env.NEWAPI_MODEL || 'qwen3-vl-235b-a22b-instruct-fp8';
+}
+
+function jsonFromText<T>(text: string): T {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const source = fenced || text.match(/\{[\s\S]*\}/)?.[0] || text;
+  return JSON.parse(source) as T;
 }
 
 async function postOllamaGenerate(prompt: string, format?: 'json'): Promise<string> {
@@ -65,6 +88,49 @@ async function postOllamaGenerate(prompt: string, format?: 'json'): Promise<stri
   }
 }
 
+type NewApiContent =
+  | string
+  | Array<
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } }
+  >;
+
+async function postNewApiChat(input: {
+  content: NewApiContent;
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<string> {
+  const apiKey = process.env.NEWAPI_API_KEY;
+  if (!apiKey) throw new Error('NEWAPI_API_KEY is not configured.');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(process.env.NEWAPI_TIMEOUT_MS || 180000));
+  try {
+    const response = await fetch(`${newApiBaseUrl()}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: newApiModel(),
+        messages: [{ role: 'user', content: input.content }],
+        max_tokens: input.maxTokens || Number(process.env.NEWAPI_MAX_TOKENS || 2048),
+        temperature: input.temperature ?? Number(process.env.NEWAPI_TEMPERATURE || 0),
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`NewAPI request failed: ${response.status}${text ? ` ${text.slice(0, 300)}` : ''}`);
+    }
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function cloudRunIdToken(audience: string): Promise<string | undefined> {
   const authMode = process.env.OLLAMA_AUTH_MODE?.toLowerCase();
   if (authMode === 'none' || authMode === 'public') return undefined;
@@ -85,6 +151,13 @@ async function cloudRunIdToken(audience: string): Promise<string | undefined> {
 export async function optionallyPolishText(prompt: string, fallback: string): Promise<string> {
   const provider = activeLlmProvider();
   if (provider === 'none') return fallback;
+  if (provider === 'newapi') {
+    try {
+      return (await postNewApiChat({ content: prompt, maxTokens: 4000, temperature: 0.1 })).trim() || fallback;
+    } catch {
+      return fallback;
+    }
+  }
   if (provider === 'ollama') {
     try {
       return (await postOllamaGenerate(prompt)).trim() || fallback;
@@ -111,10 +184,13 @@ export async function getLlmJson<T>(prompt: string, fallback: T): Promise<T> {
   const provider = activeLlmProvider();
   if (provider === 'none') return fallback;
   try {
+    if (provider === 'newapi') {
+      const text = await postNewApiChat({ content: prompt, maxTokens: 3000, temperature: 0 });
+      return jsonFromText<T>(text);
+    }
     if (provider === 'ollama') {
       const text = await postOllamaGenerate(prompt, 'json');
-      const json = text.match(/\{[\s\S]*\}/)?.[0] || text;
-      return JSON.parse(json) as T;
+      return jsonFromText<T>(text);
     }
     const client = new Anthropic();
     const response = await client.messages.create({
@@ -123,10 +199,34 @@ export async function getLlmJson<T>(prompt: string, fallback: T): Promise<T> {
       messages: [{ role: 'user', content: prompt }],
     });
     const text = response.content.find((block) => block.type === 'text')?.text || '';
-    const json = text.match(/\{[\s\S]*\}/)?.[0] || text;
-    return JSON.parse(json) as T;
+    return jsonFromText<T>(text);
   } catch {
     return fallback;
+  }
+}
+
+export async function getDocumentLlmJson<T>(input: {
+  prompt: string;
+  convertedDocument: ConvertedDocument;
+  fallback: T;
+}): Promise<T> {
+  const provider = activeLlmProvider();
+  if (provider !== 'newapi') return getLlmJson(input.prompt, input.fallback);
+
+  try {
+    const content: NewApiContent = input.convertedDocument.kind === 'image'
+      ? [
+          ...input.convertedDocument.images.slice(0, Number(process.env.NEWAPI_MAX_IMAGES || 4)).map((image) => ({
+            type: 'image_url' as const,
+            image_url: { url: image.dataUrl },
+          })),
+          { type: 'text' as const, text: input.prompt },
+        ]
+      : `${input.prompt}\n\nDocument text:\n${input.convertedDocument.text.slice(0, Number(process.env.NEWAPI_MAX_TEXT_CHARS || 18000))}`;
+    const text = await postNewApiChat({ content, maxTokens: 4096, temperature: 0 });
+    return jsonFromText<T>(text);
+  } catch {
+    return input.fallback;
   }
 }
 
