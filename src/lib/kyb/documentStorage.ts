@@ -176,12 +176,39 @@ function isStandardPackageName(folderName: string): boolean {
   );
 }
 
+function isGenericPackageName(folderName: string): boolean {
+  const normalized = normalizePackageName(folderName);
+  return ['generic', 'general', 'common', 'universal'].includes(normalized) || folderName.includes('通用');
+}
+
+function normalizeAttachmentName(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function removeGenericDuplicates(packages: OpeningEmailAttachmentPackage[]): OpeningEmailAttachmentPackage[] {
+  const standardNames = new Set(
+    packages
+      .filter((item) => isStandardPackageName(item.name))
+      .flatMap((item) => item.attachments.map((attachment) => normalizeAttachmentName(attachment.name))),
+  );
+  if (!standardNames.size) return packages;
+
+  return packages
+    .map((item) => {
+      if (!isGenericPackageName(item.name)) return item;
+      return {
+        ...item,
+        attachments: item.attachments.filter((attachment) => !standardNames.has(normalizeAttachmentName(attachment.name))),
+      };
+    })
+    .filter((item) => item.attachments.length > 0);
+}
+
 function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseContext): boolean {
   const normalized = normalizePackageName(folderName);
   if (
     isStandardPackageName(folderName)
-    || ['generic', 'general', 'common', 'universal'].includes(normalized)
-    || folderName.includes('通用')
+    || isGenericPackageName(folderName)
   ) return true;
   if (!caseData) return false;
   if (caseData.needsNsBusiness && (/\bns\b/i.test(folderName) || normalized.includes('northstar') || folderName.includes('北星'))) {
@@ -246,7 +273,7 @@ export async function listOpeningEmailStandardDocumentPackages(caseData?: Standa
     }
 
     if (packages.length) {
-      return packages.sort((a, b) => {
+      return removeGenericDuplicates(packages).sort((a, b) => {
         if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
         return a.name.localeCompare(b.name);
       });

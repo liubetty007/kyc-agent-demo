@@ -30,6 +30,16 @@ function formatBytes(value?: number): string {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function dedupeAttachmentsByName(attachments: OpeningAttachment[]): OpeningAttachment[] {
+  const seen = new Set<string>();
+  return attachments.filter((attachment) => {
+    const key = attachment.name.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KYCCase; readOnly?: boolean }) {
   const [draft, setDraft] = useState(caseData.openingEmailDraft || '');
   const [sentAt, setSentAt] = useState(caseData.openingEmailSentAt);
@@ -43,7 +53,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   const [sendNotice, setSendNotice] = useState('');
 
   const selectedAttachments = useMemo(
-    () => [...standardAttachments, ...uploadedAttachments].filter((attachment) => selectedIds.has(attachment.id)),
+    () => dedupeAttachmentsByName([...standardAttachments, ...uploadedAttachments].filter((attachment) => selectedIds.has(attachment.id))),
     [standardAttachments, uploadedAttachments, selectedIds],
   );
 
