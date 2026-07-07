@@ -11,22 +11,26 @@
 | KYC 有效期 | 机构通过 KYC 后有效期为 6 个月 | 作为复核规则记录 |
 | 文件格式 | 所有提交文件必须为 PDF | 非 PDF 文件触发 revision / review issue |
 | 签署规范 | 需要签字的文件必须有签署人姓名、职务/头衔、日期 | Board Resolution、NDA、授权书等触发人工复核 |
+| 授权代表签署 | Institution Onboarding Form 和 NDA 必须由 Authorization Letter 中的授权代表签署 | Analyze / Review 输出人工核验点 |
 | 受限国家 | 注册国需对照受限制国家清单 | 命中 prohibited 或 manual review |
 | 新业务国家 | 过往未开展业务的国家需触发业务确认流程 | 先进入人工复核 |
+| 对外邮件 | KYC 邮件 4 小时内输出，疑问句比例不超过 10% | 邮件模板和 policy 页记录 |
 
 ## 2. 核心文件审核要素
 
 | 文件 | 是否必需 | 关键审核点 |
 |---|---|---|
-| Certificate of Incorporation | 必需 | 需体现注册日期、公司编号、名称变更信息 |
-| Certificate of Incumbency | 必需 | 出具日期必须在近 6 个月内 |
+| Certificate of Incorporation | 必需 | 需体现注册日期、公司编号、公司名称；如文件显示曾更名，需补 Certificate of Change of Name |
+| Certificate of Incumbency | 必需 / 如适用 | 出具日期必须在近 6 个月内；由注册代理、持牌会计师、律师或 US CPA 出具；需包括出具方身份、签名、公司存续/良好状态声明、当前 Members / Directors / Shareholders |
 | Business Registration Certificate | 如适用 / HK 必需 | 香港公司必须提供 |
 | Articles of Association | 必需 | 如无章程，需提供 Operating Agreement |
-| Source of Wealth / Source of Funds | 必需 | 需包含财富累积时间点、形式、合作机构、数量/金额、预期年/月交易量，且交易量需用 USD |
-| Board Resolution | 必需 | 即使一人董事也必须提交；需列明授权人士和业务范围 |
-| NDA | 必需 | 必须由授权代表签署，并核验我方签约主体 |
-| Passport | Associated Individual 必需 | 必须提供护照并完成 Au10tix 线上身份认证 |
+| Source of Wealth / Source of Funds | 风险触发 | Low / Medium risk 一般不要求 SOW/SOF 证据；第三方出资、高风险客户、Crypto / Financing 等场景需补证据；需关注财富累积时间点、形式、合作机构、数量/金额 |
+| Authorization Letter | 必需 | 即使一人董事也必须提交；授权人信息完整，邮箱需与 KYC form 一致；多个授权代表时所有 AR 签署；最后一页需全体董事签署 |
+| Board Resolution | 必需 | 需列明授权人士和业务范围 |
+| NDA | 必需 | 必须为 PDF，由授权代表签署，并核验我方签约主体、真实签署日期、空白括号/底色、模板条款是否被修改 |
+| Certified Passport / Accepted National ID | Associated Individual 必需 | 可接受 certified true copy passport、HK PR ID、Singapore PR ID、China ID 等；如护照未认证，需完成 Au10tix 线上身份认证 |
 | Proof of Current Residential Address | Associated Individual 必需 | 最近 3 个月内出具 |
+| Ownership Structure Chart | Entity shareholder / UBO 场景必需 | 需穿透至 UBO，包含持股比例、董事签字、日期，以及真实准确声明；如无最终 UBO，需提供 no-other-natural-person-over-25% 控制声明 |
 
 ## 3. 香港公司特定规则
 
@@ -35,6 +39,7 @@
 | 香港注册公司 | 公司注册证明书 + 商业登记证 | 加入 checklist |
 | 成立不满 1 年 | NNC1 | checklist 使用 NNC1 / NAR1 槽位，人工判断适用文件 |
 | 成立满 1 年 | NAR1 | checklist 使用 NNC1 / NAR1 槽位，人工判断适用文件 |
+| 董事资料有变更 | ND2A | 当 case notes 或材料显示 director change / ND2A 时加入 checklist |
 | 香港业务确认 | Non-US Person & Non-solicitation in HK Confirmation | 加入 checklist |
 
 ## 4. COI / Incumbency 效期规则
@@ -57,18 +62,31 @@
 | New York | LLC 需 Publication Proof |
 | Washington D.C. | Basic Business License |
 
-## 6. 风险触发文件
+## 6. 公司类型文件规则
+
+| 公司 / 结构类型 | 文件 / 规则 | Agent 动作 |
+|---|---|---|
+| LLC | LLC Operating Agreement | 公司名、业务类型或资金来源文本出现 LLC / Limited Liability Company 时加入 checklist |
+| Ltd / Limited | Memorandum of Association | 出现 Ltd / Limited 且非 LLC / LP 时加入 checklist |
+| Inc / Corporation | Bylaws | 出现 Inc / Corporation / Corp 时加入 checklist |
+| Limited Partnership | Limited Partnership Agreement, Investment Manager / Advisor Agreement, Administrator Agreement | 出现 LP / Limited Partnership 时加入 checklist |
+| Trust | Trust Deed | Trust Deed 需识别 trust name、beneficiaries/classes、settlor、trustee、protector/executor、ultimate controllers |
+| SPC Fund | Fund Certificate of Incumbency, Fund Management Agreement, Investment Manager / Advisor Agreement, Administrator Agreement | 出现 SPC / fund structure 时加入 checklist |
+| 曾更名 | Certificate of Change of Name | 文件或 case notes 显示 former name / changed name 时加入 checklist |
+
+## 7. 风险触发文件
 
 | 触发条件 | 文件 / 动作 |
 |---|---|
 | 申请机构被另一家公司持有 | Ownership Structure Chart 强制要求 |
 | 股权无法穿透至 UBO | 要求声明：No other shareholders are UBOs of XXX with total >= 25% beneficial ownership |
-| 金融机构或管理用户资产 | AML Questionnaire 强制要求 |
+| 持牌金融机构或管理用户 / 客户资产 | AML / Wolfsberg Questionnaire + Letter of Undertaking 强制要求 |
+| 高风险客户 | Initial SOF Evidence、Ongoing SOF Evidence、Initial/Ongoing SOF Explanation、Associated Individual Background Profile |
 | Crypto-related business | Source of Crypto Assets / Supporting Evidence + AML Questionnaire |
 | Mining business | Mining Proof，例如 Antpool Observer Link 或等价证明 |
 | Source of Funds 为 financing | Financing Agreement, Investor / Lender Information, Proof of Fund Transfer |
 
-## 7. Worldcheck DD 规则
+## 8. Worldcheck DD 规则
 
 | 场景 | Agent 动作 |
 |---|---|
@@ -79,7 +97,7 @@
 | 已提交 NCRS & PEP，但有本次新闻预警 | 要求客户针对新闻说明 |
 | 客户回复归档后 | 更新系统状态，并回复合规组原始邮件说明 case 状态 |
 
-## 8. NDA 规则
+## 9. NDA 规则
 
 | 项目 | 规则 |
 |---|---|
@@ -91,7 +109,7 @@
 | 使用他方模板 | 必须要求业务提供法务 + 业务双重确认邮件 |
 | 我方发起签署 | 需收集他方签署人姓名、职称、邮箱、抄送邮箱 |
 
-## 9. 邮件生成 SOP
+## 10. 邮件生成 SOP
 
 | 项目 | 规则 |
 |---|---|
@@ -101,18 +119,19 @@
 | 疑问句比例 | 不超过 10% |
 | 日期格式 | 英文对外文件使用 05 May 2023 或严格 MM/DD/YYYY |
 
-## 10. 官方查验映射
+## 11. 官方查验映射
 
 | 类型 | 查验网站 / 目标 |
 |---|---|
 | 香港地址证明 | 香港中电、香港水务署 |
 | 机构状态 | 台湾商工登记、香港注册处 ICRIS、加拿大 Federal Corporations、阿布扎比 TAMM / ADGM、瑞士 Zefix |
 
-## 11. 当前实现状态
+## 12. 当前实现状态
 
 | 模块 | 状态 |
 |---|---|
-| Checklist 生成 | 已加入 HK NNC1/NAR1、US state routing、AML asset-manager trigger |
-| Deterministic Review | 已加入 PDF、6 个月效期、USD 交易量、Board Resolution、NDA 复核 issue |
-| Email Intake LLM | 已加入新文件类型关键词和 checklist-id 约束 |
+| Checklist 生成 | 已加入 HK NNC1/NAR1、HK ND2A 条件触发、US state routing、公司类型文件、FI / 高风险客户 trigger |
+| Deterministic Review | 已加入 PDF、6 个月效期、授权书、Incumbency、Ownership Chart、NDA、Letter of Undertaking、高风险客户 EDD 复核 issue |
+| Document Analyze | 已加入授权签署、COI、Incumbency、Authorization Letter、Ownership Chart、NDA、Trust Deed 和跨文件一致性 prompt |
+| Email Intake LLM / Fetch fallback | 已加入新文件类型关键词和 checklist-id 约束 |
 | Worldcheck | 规则已记录，仍需筛查事件数据结构后才能自动闭环 |

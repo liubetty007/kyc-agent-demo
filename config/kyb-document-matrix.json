@@ -13,18 +13,40 @@
     "kyc_validity_months": 6,
     "required_file_format": "pdf",
     "signed_document_requirements": ["signer_name", "signer_title", "signature_date"],
+    "authorized_representative_must_sign": ["institution_onboarding_form", "mutual_nda"],
+    "authorization_letter_required_even_single_director": true,
+    "authorization_letter_director_signatures_required": "all_directors",
+    "authorization_letter_email_must_match_kyc_form": true,
+    "board_resolution_must_define_business_scope": true,
     "coi_recent_issue_months_except": {
       "max_age_months": 6,
       "excluded_jurisdictions": ["Hong Kong", "Singapore"]
     },
     "certificate_of_incumbency_max_age_months": 6,
+    "certificate_of_incumbency_required_content": [
+      "The Company is in existence and in good legal standing.",
+      "Current Members / Directors",
+      "Current Shareholders",
+      "Issuer identity statement including name, firm and license number if any",
+      "Issuer signature"
+    ],
     "nda_validity_years": 2,
+    "nda_required_file_format": "pdf",
+    "nda_requires_real_signing_date": true,
+    "nda_unfilled_brackets_prohibited": true,
+    "nda_template_change_requires": "legal_confirmation_email",
+    "nda_third_party_template_requires": "legal_and_business_confirmation_email",
     "allowed_nda_counterparties": [
       "Antalpha Digital Pte. Ltd.",
       "Northstar Digital (HK) Limited",
       "URSALPHA DIGITAL LLC"
     ],
+    "ownership_chart_required_statements": [
+      "I declared that this is true, accurate, and up-to-date",
+      "No other natural person, whether directly or indirectly, owns 25% or more of xxx’s shares or controlling power."
+    ],
     "email_sla_hours": 4,
+    "email_question_ratio_max": 0.1,
     "external_date_formats": ["dd MMM yyyy", "MM/dd/yyyy"]
   },
   "jurisdiction_rules": {
@@ -52,8 +74,37 @@
   ],
   "hk_specific_documents": [
     {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"reason":"Required for Hong Kong registered companies"},
-    {"id":"hk_nnc1_or_nar1","name":"NNC1 or NAR1","category":"HK Specific","required":true,"reason":"Hong Kong companies must provide NNC1 if incorporated within 1 year, or NAR1 if incorporated for 1 year or more"}
+    {"id":"hk_nnc1_or_nar1","name":"NNC1 or NAR1","category":"HK Specific","required":true,"reason":"Hong Kong companies must provide NNC1 if incorporated within 1 year, or NAR1 if incorporated for 1 year or more"},
+    {"id":"hk_nd2a_director_change","name":"ND2A Director Change Filing","category":"HK Specific","required":true,"reason":"Required for Hong Kong companies when director information has changed"}
   ],
+  "company_type_documents": {
+    "llc": [
+      {"id":"llc_operating_agreement","name":"LLC Operating Agreement","category":"Entity Type","required":true,"reason":"Required for Limited Liability Company entities"}
+    ],
+    "limited_company": [
+      {"id":"memorandum_of_association","name":"Memorandum of Association","category":"Entity Type","required":true,"reason":"Required for Limited / Ltd entities where applicable"}
+    ],
+    "corporation": [
+      {"id":"corporation_bylaws","name":"Bylaws","category":"Entity Type","required":true,"reason":"Required for Corporation / Inc entities"}
+    ],
+    "limited_partnership": [
+      {"id":"limited_partnership_agreement","name":"Limited Partnership Agreement","category":"Entity Type","required":true,"reason":"Required for Limited Partnership entities"},
+      {"id":"investment_manager_advisor_agreement","name":"Investment Manager / Advisor Agreement","category":"Entity Type","required":true,"reason":"Required for Limited Partnership / fund structures"},
+      {"id":"administrator_agreement","name":"Administrator Agreement","category":"Entity Type","required":true,"reason":"Required for Limited Partnership / fund structures"}
+    ],
+    "trust": [
+      {"id":"trust_deed","name":"Trust Deed","category":"Entity Type","required":true,"reason":"Required for trust entities; must identify trust name, beneficiaries/classes, settlor, trustee, protector/executor and controllers"}
+    ],
+    "spc_fund": [
+      {"id":"fund_certificate_of_incumbency","name":"Fund Certificate of Incumbency","category":"Entity Type","required":true,"reason":"Required for SPC fund structures"},
+      {"id":"fund_management_agreement","name":"Fund Management Agreement","category":"Entity Type","required":true,"reason":"Required for SPC fund structures"},
+      {"id":"investment_manager_advisor_agreement","name":"Investment Manager / Advisor Agreement","category":"Entity Type","required":true,"reason":"Required for SPC fund structures"},
+      {"id":"administrator_agreement","name":"Administrator Agreement","category":"Entity Type","required":true,"reason":"Required for SPC fund structures"}
+    ],
+    "name_change": [
+      {"id":"certificate_of_change_of_name","name":"Certificate of Change of Name","category":"Entity Type","required":true,"reason":"Required if any submitted document indicates a company name change"}
+    ]
+  },
   "internal_forms": [
     {"id":"institution_onboarding_form","name":"Institution Onboarding Form","category":"Internal Form","required":true,"reason":"Required internal onboarding form"},
     {"id":"authorization_letter","name":"Authorization Letter","category":"Internal Form","required":true,"reason":"Required to verify authorized representative"},
@@ -102,7 +153,8 @@
   },
   "risk_based_documents": {
     "financial_or_user_asset_manager": [
-      {"id":"aml_questionnaire","name":"AML Questionnaire","category":"Risk Based","required":true,"reason":"Required for financial institutions or entities managing user assets"}
+      {"id":"aml_questionnaire","name":"AML / Wolfsberg Questionnaire","category":"Risk Based","required":true,"reason":"Required for licensed financial institutions or entities managing user/client assets or investing on behalf of clients"},
+      {"id":"letter_of_undertaking","name":"Letter of Undertaking","category":"Risk Based","required":true,"reason":"Required for licensed financial institutions or entities managing user/client assets"}
     ],
     "entity_shareholder": [
       {"id":"ubo_no_other_shareholder_declaration","name":"UBO No Other Shareholder Declaration","category":"Risk Based","required":true,"reason":"Required when ownership structure cannot be fully traced to UBOs with >=25% beneficial ownership"}
@@ -110,13 +162,19 @@
     "worldcheck_alert": [
       {"id":"ncrs_pep_form","name":"NCRS & PEP Form","category":"Risk Based","required":true,"reason":"Required when Worldcheck alert indicates no prior NCRS & PEP form on file"},
       {"id":"worldcheck_news_explanation","name":"Worldcheck Alert News Explanation","category":"Risk Based","required":true,"reason":"Required when prior NCRS & PEP form exists and a new Worldcheck news alert needs explanation"}
+    ],
+    "high_risk_customer": [
+      {"id":"initial_source_of_funds_evidence","name":"Initial Source of Funds Evidence","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
+      {"id":"ongoing_source_of_funds_evidence","name":"Ongoing Source of Funds Evidence","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
+      {"id":"initial_and_ongoing_sof_explanation","name":"Initial and Ongoing Source of Funds Explanation Email","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
+      {"id":"associated_individual_background_profile","name":"Associated Individual Background Profile","category":"Risk Based","required":true,"reason":"High-risk customers must provide background information for associated individuals, including education and industry experience"}
     ]
   },
   "associated_individual_documents": {
     "roles": ["director", "authorized_representative", "ubo"],
     "documents": [
-      {"id":"online_identity_verification","name":"Online Identity Verification","category":"Individual","required":true,"reason":"Required for Director, AR and UBO"},
-      {"id":"passport_or_id","name":"Passport / ID","category":"Individual","required":true,"reason":"Required for Director, AR and UBO"},
+      {"id":"online_identity_verification","name":"Online Identity Verification / Au10tix","category":"Individual","required":true,"reason":"Required when passport / ID is not certified true copy, or where online identity verification is required"},
+      {"id":"passport_or_id","name":"Certified Passport / Accepted National ID","category":"Individual","required":true,"reason":"All Director, AR and UBO must provide certified passport or accepted national ID, including HK PR ID, Singapore PR ID, or China ID"},
       {"id":"proof_of_current_residential_address","name":"Proof of Current Residential Address","category":"Individual","required":true,"reason":"Must be issued within the last 3 months"}
     ]
   },

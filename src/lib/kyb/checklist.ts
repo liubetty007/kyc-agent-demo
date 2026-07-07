@@ -36,6 +36,7 @@ export function isFinancingSource(caseData: Pick<KYCCase, 'businessType' | 'sour
 export function isFinancialInstitutionOrAssetManager(caseData: Pick<KYCCase, 'businessType' | 'sourceOfFunds'>): boolean {
   const text = `${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
   return [
+    'licensed financial institution',
     'financial institution',
     'bank',
     'broker',
@@ -51,6 +52,35 @@ export function isFinancialInstitutionOrAssetManager(caseData: Pick<KYCCase, 'bu
     'customer assets',
     'user assets',
   ].some((word) => text.includes(word));
+}
+
+export function isHighRiskCustomer(caseData: Pick<KYCCase, 'jurisdiction' | 'businessType' | 'sourceOfFunds'>): boolean {
+  const matrix = getMatrix();
+  const text = `${caseData.jurisdiction} ${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
+  return (
+    matrix.jurisdiction_rules.high_risk_jurisdictions.list.includes(caseData.jurisdiction)
+    || ['high risk', 'high-risk', '高风险', '高風險', 'edd', 'enhanced due diligence'].some((word) => text.includes(word))
+  );
+}
+
+function caseSearchText(caseData: KYCCase): string {
+  return `${caseData.companyName} ${caseData.businessType} ${caseData.sourceOfFunds}`.toLowerCase();
+}
+
+function companyTypeDocuments(caseData: KYCCase): DocumentRequirement[] {
+  const docs = getMatrix().company_type_documents || {};
+  const text = caseSearchText(caseData);
+  const selected: DocumentRequirement[] = [];
+
+  if (/\bllc\b|limited liability company/.test(text)) selected.push(...(docs.llc || []));
+  if (/\bltd\b|limited\b/.test(text) && !/\bllc\b|limited liability company|limited partnership/.test(text)) selected.push(...(docs.limited_company || []));
+  if (/\binc\b|corporation|corp\b/.test(text)) selected.push(...(docs.corporation || []));
+  if (/limited partnership|\blp\b|普通合[伙夥]人|有限合[伙夥]人/.test(text)) selected.push(...(docs.limited_partnership || []));
+  if (/\btrust\b|信托|信託/.test(text)) selected.push(...(docs.trust || []));
+  if (/\bspc\b|segregated portfolio|fund\b|基金/.test(text)) selected.push(...(docs.spc_fund || []));
+  if (/change of name|changed name|formerly known|previous name|更改名称|更改名稱|曾用名/.test(text)) selected.push(...(docs.name_change || []));
+
+  return selected;
 }
 
 function normalizedUsState(usState?: string): string | undefined {
@@ -90,6 +120,10 @@ function regionalCoreDocuments(caseData: KYCCase): DocumentRequirement[] {
   const base = matrix.base_documents;
 
   if (caseData.jurisdiction === 'Hong Kong') {
+    const hkSpecific = ['hk_nnc1_or_nar1', 'non_us_person_non_solicitation_hk_confirmation'];
+    if (/director change|director update|董事变更|董事變更|nd2a/i.test(caseData.sourceOfFunds)) {
+      hkSpecific.push('hk_nd2a_director_change');
+    }
     return [
       ...docsById(base, [
         'certificate_of_incorporation',
@@ -98,7 +132,7 @@ function regionalCoreDocuments(caseData: KYCCase): DocumentRequirement[] {
         'ownership_structure_chart',
         'source_of_funds',
       ]),
-      ...docsById(matrix.hk_specific_documents, ['hk_nnc1_or_nar1', 'non_us_person_non_solicitation_hk_confirmation']),
+      ...docsById(matrix.hk_specific_documents, hkSpecific),
     ];
   }
 
@@ -123,6 +157,7 @@ export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
   const matrix = getMatrix();
   const docs: DocumentRequirement[] = [
     ...regionalCoreDocuments(caseData),
+    ...companyTypeDocuments(caseData),
     ...matrix.internal_forms,
   ];
 
@@ -146,6 +181,10 @@ export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
 
   if (isFinancialInstitutionOrAssetManager(caseData)) {
     docs.push(...matrix.risk_based_documents.financial_or_user_asset_manager);
+  }
+
+  if (isHighRiskCustomer(caseData)) {
+    docs.push(...(matrix.risk_based_documents.high_risk_customer || []));
   }
 
   return uniqueById(docs);

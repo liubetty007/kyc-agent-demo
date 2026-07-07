@@ -110,15 +110,31 @@ const REQUIRED_FIELD_HINTS: Record<string, Array<{ label: string; patterns: RegE
     { label: 'Company legal name', patterns: [/legal entity name\s*[:：]?\s*_{3,}/i, /company name\s*[:：]?\s*_{3,}/i] },
     { label: 'Registration number', patterns: [/registration number\s*[:：]?\s*_{3,}/i] },
     { label: 'Country / place of incorporation', patterns: [/(country|place) of incorporation\s*[:：]?\s*_{3,}/i] },
+    { label: 'Registered address', patterns: [/registered address\s*[:：]?\s*_{3,}/i] },
+    { label: 'Business type / activity', patterns: [/(business type|business activity|nature of business)\s*[:：]?\s*_{3,}/i] },
     { label: 'Source of funds / wealth', patterns: [/source of funds?\s*[:：]?\s*_{3,}/i, /source of wealth\s*[:：]?\s*_{3,}/i] },
     { label: 'Authorized representative / contact person', patterns: [/authorized representative\s*[:：]?\s*_{3,}/i, /contact person\s*[:：]?\s*_{3,}/i] },
     { label: 'Signature', patterns: [/signature\s*[:：]?\s*_{3,}/i] },
     { label: 'Signing date', patterns: [/date\s*[:：]?\s*_{3,}/i] },
   ],
+  certificate_of_incorporation: [
+    { label: 'Company name', patterns: [/company name\s*[:：]?\s*_{3,}/i, /entity name\s*[:：]?\s*_{3,}/i] },
+    { label: 'Registration / company number', patterns: [/(registration|company) number\s*[:：]?\s*_{3,}/i] },
+    { label: 'Registration / incorporation date', patterns: [/(registration|incorporation) date\s*[:：]?\s*_{3,}/i] },
+  ],
+  certificate_of_incumbency: [
+    { label: 'Issue date', patterns: [/(issue date|date of issue)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Good standing / existence statement', patterns: [/(good standing|in existence)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Current directors / members', patterns: [/(directors|members)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Current shareholders', patterns: [/shareholders\s*[:：]?\s*_{3,}/i] },
+    { label: 'Issuer identity / license information', patterns: [/(issuer|registered agent|license|licence)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Issuer signature', patterns: [/issuer signature\s*[:：]?\s*_{3,}/i, /signature\s*[:：]?\s*_{3,}/i] },
+  ],
   board_resolution: [
     { label: 'Company name', patterns: [/company name\s*[:：]?\s*_{3,}/i] },
     { label: 'Resolution date', patterns: [/date\s*[:：]?\s*_{3,}/i] },
     { label: 'Authorized signatory name', patterns: [/authorized (person|representative|signator(?:y|ies))\s*[:：]?\s*_{3,}/i] },
+    { label: 'Authorized business scope', patterns: [/(business scope|scope of authority|authorized to)\s*[:：]?\s*_{3,}/i] },
     { label: 'Director / officer signature', patterns: [/signature\s*[:：]?\s*_{3,}/i] },
   ],
   declaration_source_of_fund_wealth: [
@@ -128,14 +144,32 @@ const REQUIRED_FIELD_HINTS: Record<string, Array<{ label: string; patterns: RegE
   ],
   mutual_nda: [
     { label: 'Counterparty / company name', patterns: [/company name\s*[:：]?\s*_{3,}/i, /party\s*[:：]?\s*_{3,}/i] },
+    { label: 'Authorized representative title', patterns: [/(title|position)\s*[:：]?\s*_{3,}/i] },
     { label: 'Signature', patterns: [/signature\s*[:：]?\s*_{3,}/i] },
     { label: 'Date', patterns: [/date\s*[:：]?\s*_{3,}/i] },
   ],
   authorization_letter: [
     { label: 'Authorized person name', patterns: [/authorized (person|representative)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Authorized person email', patterns: [/email\s*[:：]?\s*_{3,}/i] },
+    { label: 'Authorized person title', patterns: [/(title|position)\s*[:：]?\s*_{3,}/i] },
     { label: 'Authority scope', patterns: [/authorized to\s*_{3,}/i] },
-    { label: 'Signature', patterns: [/signature\s*[:：]?\s*_{3,}/i] },
+    { label: 'Authorized representative signature', patterns: [/authorized representative signature\s*[:：]?\s*_{3,}/i, /signature\s*[:：]?\s*_{3,}/i] },
+    { label: 'Director signature', patterns: [/director signature\s*[:：]?\s*_{3,}/i] },
     { label: 'Date', patterns: [/date\s*[:：]?\s*_{3,}/i] },
+  ],
+  ownership_structure_chart: [
+    { label: 'UBO / natural person owner', patterns: [/(ubo|beneficial owner|ultimate beneficial owner)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Holding percentage', patterns: [/(holding|ownership|shareholding).{0,30}%\s*[:：]?\s*_{3,}/i] },
+    { label: 'Director signature', patterns: [/director signature\s*[:：]?\s*_{3,}/i, /signature\s*[:：]?\s*_{3,}/i] },
+    { label: 'Date', patterns: [/date\s*[:：]?\s*_{3,}/i] },
+    { label: 'True, accurate and up-to-date declaration', patterns: [/(true, accurate, and up-to-date|真实、完全且准确|真實、完整且準確)\s*[:：]?\s*_{3,}/i] },
+  ],
+  trust_deed: [
+    { label: 'Trust name', patterns: [/trust name\s*[:：]?\s*_{3,}/i] },
+    { label: 'Beneficiaries / classes', patterns: [/beneficiar(?:y|ies)\s*[:：]?\s*_{3,}/i] },
+    { label: 'Settlor', patterns: [/settlor\s*[:：]?\s*_{3,}/i] },
+    { label: 'Trustee', patterns: [/trustee\s*[:：]?\s*_{3,}/i] },
+    { label: 'Protector / executor / controller', patterns: [/(protector|executor|controller)\s*[:：]?\s*_{3,}/i] },
   ],
 };
 
@@ -219,6 +253,51 @@ function crossDocumentConsistencyIssues(caseData: KYCCase, requirementId: string
   return issues;
 }
 
+function policyControlIssues(requirementId: string | undefined, filename: string, text: string): string[] {
+  const normalized = text.toLowerCase();
+  const issues: string[] = [];
+
+  if (requirementId === 'certificate_of_incorporation') {
+    issues.push('Confirm the Certificate of Incorporation shows registration date, company number, and company name.');
+  }
+
+  if (requirementId === 'certificate_of_incumbency' || requirementId === 'us_wy_certificate_of_incumbency' || requirementId === 'fund_certificate_of_incumbency') {
+    issues.push('Confirm the Certificate of Incumbency is issued within 6 months by a registered agent, licensed accountant, lawyer, or US CPA, and includes issuer identity, signature, current directors/members/shareholders, and good standing wording.');
+  }
+
+  if (requirementId === 'authorization_letter') {
+    issues.push('Confirm authorized person details are complete, authorized person email matches the KYC form, all authorized representatives sign if there is more than one, and all directors sign the final page.');
+  }
+
+  if (requirementId === 'ownership_structure_chart') {
+    issues.push('Confirm the ownership chart fully traces to UBOs, includes holding percentages, director signature/date, and the required true/accurate/up-to-date declaration.');
+    if (!/(true, accurate, and up-to-date|真实、完全且准确|真實、完整且準確)/i.test(text)) {
+      issues.push('Ownership chart does not clearly include the required true, accurate and up-to-date declaration.');
+    }
+  }
+
+  if (requirementId === 'mutual_nda') {
+    if (!/\.pdf$/i.test(filename)) {
+      issues.push('NDA must be submitted as a PDF.');
+    }
+    if (/(?:\[\s*\]|_{3,}|insert|fill in|填写|待填写)/i.test(text)) {
+      issues.push('NDA appears to retain unfilled brackets or blank template placeholders.');
+    }
+    if (!/(antalpha digital pte\. ltd\.|northstar digital \(hk\) limited|ursalpha digital llc)/i.test(text)) {
+      issues.push('NDA does not clearly show one of the allowed Antalpha / NS / AI counterparty names.');
+    }
+    if (!/(signature|signed by|签署|簽署)/i.test(normalized) || !/(date|签署日期|簽署日期)/i.test(normalized)) {
+      issues.push('NDA signature and real signing date must be manually confirmed.');
+    }
+  }
+
+  if (requirementId === 'trust_deed') {
+    issues.push('Trust Deed must identify trust name, beneficiaries/classes, settlor, trustee, protector/executor, and ultimate controllers.');
+  }
+
+  return issues;
+}
+
 function buildReviewSignals(caseData: KYCCase, requirementId: string | undefined, extractedText: string, extractionMethod: string) {
   const missingFields = missingFieldLabels(requirementId, extractedText);
   const issues = [
@@ -276,6 +355,14 @@ function fallbackAnalysis(
   const match = scoreChecklistMatch(options, filename, extractedText);
 
   const signals = buildReviewSignals(caseData, match.item?.id, extractedText, extractionMethod);
+  const policyIssues = policyControlIssues(match.item?.id, filename, extractedText);
+  const issues = Array.from(new Set([...signals.issues, ...policyIssues]));
+  const recommendations = issues.length
+    ? [
+        'KYC team should review the highlighted fields before accepting this document.',
+        'If the issue is confirmed, ask the client to resubmit or clarify in the follow-up email.',
+      ]
+    : signals.recommendations;
   const templateMatch = scoreTemplateConsistency(match.item?.id, extractedText);
   const keyPoints = extractedText
     ? [
@@ -300,10 +387,10 @@ function fallbackAnalysis(
     keyPoints,
     riskFlags: Array.from(new Set([...(extractedText ? ['manual_review_recommended'] : []), ...signals.riskFlags])),
     missingFields: signals.missingFields,
-    issues: signals.issues,
-    recommendations: signals.recommendations,
+    issues,
+    recommendations,
     followUpPoints: signals.followUpPoints,
-    severity: signals.severity,
+    severity: issues.length ? 'medium' : signals.severity,
     requiresHumanReview: true,
   };
 }
@@ -456,6 +543,13 @@ Rules:
 - If a field is not visible, set it to null. Do not invent values.
 - Only pick a suggestedRequirementId from the provided checklist options.
 - Check whether required fields appear blank, whether signature/date fields look incomplete, and whether source-of-funds statements are consistent with the case source of funds.
+- For signed documents, check for signer name, title/position, signature, and date. Institution Onboarding Form and NDA must be signed by the authorized representative shown on the Authorization Letter.
+- Certificate of Incorporation must show registration/incorporation date, company number, and company name.
+- Certificate of Incumbency must be issued within 6 months by a registered agent, licensed accountant, lawyer, or US CPA, and should include issuer identity/signature, current members/directors/shareholders, and "The Company is in existence and in good legal standing" wording or equivalent.
+- Authorization Letter must include complete authorized person information, an email matching the KYC form, authorization scope, all AR signatures if multiple ARs exist, and all director signatures on the final page.
+- Ownership Structure Chart must trace to UBOs, include holding percentages, director signature/date, and a true/accurate/up-to-date declaration. If no UBO can be identified, look for a no-other-natural-person-over-25%-control statement.
+- NDA must be PDF, use the correct counterparty name, have no unfilled brackets/placeholders, and use a real final signing date. If clauses are changed or a third-party template is used, flag Legal or Legal+Business confirmation requirement.
+- Trust Deed must identify trust name, beneficiaries/classes, settlor, trustee, protector/executor, and ultimate controllers.
 - Check cross-document consistency: business scale vs source-of-funds basis; ownership chart with >=25% shareholders vs missing personal ID/address/identity verification; business proof activity vs onboarding form activity; mining/crypto/financing statements vs submitted evidence.
 - If the document says one business activity but case notes or other received documents indicate another, flag the mismatch clearly.
 - Do not claim a template wording comparison passed unless the supplied text clearly supports it.

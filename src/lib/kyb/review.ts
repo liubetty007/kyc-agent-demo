@@ -1,5 +1,5 @@
 import { addMonths, isAfter, parseISO } from './time';
-import { generateChecklist, isCryptoRelated, isFinancialInstitutionOrAssetManager, isFinancingSource, isMiningRelated } from './checklist';
+import { generateChecklist, isCryptoRelated, isFinancialInstitutionOrAssetManager, isFinancingSource, isHighRiskCustomer, isMiningRelated } from './checklist';
 import { getMatrix } from './matrix';
 import type { DocumentRequirement, KYCCase, ReviewIssue, ReviewResult } from './types';
 
@@ -55,6 +55,12 @@ function hasDocument(caseData: KYCCase, requirementId: string): boolean {
 
 function firstDocument(caseData: KYCCase, requirementIds: string[]) {
   return caseData.receivedDocuments.find(
+    (doc) => requirementIds.includes(doc.requirementId) && (doc.status === 'received' || doc.status === 'accepted'),
+  );
+}
+
+function receivedDocumentsByIds(caseData: KYCCase, requirementIds: string[]) {
+  return caseData.receivedDocuments.filter(
     (doc) => requirementIds.includes(doc.requirementId) && (doc.status === 'received' || doc.status === 'accepted'),
   );
 }
@@ -115,6 +121,14 @@ export function runReview(caseData: KYCCase): ReviewResult {
       issues.push({ severity: 'high', code: 'incumbency_expired', message: `${certificateOfIncumbency.name} is older than ${maxAge} months.` });
       questionsForClient.push(`Please provide a Certificate of Incumbency issued within the last ${maxAge} months.`);
     }
+    const requiredContent = matrix.standard_kyc_rules.certificate_of_incumbency_required_content || [];
+    if (requiredContent.length) {
+      issues.push({
+        severity: 'low',
+        code: 'incumbency_content_review_required',
+        message: `Certificate of Incumbency must be reviewed for: ${requiredContent.join('; ')}.`,
+      });
+    }
   }
 
   const stateStatusDocument = firstDocument(caseData, [
@@ -146,7 +160,8 @@ export function runReview(caseData: KYCCase): ReviewResult {
       .filter((doc) => ['source_of_funds', 'source_of_crypto_assets', 'declaration_source_of_fund_wealth'].includes(doc.requirementId))
       .map((doc) => `${doc.name} ${doc.notes || ''}`),
   ].join(' ').toLowerCase();
-  if (!sourceEvidenceText.includes('usd') && !sourceEvidenceText.includes('$')) {
+  const strictSourceEvidenceRequired = isHighRiskCustomer(caseData) || isCryptoRelated(caseData) || isFinancingSource(caseData);
+  if (strictSourceEvidenceRequired && !sourceEvidenceText.includes('usd') && !sourceEvidenceText.includes('$')) {
     issues.push({ severity: 'medium', code: 'expected_transaction_volume_usd_missing', message: 'SOW/SOF evidence should include expected annual or monthly transaction volume in fiat USD.' });
     questionsForClient.push('Please provide expected monthly or annual transaction volume in USD as part of the source of funds / source of wealth information.');
   }
@@ -156,12 +171,43 @@ export function runReview(caseData: KYCCase): ReviewResult {
     issues.push({ severity: 'low', code: 'signed_document_details_review_required', message: `${doc.name} must be manually checked for signer name, title, and signing date.` });
   }
 
+  for (const doc of receivedDocumentsByIds(caseData, matrix.standard_kyc_rules.authorized_representative_must_sign || [])) {
+    issues.push({
+      severity: 'low',
+      code: 'authorized_representative_signature_review_required',
+      message: `${doc.name} must be signed by the authorized representative listed in the Authorization Letter.`,
+    });
+  }
+
   if (hasDocument(caseData, 'board_resolution')) {
     issues.push({ severity: 'low', code: 'board_resolution_scope_review_required', message: 'Board Resolution must identify all authorized persons and define their permitted business scope, even for one-director entities.' });
   }
 
+  if (hasDocument(caseData, 'authorization_letter')) {
+    issues.push({
+      severity: 'low',
+      code: 'authorization_letter_controls_review_required',
+      message: 'Authorization Letter must include complete authorized person information, match the authorized person email in the KYC form, be signed by all authorized representatives if there is more than one, and have the last page signed by all company directors.',
+    });
+  }
+
   if (hasDocument(caseData, 'mutual_nda')) {
-    issues.push({ severity: 'low', code: 'nda_counterparty_review_required', message: `NDA must use the correct current counterparty: ${matrix.standard_kyc_rules.allowed_nda_counterparties.join(', ')}. Template changes require Legal confirmation; third-party templates require Legal and Business confirmation.` });
+    const ndaDoc = firstDocument(caseData, ['mutual_nda']);
+    if (ndaDoc && !isPdfDocument(ndaDoc.name)) {
+      issues.push({ severity: 'high', code: 'nda_pdf_required', message: 'NDA must be provided in PDF format.' });
+      questionsForClient.push('Please resubmit the NDA in PDF format.');
+    }
+    issues.push({ severity: 'low', code: 'nda_counterparty_review_required', message: `NDA must use the correct current counterparty: ${matrix.standard_kyc_rules.allowed_nda_counterparties.join(', ')}. It must not retain unfilled brackets or highlighting, and the final signature date must be the real signing date.` });
+    issues.push({ severity: 'medium', code: 'nda_template_change_confirmation_required', message: 'If the client changed our NDA template, Legal confirmation is required. If a third-party NDA template is used, both Legal and Business confirmation are required.' });
+  }
+
+  if (hasDocument(caseData, 'ownership_structure_chart')) {
+    const ownershipStatements = matrix.standard_kyc_rules.ownership_chart_required_statements || [];
+    issues.push({
+      severity: 'low',
+      code: 'ownership_chart_controls_review_required',
+      message: `Ownership Structure Chart must fully trace to UBOs, include holding percentages, director signature and date${ownershipStatements.length ? `, and include required statements: ${ownershipStatements.join('; ')}` : ''}.`,
+    });
   }
 
   for (const doc of caseData.receivedDocuments) {
@@ -196,6 +242,15 @@ export function runReview(caseData: KYCCase): ReviewResult {
     questionsForClient.push('Please provide the AML Questionnaire because the applicant appears to be a financial institution or manages user/client assets.');
   }
 
+  if (isFinancialInstitutionOrAssetManager(caseData) && !acceptedOrReceived.has('letter_of_undertaking')) {
+    issues.push({ severity: 'high', code: 'missing_letter_of_undertaking', message: 'Licensed financial institutions or entities managing user/client assets must provide a Letter of Undertaking.' });
+    questionsForClient.push('Please provide the Letter of Undertaking because the applicant appears to be a financial institution or manages user/client assets.');
+  }
+
+  if (isHighRiskCustomer(caseData)) {
+    issues.push({ severity: 'high', code: 'high_risk_customer_edd_required', message: 'High-risk customer workflow requires initial and ongoing source-of-funds evidence, source-of-funds explanation, and associated individual background profiles.' });
+  }
+
   const businessAssessment = {
     cryptoRelated: isCryptoRelated(caseData),
     miningRelated: isMiningRelated(caseData),
@@ -205,6 +260,7 @@ export function runReview(caseData: KYCCase): ReviewResult {
       ...(isMiningRelated(caseData) ? ['Mining business'] : []),
       ...(isFinancingSource(caseData) ? ['Financing source of funds'] : []),
       ...(isFinancialInstitutionOrAssetManager(caseData) ? ['Financial institution / manages user assets'] : []),
+      ...(isHighRiskCustomer(caseData) ? ['High-risk customer EDD required'] : []),
       ...(getMatrix().jurisdiction_rules.offshore.includes(caseData.jurisdiction) ? ['Offshore jurisdiction'] : []),
     ],
   };

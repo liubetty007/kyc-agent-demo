@@ -218,11 +218,24 @@ export type MatrixConfig = {
     kyc_validity_months: number;
     required_file_format: string;
     signed_document_requirements: string[];
+    authorized_representative_must_sign?: string[];
+    authorization_letter_required_even_single_director?: boolean;
+    authorization_letter_director_signatures_required?: string;
+    authorization_letter_email_must_match_kyc_form?: boolean;
+    board_resolution_must_define_business_scope?: boolean;
     coi_recent_issue_months_except: { max_age_months: number; excluded_jurisdictions: string[] };
     certificate_of_incumbency_max_age_months: number;
+    certificate_of_incumbency_required_content?: string[];
     nda_validity_years: number;
+    nda_required_file_format?: string;
+    nda_requires_real_signing_date?: boolean;
+    nda_unfilled_brackets_prohibited?: boolean;
+    nda_template_change_requires?: string;
+    nda_third_party_template_requires?: string;
     allowed_nda_counterparties: string[];
+    ownership_chart_required_statements?: string[];
     email_sla_hours: number;
+    email_question_ratio_max?: number;
     external_date_formats: string[];
   };
   jurisdiction_rules: {
@@ -235,12 +248,14 @@ export type MatrixConfig = {
   };
   base_documents: DocumentRequirement[];
   hk_specific_documents: DocumentRequirement[];
+  company_type_documents?: Record<string, DocumentRequirement[]>;
   internal_forms: DocumentRequirement[];
   us_state_rules: Record<string, DocumentRequirement[]>;
   risk_based_documents: {
     financial_or_user_asset_manager: DocumentRequirement[];
     entity_shareholder: DocumentRequirement[];
     worldcheck_alert: DocumentRequirement[];
+    high_risk_customer?: DocumentRequirement[];
   };
   associated_individual_documents: { roles: string[]; documents: DocumentRequirement[] };
   crypto_business_rules: {
