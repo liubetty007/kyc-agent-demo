@@ -17,6 +17,14 @@ import {
   packageDescription,
   packageDefinitionForFolder,
 } from './openingEmailPackages';
+import {
+  classifyTemplateDocumentSlug,
+  detectTemplateLocale,
+  matchesLocaleFolderName,
+  templateDocumentLabel,
+  templateLocaleFolder,
+  type TemplateLocaleFolder,
+} from './templateDocumentCatalog';
 
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
@@ -41,7 +49,7 @@ export type OpeningEmailAttachmentPackage = {
   attachments: OpeningEmailAttachmentRef[];
 };
 
-type StandardPackageCaseContext = Pick<KYCCase, 'jurisdiction' | 'businessType' | 'needsNsBusiness'>;
+type StandardPackageCaseContext = Pick<KYCCase, 'jurisdiction' | 'businessType' | 'needsNsBusiness' | 'language'>;
 
 function bucket() {
   const name = process.env.KYC_DOCUMENT_BUCKET;
@@ -67,10 +75,15 @@ async function resolveStandardDriveFolderId(): Promise<string> {
   return ensureKycTemplatesFolder();
 }
 
-function driveAttachment(file: { id: string; name: string; mimeType?: string; size?: string }, packageId: string, packageName: string): OpeningEmailAttachmentRef {
+function driveAttachment(
+  file: { id: string; name: string; mimeType?: string; size?: string },
+  packageId: string,
+  packageName: string,
+  displayName?: string,
+): OpeningEmailAttachmentRef {
   return {
     id: `standard-drive:${file.id}`,
-    name: file.name,
+    name: displayName || file.name,
     objectName: `drive://${file.id}`,
     contentType: file.mimeType,
     size: Number(file.size || 0),
@@ -78,6 +91,74 @@ function driveAttachment(file: { id: string; name: string; mimeType?: string; si
     packageId,
     packageName,
   };
+}
+
+function pickLatestDriveFile(files: DriveFileSummary[]): DriveFileSummary | undefined {
+  if (!files.length) return undefined;
+  return [...files].sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || '') || a.name.localeCompare(b.name))[0];
+}
+
+async function findLocaleFolder(parentId: string, locale: TemplateLocaleFolder): Promise<DriveFileSummary | undefined> {
+  const subfolders = await listDriveSubfolders(parentId);
+  return subfolders.find((folder) => matchesLocaleFolderName(folder.name, locale));
+}
+
+async function attachmentsFromStructuredPackage(
+  packageFolder: DriveFileSummary,
+  caseData?: StandardPackageCaseContext,
+): Promise<OpeningEmailAttachmentRef[]> {
+  const locale = templateLocaleFolder(caseData?.language);
+  const packageId = `drive-folder:${packageFolder.id}`;
+  const documentFolders = (await listDriveSubfolders(packageFolder.id))
+    .filter((folder) => !matchesLocaleFolderName(folder.name, 'EN') && !matchesLocaleFolderName(folder.name, 'ZH'))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (!documentFolders.length) return [];
+
+  const attachments: OpeningEmailAttachmentRef[] = [];
+  for (const documentFolder of documentFolders) {
+    const localeFolder = await findLocaleFolder(documentFolder.id, locale);
+    if (!localeFolder) continue;
+    const latest = pickLatestDriveFile(await listDriveFolderFiles(localeFolder.id));
+    if (!latest) continue;
+    const slug = documentFolder.name;
+    attachments.push(
+      driveAttachment(
+        latest,
+        packageId,
+        packageFolder.name,
+        templateDocumentLabel(slug, caseData?.language),
+      ),
+    );
+  }
+  return attachments;
+}
+
+async function attachmentsFromFlatPackage(
+  packageFolder: DriveFileSummary,
+  caseData?: StandardPackageCaseContext,
+): Promise<OpeningEmailAttachmentRef[]> {
+  const locale = templateLocaleFolder(caseData?.language);
+  const packageId = `drive-folder:${packageFolder.id}`;
+  const files = (await listDriveFolderFiles(packageFolder.id)).filter((file) => file.name.toLowerCase() !== 'manifest.json');
+  const grouped = new Map<string, DriveFileSummary[]>();
+
+  for (const file of files) {
+    if (detectTemplateLocale(file.name) !== locale) continue;
+    const slug = classifyTemplateDocumentSlug(file.name, packageFolder.name);
+    const bucket = grouped.get(slug) || [];
+    bucket.push(file);
+    grouped.set(slug, bucket);
+  }
+
+  return [...grouped.entries()]
+    .map(([slug, bucket]) => {
+      const latest = pickLatestDriveFile(bucket);
+      if (!latest) return null;
+      return driveAttachment(latest, packageId, packageFolder.name, templateDocumentLabel(slug, caseData?.language));
+    })
+    .filter((item): item is OpeningEmailAttachmentRef => Boolean(item))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function mappedStandardDriveAttachments(): OpeningEmailAttachmentPackage[] {
@@ -180,17 +261,20 @@ export async function listOpeningEmailStandardDocuments(): Promise<OpeningEmailA
 
 async function packageFromFolder(folder: DriveFileSummary, caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage | null> {
   if (folder.name.startsWith('_')) return null;
-  const files = await listDriveFolderFiles(folder.id);
-  if (!files.length) return null;
+
+  const structured = await attachmentsFromStructuredPackage(folder, caseData);
+  const attachments = structured.length
+    ? structured
+    : await attachmentsFromFlatPackage(folder, caseData);
+
+  if (!attachments.length) return null;
   const packageId = `drive-folder:${folder.id}`;
   return {
     id: packageId,
     name: folder.name,
     description: packageDescription(folder.name),
     defaultSelected: packageDefaultSelected(folder.name, caseData),
-    attachments: files
-      .map((file) => driveAttachment(file, packageId, folder.name))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    attachments,
   };
 }
 

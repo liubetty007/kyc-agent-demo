@@ -74,6 +74,8 @@ Role mappings live in `src/lib/auth/roles.ts` and require deployment after chang
 - Google Cloud setup: `docs/GOOGLE_CLOUD_DEPLOYMENT.md`
 - Opening-email standard attachments: Google Drive `KYC文件/标准模板/` with packages:
   `01 标准必交文件`, `02 NS Documents`, `03 Hong Kong`, `04 Singapore`, `05 United States`, `06 Others`
-  (see `config/betty-drive.defaults.json` and `src/lib/kyb/openingEmailPackages.ts`)
+- Each package contains per-document folders (`authorization_letter`, `board_resolution`, …) with `EN/` and `ZH/` subfolders.
+  Upload a newer file into the matching locale folder; opening email auto-attaches the latest file by modified time.
+  Case `language` (`zh` | `en`) selects which locale folder is used.
 - Gmail sending: real MIME attachments via Betty OAuth on staging
 - Follow-up emails attach opening templates minus already-accepted doc types.

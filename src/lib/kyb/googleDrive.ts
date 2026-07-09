@@ -14,6 +14,7 @@ export type DriveFileSummary = {
   name: string;
   mimeType?: string;
   size?: string;
+  modifiedTime?: string;
 };
 
 function oauthClientId(): string {
@@ -261,7 +262,7 @@ async function listDriveChildren(parentId: string, mimeFilter: string): Promise<
   do {
     const query = encodeURIComponent(`"${parentId.replace(/"/g, '\\"')}" in parents and trashed=false and ${mimeFilter}`);
     const token = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
-    const response = await driveFetch(`/files?q=${query}&fields=nextPageToken,files(id,name,mimeType,size)&pageSize=100&orderBy=folder,name_natural&spaces=drive${token}`);
+    const response = await driveFetch(`/files?q=${query}&fields=nextPageToken,files(id,name,mimeType,size,modifiedTime)&pageSize=100&orderBy=folder,name_natural&spaces=drive${token}`);
     const body = await response.json() as { nextPageToken?: string; files?: DriveFileSummary[] };
     files.push(...(body.files || []).filter((file) => file.id && file.name));
     pageToken = body.nextPageToken || '';

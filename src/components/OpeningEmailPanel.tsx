@@ -200,6 +200,10 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
         <Link className="small" href="#case-details">Edit case details →</Link>
       </div>
       <p>Prepare and send the opening email to the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
+      <p className="small">
+        Attachment language follows the case language ({caseData.language === 'zh' ? '中文' : 'English'}).
+        Each template folder keeps EN/ZH versions; the newest file in the matching folder is attached automatically.
+      </p>
       {!draft ? (
         readOnly ? <p className="small">No opening email draft yet.</p> : (
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Opening Email</button>
