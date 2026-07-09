@@ -113,13 +113,41 @@ async function ensureChildFolder(parentId: string, name: string): Promise<string
   return promise;
 }
 
+async function countSubfolders(parentId: string): Promise<number> {
+  const query = encodeURIComponent(
+    `'${parentId.replace(/'/g, "\\'")}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+  );
+  const listResponse = await driveFetch(`/files?q=${query}&fields=files(id)&pageSize=200&spaces=drive`);
+  const data = await listResponse.json() as { files?: Array<{ id?: string }> };
+  return data.files?.length || 0;
+}
+
+async function findExistingRootFolder(): Promise<string | undefined> {
+  const configured = process.env.KYC_DRIVE_ROOT_FOLDER_ID?.trim();
+  if (configured) return configured;
+
+  const query = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${driveName()}' and trashed=false`);
+  const listResponse = await driveFetch(`/files?q=${query}&fields=files(id,name)&pageSize=20&spaces=drive`);
+  const data = await listResponse.json() as { files?: Array<{ id?: string }> };
+  const candidates = (data.files || []).filter((file) => file.id);
+  if (!candidates.length) return undefined;
+
+  let best = candidates[0].id!;
+  let bestCount = -1;
+  for (const candidate of candidates) {
+    const count = await countSubfolders(candidate.id!);
+    if (count > bestCount) {
+      best = candidate.id!;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 async function findOrCreateRootFolder(): Promise<string> {
   if (!rootFolderIdPromise) {
     rootFolderIdPromise = (async () => {
-      const query = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${driveName()}' and trashed=false and 'root' in parents`);
-      const listResponse = await driveFetch(`/files?q=${query}&fields=files(id,name)&pageSize=10&spaces=drive`);
-      const data = await listResponse.json() as { files?: Array<{ id?: string }> };
-      const existing = data.files?.find((file) => file.id)?.id;
+      const existing = await findExistingRootFolder();
       if (existing) return existing;
 
       const createResponse = await driveFetch('/files?fields=id,name', {
