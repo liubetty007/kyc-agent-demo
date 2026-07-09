@@ -2,7 +2,12 @@ import { Buffer } from 'buffer';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+const DRIVE_ROOT_NAME = 'KYC文件';
+const DRIVE_CLIENTS_FOLDER_NAME = '客户案件';
+const DRIVE_TEMPLATES_FOLDER_NAME = '标准模板';
+
 let rootFolderIdPromise: Promise<string> | null = null;
+const subfolderPromises = new Map<string, Promise<string>>();
 
 export type DriveFileSummary = {
   id: string;
@@ -66,7 +71,46 @@ async function driveFetch(path: string, init?: RequestInit): Promise<Response> {
 }
 
 function driveName(): string {
-  return 'KYC文件';
+  return DRIVE_ROOT_NAME;
+}
+
+async function findChildFolder(parentId: string, name: string): Promise<string | undefined> {
+  const query = encodeURIComponent(
+    `mimeType='application/vnd.google-apps.folder' and name='${name.replace(/'/g, "\\'")}' and trashed=false and '${parentId.replace(/'/g, "\\'")}' in parents`,
+  );
+  const listResponse = await driveFetch(`/files?q=${query}&fields=files(id,name)&pageSize=10&spaces=drive`);
+  const data = await listResponse.json() as { files?: Array<{ id?: string }> };
+  return data.files?.find((file) => file.id)?.id;
+}
+
+async function ensureChildFolder(parentId: string, name: string): Promise<string> {
+  const cacheKey = `${parentId}:${name}`;
+  const existingPromise = subfolderPromises.get(cacheKey);
+  if (existingPromise) return existingPromise;
+
+  const promise = (async () => {
+    const existing = await findChildFolder(parentId, name);
+    if (existing) return existing;
+
+    const createResponse = await driveFetch('/files?fields=id,name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      }),
+    });
+    const created = await createResponse.json() as { id?: string };
+    if (!created.id) throw new Error(`Drive folder creation did not return an id for ${name}.`);
+    return created.id;
+  })().catch((error) => {
+    subfolderPromises.delete(cacheKey);
+    throw error;
+  });
+
+  subfolderPromises.set(cacheKey, promise);
+  return promise;
 }
 
 async function findOrCreateRootFolder(): Promise<string> {
@@ -98,8 +142,22 @@ async function findOrCreateRootFolder(): Promise<string> {
   return rootFolderIdPromise;
 }
 
-export async function ensureKycDriveFolder(): Promise<string> {
+export async function ensureKycDriveRootFolder(): Promise<string> {
   return findOrCreateRootFolder();
+}
+
+export async function ensureKycClientsFolder(): Promise<string> {
+  const rootId = await findOrCreateRootFolder();
+  return ensureChildFolder(rootId, DRIVE_CLIENTS_FOLDER_NAME);
+}
+
+export async function ensureKycTemplatesFolder(): Promise<string> {
+  const rootId = await findOrCreateRootFolder();
+  return ensureChildFolder(rootId, DRIVE_TEMPLATES_FOLDER_NAME);
+}
+
+export async function ensureKycDriveFolder(): Promise<string> {
+  return ensureKycClientsFolder();
 }
 
 export async function uploadBytesToDrive(input: {

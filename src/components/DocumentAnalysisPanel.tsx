@@ -91,8 +91,9 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
         <span className="small">LLM review for checklist files</span>
       </div>
       <p>
-        Analyze files already received in the checklist. Template percentage is shown only for NDA and Board Resolution,
-        where the submitted file should be compared with the standard template. Other files are reviewed for completeness and consistency.
+        对已收到的 checklist 文件做辅助审核（可选，不影响收信识别）。系统会先把 PDF/图片转成文字，再调用云端视觉模型
+        （生产环境通常是 NewAPI Qwen3-VL，不是本地模型）检查字段是否齐全、NDA/BR 是否与标准模板接近。
+        收信后点 <strong>Fetch Client Reply</strong> 即可自动归类；Analyze 只是人工复核辅助，可以跳过。
       </p>
 
       <div className="document-toolbar">

@@ -88,7 +88,9 @@ async function uploadTextFile(parentId, name, text) {
 }
 
 const parentId = process.env.KYC_STANDARD_DRIVE_FOLDER_ID || DEFAULT_PARENT;
-const folderId = await ensureFolder(parentId, 'NS KYC文件');
+// Prefer KYC文件/标准模板 when uploading NS test templates.
+const templatesRoot = await ensureFolder(parentId, '标准模板');
+const folderId = await ensureFolder(templatesRoot, 'NS KYC文件');
 const files = [
   [
     'NS_NDA_Fake_Template.txt',

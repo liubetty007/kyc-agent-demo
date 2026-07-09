@@ -1,3 +1,4 @@
+import { classifyAttachmentFilename } from '@/lib/kyb/attachmentClassification';
 import { requireApiUser } from '@/lib/auth/admin';
 import { openingThreadId } from '@/lib/kyb/caseMailThreads';
 import { ingestDemoMailbox } from '@/lib/kyb/emailIngestion';
@@ -80,6 +81,8 @@ function messageIsFromContact(caseData: KYCCase, message: GmailMessage): boolean
 }
 
 function shouldImportAttachment(caseData: KYCCase, message: GmailMessage, filename: string): boolean {
+  const openingThread = openingThreadId(caseData);
+  if (openingThread && message.threadId === openingThread) return true;
   return (
     textHasCaseContext(caseData, filename)
     || textHasCaseContext(caseData, `${message.subject}\n${message.body}`)
@@ -102,7 +105,8 @@ async function listCaseThreadGmailMessages(caseData: Awaited<ReturnType<typeof g
       if (message.threadId !== threadId) continue;
       if (message.labelIds?.includes('SENT') && !message.labelIds.includes('INBOX')) continue;
       if (!messageIsFromContact(caseData, message)) continue;
-      if (!messageHasCaseContext(caseData, message)) continue;
+      const openingThread = openingThreadId(caseData);
+      if (!(openingThread && message.threadId === openingThread) && !messageHasCaseContext(caseData, message)) continue;
       seenIds.add(id);
       messages.push(message);
     }
@@ -111,22 +115,9 @@ async function listCaseThreadGmailMessages(caseData: Awaited<ReturnType<typeof g
 }
 
 function fallbackRequirementId(caseData: KYCCase, filename: string): string | undefined {
-  const normalized = filename.toLowerCase().replace(/[_-]+/g, ' ');
   const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
-  const candidates = checklist
-    .map((item) => {
-      const tokens = [item.id, item.name, item.category]
-        .join(' ')
-        .toLowerCase()
-        .replace(/[_/()-]+/g, ' ')
-        .split(/\s+/)
-        .filter((token) => token.length > 2);
-      const score = tokens.reduce((count, token) => count + (normalized.includes(token) ? 1 : 0), 0);
-      return { id: item.id, score };
-    })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score);
-  return candidates[0]?.id;
+  const allowed = new Set(checklist.map((item) => item.id));
+  return classifyAttachmentFilename(filename, allowed)?.requirementId;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

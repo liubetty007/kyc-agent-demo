@@ -1,6 +1,7 @@
 import { Storage } from '@google-cloud/storage';
 import {
   ensureKycDriveFolder,
+  ensureKycTemplatesFolder,
   listDriveFolderFiles,
   listDriveSubfolders,
   readBytesFromDrive,
@@ -14,7 +15,6 @@ import { STANDARD_DRIVE_TEMPLATES } from './standardDriveTemplates';
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
 const OPENING_DOCS_PREFIXES = Array.from(new Set([OPENING_DOCS_PREFIX, 'kyc_agent_documents/', '-kyc_agent_documents/']));
-const DEFAULT_STANDARD_DRIVE_FOLDER_ID = '1xhrFtBtxFGzlT3Q4l0yiLsnYU6pFHzhT';
 
 export type OpeningEmailAttachmentRef = {
   id: string;
@@ -51,8 +51,11 @@ function filenameFromObject(objectName: string): string {
   return objectName.split('/').filter(Boolean).at(-1) || objectName;
 }
 
-function standardDriveFolderId(): string | undefined {
-  return process.env.KYC_STANDARD_DRIVE_FOLDER_ID || DEFAULT_STANDARD_DRIVE_FOLDER_ID;
+async function resolveStandardDriveFolderId(): Promise<string> {
+  if (process.env.KYC_STANDARD_DRIVE_FOLDER_ID) {
+    return process.env.KYC_STANDARD_DRIVE_FOLDER_ID;
+  }
+  return ensureKycTemplatesFolder();
 }
 
 function driveAttachment(file: { id: string; name: string; mimeType?: string; size?: string }, packageId: string, packageName: string): OpeningEmailAttachmentRef {
@@ -241,8 +244,7 @@ async function packageFromFolder(folder: DriveFileSummary, caseData?: StandardPa
 }
 
 export async function listOpeningEmailStandardDocumentPackages(caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage[]> {
-  const folderId = standardDriveFolderId();
-  if (!folderId) return mappedStandardDriveAttachments();
+  const folderId = await resolveStandardDriveFolderId();
 
   try {
     const rootFiles = (await listDriveFolderFiles(folderId)).filter((file) => file.name.toLowerCase() !== 'manifest.json');

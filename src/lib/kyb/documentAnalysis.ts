@@ -1,3 +1,4 @@
+import { classifyAttachmentFilename } from './attachmentClassification';
 import { generateChecklist } from './checklist';
 import { getDocumentLlmJson, hasLlmConfigured, activeLlmProvider } from './claude';
 import { convertDocumentForLlm } from './documentConversion';
@@ -57,6 +58,13 @@ function checklistOptions(caseData: KYCCase): ChecklistOption[] {
 }
 
 function scoreChecklistMatch(options: ChecklistOption[], filename: string, extractedText: string): ChecklistMatch {
+  const allowed = new Set(options.map((item) => item.id));
+  const filenameMatch = classifyAttachmentFilename(filename, allowed);
+  if (filenameMatch) {
+    const item = options.find((entry) => entry.id === filenameMatch.requirementId);
+    if (item) return { item, confidence: filenameMatch.confidence };
+  }
+
   const haystack = `${filename}\n${extractedText}`.toLowerCase();
   const best = options
     .map((item) => {
