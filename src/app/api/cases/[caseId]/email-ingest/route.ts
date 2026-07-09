@@ -89,24 +89,27 @@ function shouldImportAttachment(caseData: KYCCase, message: GmailMessage, filena
   );
 }
 
+function receivedDocumentNames(caseData: KYCCase): Set<string> {
+  return new Set(caseData.receivedDocuments.map((doc) => doc.name.toLowerCase()));
+}
+
 async function listCaseThreadGmailMessages(caseData: Awaited<ReturnType<typeof getCase>>) {
   if (!caseData) return [];
   const openingThread = openingThreadId(caseData);
   const threadIds = openingThread ? [openingThread] : await searchCaseMailboxThreadIds(caseData);
 
-  const existingProviderIds = new Set((caseData.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
   const messages = [];
   const seenIds = new Set<string>();
   for (const threadId of threadIds) {
     const ids = await listThreadMessageIds(threadId);
     for (const id of ids) {
-      if (!id || seenIds.has(id) || existingProviderIds.has(id)) continue;
+      if (!id || seenIds.has(id)) continue;
       const message = await getCaseGmailMessage(id);
       if (message.threadId !== threadId) continue;
       if (message.labelIds?.includes('SENT') && !message.labelIds.includes('INBOX')) continue;
       if (!messageIsFromContact(caseData, message)) continue;
-      const openingThread = openingThreadId(caseData);
-      if (!(openingThread && message.threadId === openingThread) && !messageHasCaseContext(caseData, message)) continue;
+      const trustedThread = openingThread && message.threadId === openingThread;
+      if (!trustedThread && !messageHasCaseContext(caseData, message)) continue;
       seenIds.add(id);
       messages.push(message);
     }
@@ -152,7 +155,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       ? ((await updateCase(caseId, { checklist: generateChecklist(caseData) })) || { ...caseData, checklist: generateChecklist(caseData) })
       : caseData;
     const existingProviderIds = new Set((startingCase.mailboxMessages || []).map((message) => message.providerMessageId).filter(Boolean));
-    const gmailMessages = (await listCaseThreadGmailMessages(startingCase)).filter((message) => !existingProviderIds.has(message.id));
+    const receivedNames = receivedDocumentNames(startingCase);
+    const gmailMessages = (await listCaseThreadGmailMessages(startingCase)).filter((message) => {
+      if (!existingProviderIds.has(message.id)) return true;
+      return message.attachments.some((attachment) => !receivedNames.has(attachment.filename.toLowerCase()));
+    });
     let updated = startingCase;
     const importedDocuments = [];
     const importedMessages = [];
@@ -160,14 +167,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const driveFolderId = await ensureCaseDriveFolder(caseId);
 
     for (const message of gmailMessages) {
+      const isRetry = existingProviderIds.has(message.id);
+      const pendingAttachments = message.attachments.filter(
+        (attachment) => !receivedNames.has(attachment.filename.toLowerCase()),
+      );
+      if (!pendingAttachments.length) continue;
+
       const analysis = await analyzeEmailForCase(updated, {
         from: message.from,
         subject: message.subject,
         body: message.body,
-        attachments: message.attachments.map((attachment) => attachment.filename),
+        attachments: pendingAttachments.map((attachment) => attachment.filename),
       });
 
-      for (const attachment of message.attachments) {
+      for (const attachment of pendingAttachments) {
         if (!shouldImportAttachment(updated, message, attachment.filename)) {
           skippedAttachments.push({
             name: attachment.filename,
@@ -207,23 +220,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         const next = await upsertReceivedDocument(caseId, doc);
         if (next) updated = next;
         importedDocuments.push(doc);
+        receivedNames.add(attachment.filename.toLowerCase());
       }
 
-      const mailboxMessages = appendMailboxMessage(updated, {
-        provider: 'gmail',
-        providerMessageId: message.id,
-        threadId: message.threadId,
-        from: message.from,
-        to: message.to || kycMailboxAddress(),
-        subject: message.subject,
-        body: message.body || message.snippet || '',
-        direction: 'inbound',
-        status: 'received',
-        attachments: message.attachments.map((attachment) => attachment.filename),
-        analysis,
-      });
-      updated = (await updateCase(caseId, { mailboxMessages })) || updated;
-      importedMessages.push({ id: message.id, subject: message.subject, analysis });
+      if (!isRetry) {
+        const mailboxMessages = appendMailboxMessage(updated, {
+          provider: 'gmail',
+          providerMessageId: message.id,
+          threadId: message.threadId,
+          from: message.from,
+          to: message.to || kycMailboxAddress(),
+          subject: message.subject,
+          body: message.body || message.snippet || '',
+          direction: 'inbound',
+          status: 'received',
+          attachments: message.attachments.map((attachment) => attachment.filename),
+          analysis,
+        });
+        updated = (await updateCase(caseId, { mailboxMessages })) || updated;
+        importedMessages.push({ id: message.id, subject: message.subject, analysis });
+      }
     }
 
     const refreshedChecklist = generateChecklist(updated);
