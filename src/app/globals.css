@@ -587,3 +587,56 @@ pre { white-space: pre-wrap; background: #0f172a; color: #eff6ff; padding: 16px;
 .attachment-row span { display: grid; gap: 3px; min-width: 0; }
 .attachment-row strong { overflow-wrap: anywhere; font-size: 14px; }
 .attachment-row small { color: var(--muted); font-weight: 600; }
+
+.opening-checklist-panel {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  padding: 14px;
+}
+.opening-checklist-section + .opening-checklist-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.opening-checklist-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.opening-checklist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.opening-checklist-item {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 10px 12px;
+}
+.opening-checklist-item.delivery-template_attachment {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+.opening-checklist-item.delivery-client_prepared {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+.opening-checklist-item.delivery-process_step {
+  border-color: #ddd6fe;
+  background: #faf5ff;
+}
+.opening-checklist-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.opening-checklist-meta {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}

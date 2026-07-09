@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { readResponseError } from '@/lib/http';
 import type { KYCCase } from '@/lib/kyb/types';
+import type { OpeningEmailChecklistItem } from '@/lib/kyb/openingEmailChecklist';
+import {
+  openingChecklistDeliveryLabel,
+  openingChecklistSectionLabel,
+} from '@/lib/kyb/openingEmailChecklist';
 
 type OpeningAttachment = {
   id: string;
@@ -47,6 +52,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
   const [saved, setSaved] = useState(false);
   const [standardAttachments, setStandardAttachments] = useState<OpeningAttachment[]>([]);
   const [attachmentPackages, setAttachmentPackages] = useState<OpeningAttachmentPackage[]>([]);
+  const [clientChecklist, setClientChecklist] = useState<OpeningEmailChecklistItem[]>([]);
   const [uploadedAttachments, setUploadedAttachments] = useState<OpeningAttachment[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [attachmentError, setAttachmentError] = useState('');
@@ -70,8 +76,10 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       }
       const standard = body.standard || [];
       const packages = body.packages || [];
+      const checklist = body.checklist || [];
       setStandardAttachments(standard);
       setAttachmentPackages(packages);
+      setClientChecklist(checklist);
       const defaultAttachments = packages.length
         ? packages
           .filter((item: OpeningAttachmentPackage) => item.defaultSelected)
@@ -125,6 +133,16 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
     setSelectedIds((current) => new Set([...current, attachment.id]));
     setLoading(null);
   }
+
+  const checklistSections = useMemo(() => {
+    const sections: Array<{ key: OpeningEmailChecklistItem['section']; items: OpeningEmailChecklistItem[] }> = [];
+    for (const item of clientChecklist) {
+      const existing = sections.find((section) => section.key === item.section);
+      if (existing) existing.items.push(item);
+      else sections.push({ key: item.section, items: [item] });
+    }
+    return sections;
+  }, [clientChecklist]);
 
   async function generate() {
     setLoading('generate');
@@ -211,6 +229,35 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       ) : (
         <>
           <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} readOnly={readOnly} />
+          {!readOnly && clientChecklist.length > 0 && (
+          <div className="opening-checklist-panel">
+            <div className="section-title">
+              <div>
+                <strong>Client Document Checklist</strong>
+                <span>完整清单（含无模板项）</span>
+              </div>
+            </div>
+            <p className="small">
+              下方列出客户需准备的所有文件。有 Drive 模板的会随邮件附件发出；无模板项（如股权架构图、公司注册证）仅出现在清单中，由客户自备后回传。
+            </p>
+            {checklistSections.map((section) => (
+              <div className="opening-checklist-section" key={section.key}>
+                <h3>{openingChecklistSectionLabel(section.key, caseData.language)}</h3>
+                <ul className="opening-checklist-list">
+                  {section.items.map((item) => (
+                    <li key={item.id} className={`opening-checklist-item delivery-${item.delivery}`}>
+                      <span className="opening-checklist-name">{item.name}</span>
+                      <span className="opening-checklist-meta">
+                        {openingChecklistDeliveryLabel(item, caseData.language)}
+                        {item.templateAttachmentName ? ` · ${item.templateAttachmentName}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          )}
           {!readOnly && (
           <div className="attachment-panel">
             <div className="section-title">

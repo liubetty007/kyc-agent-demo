@@ -5,6 +5,7 @@ import {
   listOpeningEmailStandardDocuments,
   storeOpeningEmailUpload,
 } from '@/lib/kyb/documentStorage';
+import { buildOpeningEmailChecklist } from '@/lib/kyb/openingEmailChecklist';
 import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { NextResponse } from 'next/server';
 
@@ -31,7 +32,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     const standard = packages.length
       ? packages.flatMap((item) => item.attachments)
       : await listOpeningEmailStandardDocuments();
-    return NextResponse.json({ packages, standard });
+    const checklist = buildOpeningEmailChecklist(caseData, standard);
+    return NextResponse.json({ packages, standard, checklist });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not load attachments.' }, { status: 500 });
   }
