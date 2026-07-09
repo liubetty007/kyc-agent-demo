@@ -72,6 +72,8 @@ Role mappings live in `src/lib/auth/roles.ts` and require deployment after chang
 - Backend lives in separate repo: `alenw0620-cmyk/kyc-ai-framework` (FastAPI, no product UI).
 - Target multi-agent workflow: `docs/AGENT_WORKFLOW.md`
 - Google Cloud setup: `docs/GOOGLE_CLOUD_DEPLOYMENT.md`
-- Opening-email standard attachments: Google Drive `KYC文件/标准模板/` (or `KYC_STANDARD_DRIVE_FOLDER_ID`)
+- Opening-email standard attachments: Google Drive `KYC文件/标准模板/` with packages:
+  `01 标准必交文件`, `02 NS Documents`, `03 Hong Kong`, `04 Singapore`, `05 United States`, `06 Others`
+  (see `config/betty-drive.defaults.json` and `src/lib/kyb/openingEmailPackages.ts`)
 - Gmail sending: real MIME attachments via Betty OAuth on staging
 - Follow-up emails attach opening templates minus already-accepted doc types.

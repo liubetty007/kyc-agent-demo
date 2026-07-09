@@ -11,6 +11,12 @@ import {
 } from './googleDrive';
 import type { KYCCase } from './types';
 import { STANDARD_DRIVE_TEMPLATES } from './standardDriveTemplates';
+import {
+  OPENING_EMAIL_PACKAGE_DEFINITIONS,
+  packageDefaultSelected,
+  packageDescription,
+  packageDefinitionForFolder,
+} from './openingEmailPackages';
 
 const storage = new Storage({ projectId: process.env.GOOGLE_CLOUD_PROJECT });
 const OPENING_DOCS_PREFIX = process.env.KYC_OPENING_DOCS_PREFIX || 'kyc_agent_documents/';
@@ -81,7 +87,7 @@ function mappedStandardDriveAttachments(): OpeningEmailAttachmentPackage[] {
     const existing = grouped.get(packageId) || {
       id: packageId,
       name: template.packageName,
-      description: template.defaultSelected ? '每次开户邮件默认附件' : '按场景补充的标准附件',
+      description: packageDescription(template.packageName),
       defaultSelected: template.defaultSelected,
       attachments: [],
     };
@@ -103,6 +109,9 @@ function mappedStandardDriveAttachments(): OpeningEmailAttachmentPackage[] {
       attachments: item.attachments.sort((a, b) => a.name.localeCompare(b.name)),
     }))
     .sort((a, b) => {
+      const orderA = packageDefinitionForFolder(a.name)?.sortOrder || 99;
+      const orderB = packageDefinitionForFolder(b.name)?.sortOrder || 99;
+      if (orderA !== orderB) return orderA - orderB;
       if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
@@ -169,77 +178,16 @@ export async function listOpeningEmailStandardDocuments(): Promise<OpeningEmailA
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function normalizePackageName(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function isStandardPackageName(folderName: string): boolean {
-  const normalized = normalizePackageName(folderName);
-  return (
-    ['canonical templates', 'kyc standard documents', 'standard documents', 'standard files'].includes(normalized)
-    || folderName.includes('标准')
-    || folderName.includes('標準')
-  );
-}
-
-function isGenericPackageName(folderName: string): boolean {
-  const normalized = normalizePackageName(folderName);
-  return ['generic', 'general', 'common', 'universal'].includes(normalized) || folderName.includes('通用');
-}
-
-function normalizeAttachmentName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, ' ').trim();
-}
-
-function removeGenericDuplicates(packages: OpeningEmailAttachmentPackage[]): OpeningEmailAttachmentPackage[] {
-  const standardNames = new Set(
-    packages
-      .filter((item) => isStandardPackageName(item.name))
-      .flatMap((item) => item.attachments.map((attachment) => normalizeAttachmentName(attachment.name))),
-  );
-  if (!standardNames.size) return packages;
-
-  return packages
-    .map((item) => {
-      if (!isGenericPackageName(item.name)) return item;
-      return {
-        ...item,
-        attachments: item.attachments.filter((attachment) => !standardNames.has(normalizeAttachmentName(attachment.name))),
-      };
-    })
-    .filter((item) => item.attachments.length > 0);
-}
-
-function packageMatchesCase(folderName: string, caseData?: StandardPackageCaseContext): boolean {
-  const normalized = normalizePackageName(folderName);
-  if (
-    isStandardPackageName(folderName)
-    || isGenericPackageName(folderName)
-  ) return true;
-  if (!caseData) return false;
-  if (caseData.needsNsBusiness && (/\bns\b/i.test(folderName) || normalized.includes('northstar') || folderName.includes('北星'))) {
-    return true;
-  }
-
-  const jurisdiction = normalizePackageName(caseData.jurisdiction);
-  const aliases: Record<string, string[]> = {
-    'hong kong': ['hong kong', 'hk', '香港'],
-    singapore: ['singapore', 'sg', '新加坡'],
-    'united states': ['united states', 'united states of america', 'usa', 'us', '美国', '美國'],
-  };
-  const candidates = aliases[jurisdiction] || [jurisdiction];
-  return candidates.some((candidate) => normalized === normalizePackageName(candidate) || folderName.includes(candidate));
-}
-
 async function packageFromFolder(folder: DriveFileSummary, caseData?: StandardPackageCaseContext): Promise<OpeningEmailAttachmentPackage | null> {
+  if (folder.name.startsWith('_')) return null;
   const files = await listDriveFolderFiles(folder.id);
   if (!files.length) return null;
   const packageId = `drive-folder:${folder.id}`;
   return {
     id: packageId,
     name: folder.name,
-    description: isStandardPackageName(folder.name) ? '每次开户邮件必发标准文件' : '按地区或场景选择的开户文件夹',
-    defaultSelected: packageMatchesCase(folder.name, caseData),
+    description: packageDescription(folder.name),
+    defaultSelected: packageDefaultSelected(folder.name, caseData),
     attachments: files
       .map((file) => driveAttachment(file, packageId, folder.name))
       .sort((a, b) => a.name.localeCompare(b.name)),
@@ -250,35 +198,26 @@ export async function listOpeningEmailStandardDocumentPackages(caseData?: Standa
   const folderId = await resolveStandardDriveFolderId();
 
   try {
-    const rootFiles = (await listDriveFolderFiles(folderId)).filter((file) => file.name.toLowerCase() !== 'manifest.json');
-    const packages: OpeningEmailAttachmentPackage[] = [];
-    const rootPackageId = `drive-folder:${folderId}`;
-    if (rootFiles.length) {
-      packages.push({
-        id: rootPackageId,
-        name: 'KYC标准文件',
-        description: '每次开户邮件必发文件',
-        defaultSelected: true,
-        attachments: rootFiles
-          .map((file) => driveAttachment(file, rootPackageId, 'KYC标准文件'))
-          .sort((a, b) => a.name.localeCompare(b.name)),
+    const subfolders = (await listDriveSubfolders(folderId))
+      .filter((folder) => !folder.name.startsWith('_'))
+      .sort((a, b) => {
+        const orderA = packageDefinitionForFolder(a.name)?.sortOrder || OPENING_EMAIL_PACKAGE_DEFINITIONS.length + 1;
+        const orderB = packageDefinitionForFolder(b.name)?.sortOrder || OPENING_EMAIL_PACKAGE_DEFINITIONS.length + 1;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.name.localeCompare(b.name);
       });
-    }
 
-    const subfolders = await listDriveSubfolders(folderId);
+    const packages: OpeningEmailAttachmentPackage[] = [];
     for (const folder of subfolders) {
       const directPackage = await packageFromFolder(folder, caseData);
       if (directPackage) packages.push(directPackage);
-
-      const nestedFolders = await listDriveSubfolders(folder.id);
-      for (const nestedFolder of nestedFolders) {
-        const nestedPackage = await packageFromFolder(nestedFolder, caseData);
-        if (nestedPackage) packages.push(nestedPackage);
-      }
     }
 
     if (packages.length) {
-      return removeGenericDuplicates(packages).sort((a, b) => {
+      return packages.sort((a, b) => {
+        const orderA = packageDefinitionForFolder(a.name)?.sortOrder || 99;
+        const orderB = packageDefinitionForFolder(b.name)?.sortOrder || 99;
+        if (orderA !== orderB) return orderA - orderB;
         if (a.defaultSelected !== b.defaultSelected) return a.defaultSelected ? -1 : 1;
         return a.name.localeCompare(b.name);
       });

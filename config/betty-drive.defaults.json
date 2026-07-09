@@ -5,6 +5,14 @@
   "driveRootFolderId": "1ROwiFHPpJyE7zHQGHQanAY43QHrc6eRF",
   "driveCasesFolderId": "19D4sdsUdMMnRiIiaEFDhnmBywsw3W7H3",
   "driveTemplatesFolderId": "10ZLHl60DJijG1S5Rvc0aqTdv08TiJxyx",
+  "openingEmailPackages": [
+    "01 标准必交文件",
+    "02 NS Documents",
+    "03 Hong Kong",
+    "04 Singapore",
+    "05 United States",
+    "06 Others"
+  ],
   "frameworkRootFolderId": "1HMrnVK3T9638-m96eN51nq_YIOKyO5R4",
   "frameworkTemplatesFolderId": "13TJ_06NBfreBYgpMZEpF8bRNUAwHrDMd",
   "frameworkCasesFolderId": "1PJVFY3yfDB6HSYovZZrfrraZ6bspPAjp"
