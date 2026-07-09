@@ -175,11 +175,17 @@ export async function ensureKycDriveRootFolder(): Promise<string> {
 }
 
 export async function ensureKycClientsFolder(): Promise<string> {
+  const configuredCasesFolder = process.env.KYC_DRIVE_CASES_FOLDER_ID?.trim();
+  if (configuredCasesFolder) return configuredCasesFolder;
+
   const rootId = await findOrCreateRootFolder();
   return ensureChildFolder(rootId, DRIVE_CLIENTS_FOLDER_NAME);
 }
 
 export async function ensureKycTemplatesFolder(): Promise<string> {
+  const configuredTemplatesFolder = process.env.KYC_DRIVE_TEMPLATES_FOLDER_ID?.trim();
+  if (configuredTemplatesFolder) return configuredTemplatesFolder;
+
   const rootId = await findOrCreateRootFolder();
   return ensureChildFolder(rootId, DRIVE_TEMPLATES_FOLDER_NAME);
 }

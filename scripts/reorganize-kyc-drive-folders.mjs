@@ -7,10 +7,12 @@
  *   node scripts/reorganize-kyc-drive-folders.mjs
  *   node scripts/reorganize-kyc-drive-folders.mjs --dry-run
  *
- * OAuth: GMAIL_* env vars, or gcloud secrets on project aiasm-497707.
+ * OAuth: Betty's GMAIL_* env vars, or gcloud secrets on project kyc-agent-staging-20260610.
+ * Default root: config/betty-drive.defaults.json when BETTY_DRIVE=1
  */
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const ROOT_NAME = 'KYC文件';
@@ -18,7 +20,10 @@ const CLIENTS_FOLDER = '客户案件';
 const TEMPLATES_FOLDER = '标准模板';
 const CASE_FOLDER_PATTERN = /\s-\s[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DRY_RUN = process.argv.includes('--dry-run');
-const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'aiasm-497707';
+const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'kyc-agent-staging-20260610';
+const BETTY_DEFAULTS = JSON.parse(
+  readFileSync(new URL('../config/betty-drive.defaults.json', import.meta.url), 'utf8'),
+);
 
 function secret(name) {
   if (process.env[name]) return process.env[name];
@@ -135,6 +140,9 @@ function isCaseFolder(name) {
 async function findKycRoot(token) {
   if (process.env.KYC_DRIVE_ROOT_FOLDER_ID) {
     return process.env.KYC_DRIVE_ROOT_FOLDER_ID;
+  }
+  if (process.env.BETTY_DRIVE === '1' || process.env.BETTY_DRIVE === 'true') {
+    return BETTY_DEFAULTS.driveRootFolderId;
   }
 
   const query = encodeURIComponent(

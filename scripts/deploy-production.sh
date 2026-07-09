@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Deploy KYC Agent frontend to Cloud Run with email/password login.
+# Personal / Antalpha Cloud Run deploy (aiasm-497707).
+# For the official Betty demo, use scripts/deploy-staging.sh instead.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

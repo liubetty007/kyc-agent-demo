@@ -55,6 +55,9 @@ async function resolveStandardDriveFolderId(): Promise<string> {
   if (process.env.KYC_STANDARD_DRIVE_FOLDER_ID) {
     return process.env.KYC_STANDARD_DRIVE_FOLDER_ID;
   }
+  if (process.env.KYC_DRIVE_TEMPLATES_FOLDER_ID) {
+    return process.env.KYC_DRIVE_TEMPLATES_FOLDER_ID;
+  }
   return ensureKycTemplatesFolder();
 }
 

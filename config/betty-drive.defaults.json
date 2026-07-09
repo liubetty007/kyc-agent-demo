@@ -1,0 +1,11 @@
+{
+  "description": "Betty demo Drive layout (liubetty007@gmail.com). Use on Cloud Run project kyc-agent-staging-20260610.",
+  "gmailSenderEmail": "liubetty007@gmail.com",
+  "kycTeamEmail": "liubetty007@gmail.com",
+  "driveRootFolderId": "1ROwiFHPpJyE7zHQGHQanAY43QHrc6eRF",
+  "driveCasesFolderId": "19D4sdsUdMMnRiIiaEFDhnmBywsw3W7H3",
+  "driveTemplatesFolderId": "10ZLHl60DJijG1S5Rvc0aqTdv08TiJxyx",
+  "frameworkRootFolderId": "1HMrnVK3T9638-m96eN51nq_YIOKyO5R4",
+  "frameworkTemplatesFolderId": "13TJ_06NBfreBYgpMZEpF8bRNUAwHrDMd",
+  "frameworkCasesFolderId": "1PJVFY3yfDB6HSYovZZrfrraZ6bspPAjp"
+}

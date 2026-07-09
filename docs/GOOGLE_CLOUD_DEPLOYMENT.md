@@ -56,15 +56,16 @@ case whose `contactEmail` matches the signed-in email.
 - Idempotent base setup: `scripts/deploy-gcp.sh`
 - Cloud Shell authentication and deployment: `scripts/cloud-shell-finish.sh`
 
-Current frontend URL (latest Next.js UI):
+Current frontend URL (Betty demo — latest Next.js UI):
 
 - `https://kyc-agent-frontend-20130272975.asia-east2.run.app`
 
-Note: `https://kyc-agent-frontend-767566934621.asia-east2.run.app` belongs to a
-Google Cloud project that is not visible to `liubetty007@gmail.com`; deploy the
-current repository to project `kyc-agent-staging-20260610` instead.
+Deploy: `bash scripts/deploy-staging.sh` on project `kyc-agent-staging-20260610`.  
+Gmail/Drive OAuth on that service must be **Betty's** refresh token (`liubetty007@gmail.com`) so files use her `KYC文件` Drive. See `config/betty-drive.defaults.json`.
 
-Legacy staging URL (backend framework demo only — not the KYC Agent UI):
+Note: `https://kyc-agent-frontend-767566934621.asia-east2.run.app` is a separate personal project (`aiasm-497707`) and does **not** use Betty's Drive.
+
+Legacy backend URL (framework demo only — not the KYC Agent UI):
 
 - `https://kyc-agent-staging-20130272975.asia-east2.run.app`
 
