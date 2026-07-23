@@ -191,7 +191,69 @@ function extractLanguage(message: string): CaseLanguage | undefined {
   return undefined;
 }
 
+function sanitizeCompanyName(value: string): string {
+  return value
+    .replace(/^(?:做|是|为|叫|叫做|名叫|名为)\s*[:：]?\s*/i, '')
+    .replace(/^(?:名称|名字|全名)\s*[:：]?\s*/i, '')
+    .trim();
+}
+
+function sanitizeFieldValue(field: CreateFieldKey, value: string): string {
+  const trimmed = value.trim();
+  if (field === 'companyName') return sanitizeCompanyName(trimmed);
+  return trimmed;
+}
+
+function extractLabeledValue(message: string, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const pattern = new RegExp(`${label}\\s*[:：]\\s*([^\\n,，。;；]+)`, 'i');
+    const match = message.match(pattern);
+    if (match?.[1]?.trim()) return match[1].trim();
+  }
+  return undefined;
+}
+
+function extractCompanyNameFromMessage(message: string): string | undefined {
+  const labeled = extractLabeledValue(message, [
+    '机构名称',
+    '机构叫做',
+    '机构名叫',
+    '机构名为',
+    '机构叫',
+    '机构是',
+    '公司名称',
+    '公司叫做',
+    '公司名叫',
+    '公司名为',
+    '公司叫',
+    '公司是',
+    '客户名称',
+    '客户叫',
+    'company name',
+    'client name',
+  ]);
+  if (labeled) return sanitizeCompanyName(labeled);
+
+  const patterns = [
+    /(?:公司|客户|机构)(?:名称|全名|叫做|名叫|名为|叫|是)\s*[:：]?\s*([^\n,，。;；]+)/i,
+    /(?:创建|新建)(?:一个)?(?:客户|case)\s*[:：]?\s*([A-Za-z0-9\u4e00-\u9fff][^\n,，。;；]{1,80})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (candidate && candidate.length >= 2) {
+      return sanitizeCompanyName(candidate.replace(/\s*(注册地|邮箱|业务|矿业贷|质押借贷).*$/i, ''));
+    }
+  }
+  return undefined;
+}
+
 function extractJurisdictionFromMessage(message: string): Jurisdiction | undefined {
+  const labeled = extractLabeledValue(message, ['注册地', '注册国家', '地区', 'jurisdiction', '国家']);
+  if (labeled) {
+    const normalized = normalizeJurisdiction(labeled) || normalizeJurisdiction(labeled.split(/[，,]/)[0]);
+    if (normalized) return normalized;
+  }
   const text = normalizeText(message);
   for (const [alias, jurisdiction] of Object.entries(JURISDICTION_ALIASES)) {
     if (text.includes(normalizeText(alias))) return jurisdiction;
@@ -199,41 +261,54 @@ function extractJurisdictionFromMessage(message: string): Jurisdiction | undefin
   return JURISDICTIONS.find((item) => message.includes(item));
 }
 
-function extractCompanyNameFromMessage(message: string): string | undefined {
-  const patterns = [
-    /(?:公司|客户|机构)(?:名称|叫|是)[:：]?\s*([^\n,，。;；]+)/i,
-    /(?:创建|新建)(?:一个)?(?:客户|case)?[:：]?\s*([A-Za-z0-9\u4e00-\u9fff][^\n,，。;；]{1,80})/i,
-  ];
-  for (const pattern of patterns) {
-    const match = message.match(pattern);
-    const candidate = match?.[1]?.trim();
-    if (candidate && candidate.length >= 2) return candidate.replace(/\s*(注册地|邮箱|业务|矿业贷|质押借贷).*$/i, '').trim();
-  }
-  return undefined;
+function extractBusinessTypeFromMessage(message: string): BusinessType | undefined {
+  const labeled = extractLabeledValue(message, ['业务类型', '业务', 'business type']);
+  if (labeled) return normalizeBusinessType(labeled);
+  return normalizeBusinessType(message);
+}
+
+function extractContactEmailFromMessage(message: string): string | undefined {
+  const labeled = extractLabeledValue(message, ['邮箱', '联系邮箱', 'email', 'contact email']);
+  if (labeled) return extractEmail(labeled) || extractEmail(message);
+  return extractEmail(message);
 }
 
 function extractSourceOfFundsFromMessage(message: string): string | undefined {
-  const labeled = message.match(/(?:资金来源|source of funds)[:：]?\s*(.+)$/i);
-  if (labeled?.[1]?.trim()) return labeled[1].trim();
+  const labeled = extractLabeledValue(message, ['资金来源', 'source of funds', 'sof']);
+  if (labeled) return labeled;
+  const inline = message.match(/(?:资金来源|source of funds)\s*[:：]?\s*(.+)$/i);
+  if (inline?.[1]?.trim()) return inline[1].trim();
   return undefined;
+}
+
+function extractNeedsNsFromMessage(message: string): boolean | undefined {
+  const labeled = extractLabeledValue(message, ['ns业务', 'ns 业务', '是否需要ns', '是否需要 ns', 'northstar']);
+  if (labeled) return extractNeedsNs(labeled);
+  return extractNeedsNs(message);
+}
+
+function extractLanguageFromMessage(message: string): CaseLanguage | undefined {
+  const labeled = extractLabeledValue(message, ['语言', '邮件语言', 'language']);
+  if (labeled) return extractLanguage(labeled);
+  return extractLanguage(message);
 }
 
 function extractCreateCaseFieldsHeuristic(message: string): Partial<ParsedAssistantInput> {
   const result: Partial<ParsedAssistantInput> = {};
-  const email = extractEmail(message);
-  if (email) result.contactEmail = email;
-  const jurisdiction = extractJurisdictionFromMessage(message);
-  if (jurisdiction) result.jurisdiction = jurisdiction;
-  const businessType = normalizeBusinessType(message);
-  if (businessType) result.businessType = businessType;
-  const needsNsBusiness = extractNeedsNs(message);
-  if (needsNsBusiness !== undefined) result.needsNsBusiness = needsNsBusiness;
-  const language = extractLanguage(message);
-  if (language) result.language = language;
   const companyName = extractCompanyNameFromMessage(message);
   if (companyName) result.companyName = companyName;
+  const jurisdiction = extractJurisdictionFromMessage(message);
+  if (jurisdiction) result.jurisdiction = jurisdiction;
+  const businessType = extractBusinessTypeFromMessage(message);
+  if (businessType) result.businessType = businessType;
+  const contactEmail = extractContactEmailFromMessage(message);
+  if (contactEmail) result.contactEmail = contactEmail;
   const sourceOfFunds = extractSourceOfFundsFromMessage(message);
   if (sourceOfFunds) result.sourceOfFunds = sourceOfFunds;
+  const needsNsBusiness = extractNeedsNsFromMessage(message);
+  if (needsNsBusiness !== undefined) result.needsNsBusiness = needsNsBusiness;
+  const language = extractLanguageFromMessage(message);
+  if (language) result.language = language;
   return result;
 }
 
@@ -280,12 +355,22 @@ function summarizeReceivedCreateFields(draft: CreateCaseDraft): string {
   return parts.join('；');
 }
 
+const CREATE_FIELD_HINTS: Record<CreateFieldKey, string> = {
+  companyName: '例如：ABC Capital Limited',
+  jurisdiction: '例如：香港、新加坡、BVI、美国',
+  businessType: '例如：矿业贷 或 质押借贷',
+  contactEmail: '例如：client@example.com',
+  sourceOfFunds: '例如：自营资金 / 挖矿收益 / 融资所得',
+  needsNsBusiness: '回复：是 或 否',
+  language: '回复：中文 或 英文',
+};
+
 function askForNextMissingField(draft: CreateCaseDraft): string {
   const next = nextMissingCreateField(draft);
   if (!next) return '';
   const received = summarizeReceivedCreateFields(draft);
   const prefix = received ? `已记录：${received}\n\n` : '';
-  return `${prefix}请补充 **${CREATE_FIELD_LABELS[next]}**。`;
+  return `${prefix}请补充 **${CREATE_FIELD_LABELS[next]}**（${CREATE_FIELD_HINTS[next]}）。`;
 }
 
 function applySequentialFieldFill(draft: CreateCaseDraft, message: string): CreateCaseDraft {
@@ -296,15 +381,17 @@ function applySequentialFieldFill(draft: CreateCaseDraft, message: string): Crea
 
   const heuristic = extractCreateCaseFieldsHeuristic(message);
   let merged = mergeDraft(draft, { ...heuristic, intent: 'create_case' });
+
+  if (Object.keys(heuristic).length > 0) {
+    return merged;
+  }
+
   const nextBefore = nextMissingCreateField(merged);
   if (!nextBefore) return merged;
 
-  const heuristicFilledNext = !isCreateFieldMissing(merged, nextBefore);
-  if (heuristicFilledNext) return merged;
-
   switch (nextBefore) {
     case 'companyName':
-      return { ...merged, companyName: trimmed };
+      return { ...merged, companyName: sanitizeFieldValue('companyName', trimmed) };
     case 'jurisdiction': {
       const jurisdiction = normalizeJurisdiction(trimmed);
       return jurisdiction ? { ...merged, jurisdiction } : merged;
