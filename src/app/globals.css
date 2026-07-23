@@ -219,6 +219,16 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px; }
 .home-dashboard-simple .home-hero {
   margin-bottom: 0;
 }
+.home-hero-actions {
+  margin-top: 16px;
+}
+.home-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+  text-decoration: none;
+}
 .home-quick-links {
   display: flex;
   flex-wrap: wrap;

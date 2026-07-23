@@ -22,6 +22,13 @@ export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
           <p className="home-eyebrow">KYC Agent</p>
           <h1>机构开户工作台</h1>
           <p className="home-lead">用对话助手创建 Case、查进度、上传资料；需要时也可搜索客户快速进入案件。</p>
+          {canCreate ? (
+            <div className="home-hero-actions">
+              <Link href="/cases/new" className="button primary home-create-button">
+                手动创建 Case
+              </Link>
+            </div>
+          ) : null}
         </div>
         <div className="home-hero-search">
           <CaseSearchBox cases={searchOptions} variant="hero" />
