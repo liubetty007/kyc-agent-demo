@@ -115,6 +115,109 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px; }
 .home-lead { margin: 0; font-size: 16px; color: var(--muted); line-height: 1.6; }
 .home-hero-search { width: 100%; max-width: none; }
 
+.home-assistant {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+.home-assistant-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.home-assistant-header h2 {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
+.home-assistant-messages {
+  min-height: 280px;
+  max-height: 420px;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.home-assistant-message {
+  display: grid;
+  gap: 8px;
+  max-width: 92%;
+}
+.home-assistant-message.user {
+  justify-self: end;
+}
+.home-assistant-message.assistant {
+  justify-self: start;
+}
+.home-assistant-bubble {
+  padding: 12px 14px;
+  border-radius: 14px;
+  line-height: 1.55;
+  font-size: 14px;
+}
+.home-assistant-message.user .home-assistant-bubble {
+  background: #1d4ed8;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.home-assistant-message.assistant .home-assistant-bubble {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-bottom-left-radius: 4px;
+}
+.home-assistant-links,
+.home-assistant-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.home-assistant-choice {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.home-assistant-choice strong { font-size: 14px; }
+.home-assistant-choice span { color: var(--muted); font-size: 12px; }
+.home-assistant-composer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.home-assistant-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+.home-assistant-upload input { display: none; }
+.home-assistant-input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.home-assistant-pending-file { margin: 0; }
+
 .home-middle {
   display: grid;
   gap: 14px;

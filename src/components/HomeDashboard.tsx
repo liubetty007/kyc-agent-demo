@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CaseSearchBox } from '@/components/CaseSearchBox';
+import { HomeAssistantPanel } from '@/components/HomeAssistantPanel';
 import { filterCases } from '@/lib/kyb/caseViews';
 import { caseStatusBadgeClass, caseStatusLabel } from '@/lib/kyb/complianceReview';
 import { businessTypeLabel } from '@/lib/kyb/types';
@@ -38,12 +39,14 @@ export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
         <div className="home-hero-copy">
           <p className="home-eyebrow">KYC Agent</p>
           <h1>机构开户工作台</h1>
-          <p className="home-lead">搜索客户快速进入案件，或从下方开始新的 KYC 流程。</p>
+          <p className="home-lead">搜索客户快速进入案件，或在下方对话助手直接创建 Case、查进度、上传资料。</p>
         </div>
         <div className="home-hero-search">
           <CaseSearchBox cases={searchOptions} variant="hero" />
         </div>
       </section>
+
+      <HomeAssistantPanel canCreate={canCreate} />
 
       <div className="home-middle">
         <section className="home-stats">
