@@ -128,7 +128,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '你当前账号没有创建 Case 的权限。', session: { mode: 'idle' } });
     }
     const draft = session.createCaseDraft;
-    if (!draft?.companyName || !draft.jurisdiction || !draft.businessType || !draft.sourceOfFunds) {
+    if (
+      !draft?.companyName?.trim()
+      || !draft.jurisdiction
+      || !draft.businessType
+      || !draft.contactEmail?.trim()
+      || !draft.sourceOfFunds?.trim()
+      || draft.needsNsBusiness === undefined
+      || !draft.language
+    ) {
       return NextResponse.json({
         message: '创建信息还不完整，请继续补充。',
         session: { mode: 'create_case', createCaseDraft: draft || {} },

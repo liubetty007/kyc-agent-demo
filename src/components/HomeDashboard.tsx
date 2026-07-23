@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { CaseSearchBox } from '@/components/CaseSearchBox';
 import { HomeAssistantPanel } from '@/components/HomeAssistantPanel';
-import { filterCases } from '@/lib/kyb/caseViews';
-import { caseStatusBadgeClass, caseStatusLabel } from '@/lib/kyb/complianceReview';
-import { businessTypeLabel } from '@/lib/kyb/types';
 import type { KYCCase } from '@/lib/kyb/types';
 
 type HomeDashboardProps = {
@@ -11,22 +8,7 @@ type HomeDashboardProps = {
   canCreate: boolean;
 };
 
-function statusBadgeClass(caseData: KYCCase): string {
-  return caseStatusBadgeClass(caseData);
-}
-
-function statusBadgeLabel(caseData: KYCCase): string {
-  return caseStatusLabel(caseData);
-}
-
 export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
-  const inProgress = filterCases(cases, 'in_progress');
-  const completed = filterCases(cases, 'completed');
-  const complianceQueue = filterCases(cases, 'compliance_submitted');
-  const recent = [...cases]
-    .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
-    .slice(0, 12);
-
   const searchOptions = cases.map((caseData) => ({
     id: caseData.id,
     companyName: caseData.companyName,
@@ -34,12 +16,12 @@ export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
   }));
 
   return (
-    <div className="home-dashboard">
+    <div className="home-dashboard home-dashboard-simple">
       <section className="home-hero">
         <div className="home-hero-copy">
           <p className="home-eyebrow">KYC Agent</p>
           <h1>机构开户工作台</h1>
-          <p className="home-lead">搜索客户快速进入案件，或在下方对话助手直接创建 Case、查进度、上传资料。</p>
+          <p className="home-lead">用对话助手创建 Case、查进度、上传资料；需要时也可搜索客户快速进入案件。</p>
         </div>
         <div className="home-hero-search">
           <CaseSearchBox cases={searchOptions} variant="hero" />
@@ -48,84 +30,12 @@ export function HomeDashboard({ cases, canCreate }: HomeDashboardProps) {
 
       <HomeAssistantPanel canCreate={canCreate} />
 
-      <div className="home-middle">
-        <section className="home-stats">
-          <Link href="/cases" className="stat-card stat-all">
-            <span className="stat-value">{cases.length}</span>
-            <span className="stat-label">所有案件</span>
-            <span className="stat-hint">查看完整列表</span>
-          </Link>
-          <Link href="/cases/in-progress" className="stat-card stat-progress">
-            <span className="stat-value">{inProgress.length}</span>
-            <span className="stat-label">流程中</span>
-            <span className="stat-hint">开户 · 收件 · 审阅</span>
-          </Link>
-          <Link href="/cases/compliance-submitted" className="stat-card stat-compliance">
-            <span className="stat-value">{complianceQueue.length}</span>
-            <span className="stat-label">已送合规</span>
-            <span className="stat-hint">抓取合规回复</span>
-          </Link>
-          <Link href="/cases/completed" className="stat-card stat-done">
-            <span className="stat-value">{completed.length}</span>
-            <span className="stat-label">已完成</span>
-            <span className="stat-hint">已结案</span>
-          </Link>
-        </section>
-
-        <section className="home-actions">
-          {canCreate && (
-            <Link href="/cases/new" className="action-card action-create">
-              <div className="action-icon" aria-hidden>+</div>
-              <div>
-                <h2>新建 Case</h2>
-                <p>创建机构客户，自动生成 checklist 与开户邮件草稿。</p>
-              </div>
-              <span className="action-arrow">→</span>
-            </Link>
-          )}
-          <Link href="/policy" className="action-card action-policy">
-            <div className="action-icon" aria-hidden>§</div>
-            <div>
-              <h2>Policy Review</h2>
-              <p>查看 KYC 文件矩阵与合规政策要求。</p>
-            </div>
-            <span className="action-arrow">→</span>
-          </Link>
-        </section>
+      <div className="home-quick-links">
+        <Link href="/cases" className="home-quick-link">所有案件 →</Link>
+        <Link href="/cases/in-progress" className="home-quick-link">流程中 →</Link>
+        <Link href="/policy" className="home-quick-link">Policy Review →</Link>
+        {canCreate ? <Link href="/cases/new" className="home-quick-link">表单新建 Case →</Link> : null}
       </div>
-
-      <section className="card home-recent">
-        <div className="card-heading">
-          <h2>最近案件</h2>
-          <Link href="/cases" className="small home-recent-link">
-            查看全部 →
-          </Link>
-        </div>
-        {recent.length ? (
-          <div className="recent-grid">
-            {recent.map((caseData) => (
-              <Link
-                key={caseData.id}
-                href={`/cases/${caseData.id}`}
-                className={`recent-card${caseStatusBadgeClass(caseData) === 'compliance-feedback-pending' ? ' recent-card-compliance-feedback' : ''}`}
-              >
-                <div className="recent-card-top">
-                  <strong>{caseData.companyName}</strong>
-                  <span className={`badge ${statusBadgeClass(caseData)}`}>
-                    {statusBadgeLabel(caseData)}
-                  </span>
-                </div>
-                <p className="small">{caseData.contactEmail || '—'}</p>
-                <p className="recent-meta">
-                  {caseData.jurisdiction} · {businessTypeLabel(caseData.businessType)}
-                </p>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="small">还没有案件。{canCreate ? '点击上方「新建 Case」开始。' : ''}</p>
-        )}
-      </section>
     </div>
   );
 }

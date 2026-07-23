@@ -84,8 +84,23 @@ const CREATE_FIELD_LABELS: Record<string, string> = {
   companyName: '机构名称（公司全名）',
   jurisdiction: '注册地（如香港、新加坡、BVI、美国）',
   businessType: '业务类型（矿业贷 或 质押借贷）',
+  contactEmail: '客户联系邮箱',
   sourceOfFunds: '资金来源说明',
+  needsNsBusiness: '是否需要 NS 业务（是 / 否）',
+  language: '邮件语言（中文 / 英文）',
 };
+
+const CREATE_FIELD_ORDER = [
+  'companyName',
+  'jurisdiction',
+  'businessType',
+  'contactEmail',
+  'sourceOfFunds',
+  'needsNsBusiness',
+  'language',
+] as const;
+
+type CreateFieldKey = (typeof CREATE_FIELD_ORDER)[number];
 
 const CAPABILITIES_MESSAGE = assistantCapabilitiesMessage;
 
@@ -155,20 +170,201 @@ function mergeDraft(draft: CreateCaseDraft, parsed: ParsedAssistantInput): Creat
   };
 }
 
-function missingCreateFields(draft: CreateCaseDraft): string[] {
-  const missing: string[] = [];
-  if (!draft.companyName?.trim()) missing.push('companyName');
-  if (!draft.jurisdiction) missing.push('jurisdiction');
-  if (!draft.businessType) missing.push('businessType');
-  if (!draft.sourceOfFunds?.trim()) missing.push('sourceOfFunds');
-  return missing;
+function extractEmail(message: string): string | undefined {
+  const match = message.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match?.[0]?.toLowerCase();
 }
 
-function askForMissingFields(draft: CreateCaseDraft): string {
-  const missing = missingCreateFields(draft);
-  if (!missing.length) return '';
-  const lines = missing.map((field) => `- ${CREATE_FIELD_LABELS[field]}`);
-  return `还差几项信息，创建 Case 前需要确认：\n${lines.join('\n')}\n\n请直接回复补充即可。`;
+function extractNeedsNs(message: string): boolean | undefined {
+  const text = normalizeText(message);
+  if (/不需要\s*ns|不用\s*ns|无\s*ns|否.*ns|ns.*否|只要\s*prime|仅\s*prime|prime\s*only/.test(text)) return false;
+  if (/需要\s*ns|要\s*ns|ns\s*业务|northstar|北星|是.*ns|含\s*ns/.test(text)) return true;
+  if (/^(是|yes|y|要|需要)$/i.test(text.trim())) return true;
+  if (/^(否|no|n|不要|不需要)$/i.test(text.trim())) return false;
+  return undefined;
+}
+
+function extractLanguage(message: string): CaseLanguage | undefined {
+  const text = normalizeText(message);
+  if (/\benglish\b|英文|英语|\ben\b/.test(text)) return 'en';
+  if (/中文|简体|繁体|\bzh\b/.test(text)) return 'zh';
+  return undefined;
+}
+
+function extractJurisdictionFromMessage(message: string): Jurisdiction | undefined {
+  const text = normalizeText(message);
+  for (const [alias, jurisdiction] of Object.entries(JURISDICTION_ALIASES)) {
+    if (text.includes(normalizeText(alias))) return jurisdiction;
+  }
+  return JURISDICTIONS.find((item) => message.includes(item));
+}
+
+function extractCompanyNameFromMessage(message: string): string | undefined {
+  const patterns = [
+    /(?:公司|客户|机构)(?:名称|叫|是)[:：]?\s*([^\n,，。;；]+)/i,
+    /(?:创建|新建)(?:一个)?(?:客户|case)?[:：]?\s*([A-Za-z0-9\u4e00-\u9fff][^\n,，。;；]{1,80})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (candidate && candidate.length >= 2) return candidate.replace(/\s*(注册地|邮箱|业务|矿业贷|质押借贷).*$/i, '').trim();
+  }
+  return undefined;
+}
+
+function extractSourceOfFundsFromMessage(message: string): string | undefined {
+  const labeled = message.match(/(?:资金来源|source of funds)[:：]?\s*(.+)$/i);
+  if (labeled?.[1]?.trim()) return labeled[1].trim();
+  return undefined;
+}
+
+function extractCreateCaseFieldsHeuristic(message: string): Partial<ParsedAssistantInput> {
+  const result: Partial<ParsedAssistantInput> = {};
+  const email = extractEmail(message);
+  if (email) result.contactEmail = email;
+  const jurisdiction = extractJurisdictionFromMessage(message);
+  if (jurisdiction) result.jurisdiction = jurisdiction;
+  const businessType = normalizeBusinessType(message);
+  if (businessType) result.businessType = businessType;
+  const needsNsBusiness = extractNeedsNs(message);
+  if (needsNsBusiness !== undefined) result.needsNsBusiness = needsNsBusiness;
+  const language = extractLanguage(message);
+  if (language) result.language = language;
+  const companyName = extractCompanyNameFromMessage(message);
+  if (companyName) result.companyName = companyName;
+  const sourceOfFunds = extractSourceOfFundsFromMessage(message);
+  if (sourceOfFunds) result.sourceOfFunds = sourceOfFunds;
+  return result;
+}
+
+function isCreateFieldMissing(draft: CreateCaseDraft, field: CreateFieldKey): boolean {
+  switch (field) {
+    case 'companyName':
+      return !draft.companyName?.trim();
+    case 'jurisdiction':
+      return !draft.jurisdiction;
+    case 'businessType':
+      return !draft.businessType;
+    case 'contactEmail':
+      return !draft.contactEmail?.trim();
+    case 'sourceOfFunds':
+      return !draft.sourceOfFunds?.trim();
+    case 'needsNsBusiness':
+      return draft.needsNsBusiness === undefined;
+    case 'language':
+      return !draft.language;
+    default:
+      return false;
+  }
+}
+
+function missingCreateFields(draft: CreateCaseDraft): CreateFieldKey[] {
+  return CREATE_FIELD_ORDER.filter((field) => isCreateFieldMissing(draft, field));
+}
+
+function nextMissingCreateField(draft: CreateCaseDraft): CreateFieldKey | undefined {
+  return missingCreateFields(draft)[0];
+}
+
+function summarizeReceivedCreateFields(draft: CreateCaseDraft): string {
+  const parts: string[] = [];
+  if (draft.companyName?.trim()) parts.push(`机构：${draft.companyName.trim()}`);
+  if (draft.jurisdiction) parts.push(`注册地：${draft.jurisdiction}`);
+  if (draft.businessType) {
+    parts.push(`业务：${draft.businessType === 'btc_loan' ? '质押借贷' : '矿业贷'}`);
+  }
+  if (draft.contactEmail?.trim()) parts.push(`邮箱：${draft.contactEmail.trim()}`);
+  if (draft.sourceOfFunds?.trim()) parts.push('资金来源：已填写');
+  if (draft.needsNsBusiness !== undefined) parts.push(`NS 业务：${draft.needsNsBusiness ? '需要' : '不需要'}`);
+  if (draft.language) parts.push(`语言：${draft.language === 'zh' ? '中文' : 'English'}`);
+  return parts.join('；');
+}
+
+function askForNextMissingField(draft: CreateCaseDraft): string {
+  const next = nextMissingCreateField(draft);
+  if (!next) return '';
+  const received = summarizeReceivedCreateFields(draft);
+  const prefix = received ? `已记录：${received}\n\n` : '';
+  return `${prefix}请补充 **${CREATE_FIELD_LABELS[next]}**。`;
+}
+
+function applySequentialFieldFill(draft: CreateCaseDraft, message: string): CreateCaseDraft {
+  const trimmed = message.trim();
+  if (!trimmed || /^(我补齐了呀|我补齐了|好了|行了|ok|done)$/i.test(trimmed)) {
+    return draft;
+  }
+
+  const heuristic = extractCreateCaseFieldsHeuristic(message);
+  let merged = mergeDraft(draft, { ...heuristic, intent: 'create_case' });
+  const nextBefore = nextMissingCreateField(merged);
+  if (!nextBefore) return merged;
+
+  const heuristicFilledNext = !isCreateFieldMissing(merged, nextBefore);
+  if (heuristicFilledNext) return merged;
+
+  switch (nextBefore) {
+    case 'companyName':
+      return { ...merged, companyName: trimmed };
+    case 'jurisdiction': {
+      const jurisdiction = normalizeJurisdiction(trimmed);
+      return jurisdiction ? { ...merged, jurisdiction } : merged;
+    }
+    case 'businessType': {
+      const businessType = normalizeBusinessType(trimmed);
+      return businessType ? { ...merged, businessType } : merged;
+    }
+    case 'contactEmail': {
+      const contactEmail = extractEmail(trimmed);
+      return contactEmail ? { ...merged, contactEmail } : merged;
+    }
+    case 'sourceOfFunds':
+      return { ...merged, sourceOfFunds: trimmed };
+    case 'needsNsBusiness': {
+      const needsNsBusiness = extractNeedsNs(trimmed);
+      return needsNsBusiness !== undefined ? { ...merged, needsNsBusiness } : merged;
+    }
+    case 'language': {
+      const language = extractLanguage(trimmed);
+      return language ? { ...merged, language } : merged;
+    }
+    default:
+      return merged;
+  }
+}
+
+function summarizeCreateDraftForConfirm(draft: CreateCaseDraft): string {
+  return [
+    `- 机构名称：${draft.companyName}`,
+    `- 注册地：${draft.jurisdiction}${draft.usState ? ` (${draft.usState})` : ''}`,
+    `- 业务类型：${draft.businessType === 'btc_loan' ? '质押借贷' : '矿业贷'}`,
+    `- 联系邮箱：${draft.contactEmail}`,
+    `- 资金来源：${draft.sourceOfFunds}`,
+    `- NS 业务：${draft.needsNsBusiness ? '需要' : '不需要'}`,
+    `- 邮件语言：${draft.language === 'en' ? 'English' : '中文'}`,
+  ].join('\n');
+}
+
+function mergeParsedInput(
+  fallback: ParsedAssistantInput,
+  heuristic: Partial<ParsedAssistantInput>,
+  parsed: Partial<ParsedAssistantInput>,
+): ParsedAssistantInput {
+  const clean = (value: Partial<ParsedAssistantInput>) => Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== null && entry !== undefined),
+  ) as Partial<ParsedAssistantInput>;
+
+  return {
+    ...fallback,
+    ...clean(heuristic),
+    ...clean(parsed),
+    jurisdiction: normalizeJurisdiction(parsed.jurisdiction || heuristic.jurisdiction) || fallback.jurisdiction,
+    businessType: normalizeBusinessType(parsed.businessType || heuristic.businessType) || fallback.businessType,
+    choiceIndex: parsed.choiceIndex ?? fallback.choiceIndex,
+    queryName: parsed.queryName || heuristic.queryName || fallback.queryName,
+    intent: parsed.intent || fallback.intent,
+    needsNsBusiness: parsed.needsNsBusiness ?? heuristic.needsNsBusiness ?? fallback.needsNsBusiness,
+    language: parsed.language || heuristic.language || fallback.language,
+  };
 }
 
 async function parseAssistantInput(message: string, session: AssistantSession): Promise<ParsedAssistantInput> {
@@ -227,16 +423,9 @@ JSON shape:
   "choiceIndex": number|null
 }`;
 
+  const heuristic = extractCreateCaseFieldsHeuristic(message);
   const parsed = await getLlmJson<ParsedAssistantInput>(prompt, fallback);
-  return {
-    ...fallback,
-    ...parsed,
-    jurisdiction: normalizeJurisdiction(parsed.jurisdiction) || fallback.jurisdiction,
-    businessType: normalizeBusinessType(parsed.businessType) || fallback.businessType,
-    choiceIndex: parsed.choiceIndex ?? choiceIndex,
-    queryName: parsed.queryName || fallback.queryName,
-    intent: parsed.intent || fallback.intent,
-  };
+  return mergeParsedInput(fallback, heuristic, parsed);
 }
 
 export function searchCases(cases: KYCCase[], query: string): AssistantCaseOption[] {
@@ -382,11 +571,18 @@ export async function handleAssistantMessage(input: {
   }
 
   if (session.mode === 'create_case') {
-    const draft = mergeDraft(session.createCaseDraft || {}, parsed);
+    const draft = applySequentialFieldFill(
+      mergeDraft(session.createCaseDraft || {}, parsed),
+      input.message,
+    );
     const missing = missingCreateFields(draft);
     if (missing.length) {
+      const noopReply = /^(我补齐了呀|我补齐了|好了|行了|ok|done)$/i.test(input.message.trim());
+      const message = noopReply
+        ? `${askForNextMissingField(draft)}\n\n（我这边还没识别到新信息，请直接回复上面这一项即可。）`
+        : askForNextMissingField(draft);
       return {
-        message: askForMissingFields(draft),
+        message,
         session: { mode: 'create_case', createCaseDraft: draft },
       };
     }
@@ -394,7 +590,7 @@ export async function handleAssistantMessage(input: {
       return { message: '你当前账号没有创建 Case 的权限。', session: { mode: 'idle' } };
     }
     return {
-      message: `信息已齐，可以创建 **${draft.companyName}** 的 Case。请确认后我会创建并给你案件链接。`,
+      message: `信息已齐，请确认是否创建 **${draft.companyName}** 的 Case：\n\n${summarizeCreateDraftForConfirm(draft)}`,
       session: { mode: 'create_case', createCaseDraft: draft },
       choices: [{ id: 'confirm_create', label: '确认创建 Case' }],
     };
@@ -441,16 +637,16 @@ export async function handleAssistantMessage(input: {
     if (!input.canCreate) {
       return { message: '你当前账号没有创建 Case 的权限。', session: { mode: 'idle' } };
     }
-    const draft = mergeDraft({}, parsed);
+    const draft = applySequentialFieldFill(mergeDraft({}, parsed), input.message);
     const missing = missingCreateFields(draft);
     if (missing.length) {
       return {
-        message: `好的，我来帮你创建新 Case。\n\n${askForMissingFields(draft)}`,
+        message: `好的，我来帮你创建新 Case。\n\n${askForNextMissingField(draft)}`,
         session: { mode: 'create_case', createCaseDraft: draft },
       };
     }
     return {
-      message: `信息已齐，可以创建 **${draft.companyName}** 的 Case。`,
+      message: `信息已齐，请确认是否创建 **${draft.companyName}** 的 Case：\n\n${summarizeCreateDraftForConfirm(draft)}`,
       session: { mode: 'create_case', createCaseDraft: draft },
       choices: [{ id: 'confirm_create', label: '确认创建 Case' }],
     };
