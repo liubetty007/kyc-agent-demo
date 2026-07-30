@@ -170,24 +170,6 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
     setLoading(null);
   }
 
-  async function demoSend() {
-    setLoading('send');
-    await save();
-    const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'send_demo' }),
-    });
-    if (!response.ok) {
-      alert(await readResponseError(response, 'Demo send failed.'));
-      setLoading(null);
-      return;
-    }
-    const updated = await response.json();
-    setSentAt(updated.openingEmailSentAt);
-    setLoading(null);
-  }
-
   async function realSend() {
     if (sentAt && !window.confirm('开户邮件已发送过。再次发送会在同一 Gmail 线程里追加一封邮件。确定要继续吗？')) {
       return;
@@ -357,11 +339,10 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
               {loading === 'generate' ? 'Regenerating…' : 'Regenerate from Template'}
             </button>
             <button className="button" disabled={Boolean(loading)} onClick={save}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
-            <button className="button primary" disabled={Boolean(loading)} onClick={demoSend}>{loading === 'send' ? 'Sending…' : 'Demo Send'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={realSend}>{loading === 'real-send' ? 'Sending Gmail…' : 'Send via Gmail'}</button>
             {saved && <span className="small">Saved.</span>}
             {sendNotice && <span className="small">{sendNotice}</span>}
-            {sentAt && <span className="badge accepted">Demo sent: {new Date(sentAt).toLocaleString()}</span>}
+            {sentAt && <span className="badge accepted">Sent: {new Date(sentAt).toLocaleString()}</span>}
           </div>
       )}
       {readOnly && sentAt && <span className="badge accepted">Sent: {new Date(sentAt).toLocaleString()}</span>}

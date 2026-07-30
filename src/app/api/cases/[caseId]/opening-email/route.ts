@@ -1,10 +1,9 @@
-import { appendMailboxMessage, customerEmail, customerEmailRecipients, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
+import { appendMailboxMessage, customerEmailRecipients } from '@/lib/kyb/mailbox';
 import { requireApiUser } from '@/lib/auth/admin';
 import { readOpeningEmailAttachment, type OpeningEmailAttachmentRef } from '@/lib/kyb/documentStorage';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { generateOpeningEmail } from '@/lib/kyb/openingEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
-import { isBackendEnabled, sendBackendOpeningEmailMock } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
 
 function apiError(error: unknown, fallback: string) {
@@ -45,39 +44,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const openingEmailDraft = generateOpeningEmail(caseData);
     const updated = await updateCase(caseId, { openingEmailDraft });
     return NextResponse.json(updated);
-  }
-
-  if (body.action === 'send_demo') {
-    try {
-      if (isBackendEnabled()) {
-        await sendBackendOpeningEmailMock(caseId);
-        const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
-        const updated = await updateCase(caseId, {
-          openingEmailDraft: draft,
-          openingEmailSentAt: new Date().toISOString(),
-        });
-        return NextResponse.json(updated);
-      }
-
-      const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
-      const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
-      const updated = await updateCase(caseId, {
-        openingEmailDraft: draft,
-        openingEmailSentAt: new Date().toISOString(),
-        mailboxMessages: appendMailboxMessage(caseData, {
-          from: KYC_TEAM_EMAIL,
-          to: customerEmailRecipients(caseData),
-          subject: parsed.subject,
-          body: parsed.body,
-          direction: 'outbound',
-          status: 'sent',
-          attachments: ['Antalpha Institutional Cooperation Guide_XXX.pdf'],
-        }),
-      });
-      return NextResponse.json(updated);
-    } catch (error) {
-      return apiError(error, 'Demo send failed.');
-    }
   }
 
   if (body.action === 'send_real') {

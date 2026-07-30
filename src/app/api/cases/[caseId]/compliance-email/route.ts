@@ -62,26 +62,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const draft = body.draft || caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, toEmail);
   const parsed = splitEmailDraft(draft, `Compliance Review Request – ${caseData.companyName} (${caseId})`);
 
-  if (body.action === 'send_demo') {
-    const updated = await updateCase(caseId, {
-      review,
-      complianceEmailDraft: draft,
-      complianceEmailTo: toEmail,
-      complianceEmailSentAt: new Date().toISOString(),
-      status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
-      mailboxMessages: appendMailboxMessage(caseData, {
-        from: KYC_TEAM_EMAIL,
-        to: toEmail,
-        subject: parsed.subject,
-        body: parsed.body,
-        direction: 'outbound',
-        status: 'sent',
-        attachments: attachmentNames.length ? attachmentNames : ['No accepted documents'],
-      }),
-    });
-    return NextResponse.json(updated);
-  }
-
   if (body.action === 'send_real') {
     try {
       if (isBackendEnabled() && isBackendCaseId(caseId)) {

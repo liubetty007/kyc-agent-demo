@@ -88,18 +88,6 @@ async function main() {
   if (!attCount) fail('load attachments', '0 standard attachments');
   pass('load attachments', `${pkgCount} packages, ${attCount} files`);
 
-  const attachments = [];
-  for (const pkg of r.body.packages || []) {
-    if (pkg.defaultSelected) attachments.push(...pkg.attachments);
-  }
-  r = await request(`/api/cases/${caseId}/opening-email`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'send_demo' }),
-  });
-  if (!r.response.ok) fail('demo send opening', r.body.error || r.response.status);
-  pass('demo send opening');
-
   r = await request(`/api/cases/${caseId}/client-email-draft`, { method: 'POST' });
   if (!r.response.ok) fail('generate follow-up draft', r.body.error || r.response.status);
   pass('generate follow-up draft');
