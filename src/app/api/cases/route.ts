@@ -1,7 +1,14 @@
 import { createCase, listCases } from '@/lib/kyb/storage';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
-import type { BusinessType, CaseLanguage, Jurisdiction } from '@/lib/kyb/types';
+import type {
+  BusinessType,
+  CaseLanguage,
+  CustomerType,
+  EntityType,
+  Jurisdiction,
+  RiskRating,
+} from '@/lib/kyb/types';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -22,6 +29,16 @@ export async function POST(request: Request) {
       usState: body.usState,
       businessType: body.businessType as BusinessType,
       sourceOfFunds: body.sourceOfFunds,
+      customerType: (body.customerType as CustomerType) || 'new_customer',
+      entityType: (body.entityType as EntityType) || 'limited_company',
+      riskRating: (body.riskRating as RiskRating) || 'medium',
+      isFinancialInstitution: Boolean(body.isFinancialInstitution),
+      managesClientAssets: Boolean(body.managesClientAssets),
+      isListedEntity: Boolean(body.isListedEntity),
+      isLicensedEntity: Boolean(body.isLicensedEntity),
+      passportCtcProvided: Boolean(body.passportCtcProvided),
+      hasThirdPartyFunding: Boolean(body.hasThirdPartyFunding),
+      legalExceptionApproved: Boolean(body.legalExceptionApproved),
       needsNsBusiness: Boolean(body.needsNsBusiness),
       language: (body.language as CaseLanguage) || 'zh',
     });

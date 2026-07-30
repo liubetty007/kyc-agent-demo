@@ -7,7 +7,7 @@ export default async function NewCasePage() {
     <div className="grid">
       <div>
         <h1>Create KYC Case</h1>
-        <p>The demo automatically applies Document Matrix v1.1 after case creation.</p>
+        <p>The demo automatically applies AA KYC Rules — 15 Jul 2026 after case creation.</p>
       </div>
       <CaseForm />
     </div>

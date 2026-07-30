@@ -12,7 +12,7 @@ type IntakeInput = {
 
 function fallbackAnalysis(caseData: KYCCase, input: IntakeInput): EmailIntakeAnalysis {
   const text = `${input.subject} ${input.body}`.toLowerCase();
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const checklistIds = new Set(checklist.map((item) => item.id));
   const keywords = ['kyc', 'kyb', 'document', 'passport', 'address', 'source of funds', 'shareholder', 'director', 'ubo', 'financing', 'mining', 'crypto']
     .filter((word) => text.includes(word));
@@ -65,7 +65,7 @@ function normalizeAnalysis(candidate: EmailIntakeAnalysis, fallback: EmailIntake
 export async function analyzeEmailForCase(caseData: KYCCase, input: IntakeInput): Promise<EmailIntakeAnalysis> {
   const fallback = fallbackAnalysis(caseData, input);
   if (!hasLlmConfigured()) return fallback;
-  const checklist = (caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData))
+  const checklist = generateChecklist(caseData)
     .map((item) => ({ id: item.id, name: item.name, category: item.category, required: item.required }));
   const prompt = `You are the Email Intake Agent for a KYC workflow.
 

@@ -67,7 +67,7 @@ function receivedDocumentsByIds(caseData: KYCCase, requirementIds: string[]) {
 
 export function runReview(caseData: KYCCase): ReviewResult {
   const matrix = getMatrix();
-  const requiredDocuments = uniqueById([...(caseData.checklist || []), ...generateChecklist(caseData)]);
+  const requiredDocuments = uniqueById(generateChecklist(caseData));
   const requiredDocumentIds = new Set(requiredDocuments.filter((doc) => doc.required).map((doc) => doc.id));
   const acceptedOrReceived = new Set(
     caseData.receivedDocuments

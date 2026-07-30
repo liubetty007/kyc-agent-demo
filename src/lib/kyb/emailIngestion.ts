@@ -66,7 +66,7 @@ function getDemoEmails(caseData: KYCCase): DemoEmail[] {
 }
 
 export function ingestDemoMailbox(caseData: KYCCase): EmailIngestionSummary {
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const allowedRequirementIds = new Set(checklist.map((doc) => doc.id));
   const existingRequirementIds = new Set(caseData.receivedDocuments.map((doc) => doc.requirementId));
   const imported: ReceivedDocument[] = [];

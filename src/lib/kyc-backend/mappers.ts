@@ -1,6 +1,14 @@
 import type { BackendCaseSummary } from './client';
 import { generateChecklist } from '@/lib/kyb/checklist';
-import type { BusinessType, CaseLanguage, Jurisdiction, KYCCase } from '@/lib/kyb/types';
+import type {
+  BusinessType,
+  CaseLanguage,
+  CustomerType,
+  EntityType,
+  Jurisdiction,
+  KYCCase,
+  RiskRating,
+} from '@/lib/kyb/types';
 
 const JURISDICTION_TO_COUNTRY: Record<Jurisdiction, string> = {
   'Hong Kong': 'Hong Kong',
@@ -40,6 +48,16 @@ export function toBackendIntake(input: {
   usState?: string;
   businessType: BusinessType;
   sourceOfFunds: string;
+  customerType?: CustomerType;
+  entityType?: EntityType;
+  riskRating?: RiskRating;
+  isFinancialInstitution?: boolean;
+  managesClientAssets?: boolean;
+  isListedEntity?: boolean;
+  isLicensedEntity?: boolean;
+  passportCtcProvided?: boolean;
+  hasThirdPartyFunding?: boolean;
+  legalExceptionApproved?: boolean;
   needsNsBusiness?: boolean;
   language?: CaseLanguage;
 }) {
@@ -62,7 +80,18 @@ export function toBackendIntake(input: {
     language,
     needs_ns: needsNs,
     tags,
-    attributes: {},
+    attributes: {
+      customer_type: input.customerType || 'new_customer',
+      entity_type: input.entityType || 'limited_company',
+      risk_rating: input.riskRating || 'medium',
+      is_financial_institution: Boolean(input.isFinancialInstitution),
+      manages_client_assets: Boolean(input.managesClientAssets),
+      is_listed_entity: Boolean(input.isListedEntity),
+      is_licensed_entity: Boolean(input.isLicensedEntity),
+      passport_ctc_provided: Boolean(input.passportCtcProvided),
+      has_third_party_funding: Boolean(input.hasThirdPartyFunding),
+      legal_exception_approved: Boolean(input.legalExceptionApproved),
+    },
   };
 }
 
@@ -75,6 +104,16 @@ export function backendCaseToKycCase(
     usState?: string;
     businessType: BusinessType;
     sourceOfFunds: string;
+    customerType?: CustomerType;
+    entityType?: EntityType;
+    riskRating?: RiskRating;
+    isFinancialInstitution?: boolean;
+    managesClientAssets?: boolean;
+    isListedEntity?: boolean;
+    isLicensedEntity?: boolean;
+    passportCtcProvided?: boolean;
+    hasThirdPartyFunding?: boolean;
+    legalExceptionApproved?: boolean;
     needsNsBusiness?: boolean;
     language?: CaseLanguage;
   },
@@ -89,6 +128,16 @@ export function backendCaseToKycCase(
     usState: input.usState,
     businessType: input.businessType,
     sourceOfFunds: input.sourceOfFunds,
+    customerType: input.customerType || 'new_customer',
+    entityType: input.entityType || 'limited_company',
+    riskRating: input.riskRating || 'medium',
+    isFinancialInstitution: input.isFinancialInstitution,
+    managesClientAssets: input.managesClientAssets,
+    isListedEntity: input.isListedEntity,
+    isLicensedEntity: input.isLicensedEntity,
+    passportCtcProvided: input.passportCtcProvided,
+    hasThirdPartyFunding: input.hasThirdPartyFunding,
+    legalExceptionApproved: input.legalExceptionApproved,
     language: input.language,
     needsNsBusiness: input.needsNsBusiness,
     status: 'checklist_generated',

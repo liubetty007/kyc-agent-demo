@@ -533,7 +533,7 @@ export function searchCases(cases: KYCCase[], query: string): AssistantCaseOptio
 }
 
 function summarizeCaseProgress(caseData: KYCCase): string {
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const received = new Set(caseData.receivedDocuments.map((doc) => doc.requirementId));
   const missingRequired = checklist.filter((item) => item.required && !received.has(item.id));
   const lines = [
@@ -582,7 +582,7 @@ function resolveChoice(session: AssistantSession, choiceIndex?: number, message?
 }
 
 function classifyDocumentHint(hint: string, filename: string, caseData: KYCCase) {
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const allowed = new Set(checklist.map((item) => item.id));
   const hay = normalizeAttachmentFilename(`${hint} ${filename}`);
   const fromFilename = classifyAttachmentFilename(filename, allowed);
@@ -827,7 +827,7 @@ export async function handleAssistantUpload(input: {
     return { message: '案件不存在，请重新选择客户。', session: { mode: 'idle' } };
   }
 
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const checklistName = new Map(checklist.map((item) => [item.id, item.name]));
   const hint = `${parsed.documentHint || ''} ${input.message}`.trim();
   const classification = classifyDocumentHint(hint, input.filename, caseData);

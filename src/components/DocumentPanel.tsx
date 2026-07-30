@@ -70,7 +70,11 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     received_doc_types: string[];
   } | null>(null);
   const backendMode = isBackendCaseId(caseData.id);
-  const checklistItems = backendMode ? generateChecklist(caseData) : (caseData.checklist || []);
+  const checklistItems = [...generateChecklist(caseData)].sort((a, b) => {
+    const aType = a.requirementType || 'required';
+    const bType = b.requirementType || 'required';
+    return aType === bType ? 0 : aType === 'required' ? -1 : 1;
+  });
 
   async function refreshBackend() {
     const [docsRes, checklistRes] = await Promise.all([
@@ -251,12 +255,12 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
           <br />
           <strong>Pending review:</strong> {backendChecklistDisplay.pending_doc_types.map(formatDocType).join(', ') || 'none'}
           <br />
-          <strong>Still missing:</strong> {backendChecklistDisplay.missing_required.map(formatDocType).join(', ') || 'none'}
+          <strong>Still missing (Required + applicable Conditional Required):</strong> {backendChecklistDisplay.missing_required.map(formatDocType).join(', ') || 'none'}
         </div>
       )}
 
       <table className="table">
-        <thead><tr><th>Document</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
+        <thead><tr><th>Document</th><th>Requirement</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
           {checklistItems.map((requirement) => {
             if (backendMode) {
@@ -268,6 +272,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                   <td>
                     <strong>{requirement.name}</strong><br />
                     <span className="small">{requirement.reason}</span>
+                    {requirement.condition && <><br /><span className="small"><strong>Applies when:</strong> {requirement.condition}</span></>}
                     {doc && (
                       <div className="document-meta small">
                         <strong>{doc.filename}</strong>
@@ -283,6 +288,11 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                         {localDoc.source === 'manual' && <> · uploaded manually</>}
                       </div>
                     )}
+                  </td>
+                  <td>
+                    {requirement.requirementType === 'conditional_required'
+                      ? <span className="badge medium">Conditional Required</span>
+                      : <span className="badge accepted">Required</span>}
                   </td>
                   <td>{requirement.category}</td>
                   <td>{statusBadgeBackend(doc, localDoc)}</td>
@@ -344,6 +354,7 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                 <td>
                   <strong>{requirement.name}</strong><br />
                   <span className="small">{requirement.reason}</span>
+                  {requirement.condition && <><br /><span className="small"><strong>Applies when:</strong> {requirement.condition}</span></>}
                   {receivedDoc && (
                     <div className="document-meta small">
                       <strong>{receivedDoc.name}</strong>
@@ -353,6 +364,11 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       {acceptedAndLocked && <> · locked after Accept</>}
                     </div>
                   )}
+                </td>
+                <td>
+                  {requirement.requirementType === 'conditional_required'
+                    ? <span className="badge medium">Conditional Required</span>
+                    : <span className="badge accepted">Required</span>}
                 </td>
                 <td>{requirement.category}</td>
                 <td>{statusBadgeLocal(receivedDoc)}</td>

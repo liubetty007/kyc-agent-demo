@@ -1,12 +1,38 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BUSINESS_TYPE_OPTIONS, type BusinessType, type CaseLanguage, type Jurisdiction } from '@/lib/kyb/types';
+import {
+  BUSINESS_TYPE_OPTIONS,
+  type BusinessType,
+  type CaseLanguage,
+  type CustomerType,
+  type EntityType,
+  type Jurisdiction,
+  type RiskRating,
+} from '@/lib/kyb/types';
 
 const jurisdictions: Jurisdiction[] = ['Hong Kong', 'Singapore', 'BVI', 'Cayman', 'United States', 'European countries', 'Other offshore', 'Other countries', 'Mainland China'];
 const languages: Array<{ value: CaseLanguage; label: string }> = [
   { value: 'zh', label: '中文' },
   { value: 'en', label: 'English' },
+];
+const customerTypes: Array<{ value: CustomerType; label: string }> = [
+  { value: 'new_customer', label: 'New customer' },
+  { value: 'new_counterparty', label: 'New counterparty' },
+];
+const entityTypes: Array<{ value: EntityType; label: string }> = [
+  { value: 'limited_company', label: 'Limited company' },
+  { value: 'llc', label: 'LLC' },
+  { value: 'corporation', label: 'Corporation' },
+  { value: 'limited_partnership', label: 'Limited partnership' },
+  { value: 'trust', label: 'Trust' },
+  { value: 'spc_fund', label: 'SPC / Fund' },
+  { value: 'other', label: 'Other' },
+];
+const riskRatings: Array<{ value: RiskRating; label: string }> = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High / EDD' },
 ];
 const CUSTOMER_EMAIL_BOOK_KEY = 'kyc_customer_emails';
 
@@ -34,6 +60,16 @@ export function CaseForm() {
     usState: '',
     businessType: 'mining_loan' as BusinessType,
     sourceOfFunds: 'Crypto treasury assets and business income.',
+    customerType: 'new_customer' as CustomerType,
+    entityType: 'limited_company' as EntityType,
+    riskRating: 'medium' as RiskRating,
+    isFinancialInstitution: false,
+    managesClientAssets: false,
+    isListedEntity: false,
+    isLicensedEntity: false,
+    passportCtcProvided: false,
+    hasThirdPartyFunding: false,
+    legalExceptionApproved: false,
     needsNsBusiness: false,
     language: 'zh' as CaseLanguage,
   });
@@ -133,6 +169,37 @@ export function CaseForm() {
           ))}
         </select>
       </label>
+      <div className="grid two">
+        <label>
+          Relationship Type
+          <select value={form.customerType} onChange={(e) => setForm({ ...form, customerType: e.target.value as CustomerType })}>
+            {customerTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        </label>
+        <label>
+          Legal Entity Type
+          <select value={form.entityType} onChange={(e) => setForm({ ...form, entityType: e.target.value as EntityType })}>
+            {entityTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+          </select>
+        </label>
+      </div>
+      <label>
+        Risk Rating
+        <select value={form.riskRating} onChange={(e) => setForm({ ...form, riskRating: e.target.value as RiskRating })}>
+          {riskRatings.map((rating) => <option key={rating.value} value={rating.value}>{rating.label}</option>)}
+        </select>
+      </label>
+      <div className="saved-email-options" style={{ marginBottom: 12 }}>
+        <label><input type="checkbox" checked={form.isFinancialInstitution} onChange={(e) => setForm({ ...form, isFinancialInstitution: e.target.checked })} /> Financial institution</label>
+        <label><input type="checkbox" checked={form.managesClientAssets} onChange={(e) => setForm({ ...form, managesClientAssets: e.target.checked })} /> Manages client/user assets</label>
+        <label><input type="checkbox" checked={form.isListedEntity} onChange={(e) => setForm({ ...form, isListedEntity: e.target.checked })} /> Listed entity / eligible subsidiary</label>
+        <label><input type="checkbox" checked={form.isLicensedEntity} onChange={(e) => setForm({ ...form, isLicensedEntity: e.target.checked })} /> Licensed entity</label>
+        <label><input type="checkbox" checked={form.passportCtcProvided} onChange={(e) => setForm({ ...form, passportCtcProvided: e.target.checked })} /> Passport / ID is certified true copy</label>
+        <label><input type="checkbox" checked={form.hasThirdPartyFunding} onChange={(e) => setForm({ ...form, hasThirdPartyFunding: e.target.checked })} /> Third-party funding / financing</label>
+        {form.jurisdiction === 'United States' && (
+          <label><input type="checkbox" checked={form.legalExceptionApproved} onChange={(e) => setForm({ ...form, legalExceptionApproved: e.target.checked })} /> US Legal / Compliance exception approved</label>
+        )}
+      </div>
       <div className="grid two">
         <label>
           Language

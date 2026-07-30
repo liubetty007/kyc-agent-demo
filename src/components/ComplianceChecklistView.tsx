@@ -76,19 +76,14 @@ export function ComplianceChecklistView({ caseData }: { caseData: KYCCase }) {
       {checklist && (
         <div className="compliance-gap-grid">
           <ChecklistGapList
-            title="仍缺（必缴）"
+            title="仍缺（Required / Conditional Required）"
             items={checklist.missing_required}
-            empty="必缴文件已全部收到（或已 Accept）。"
+            empty="Required 及适用的 Conditional Required 文件已全部收到（或已 Accept）。"
           />
           <ChecklistGapList
             title="待 KYC 确认"
             items={checklist.pending_doc_types}
             empty="没有待确认的文件。"
-          />
-          <ChecklistGapList
-            title="仍缺（建议）"
-            items={checklist.missing_recommended}
-            empty="无额外建议项缺失。"
           />
           <ChecklistGapList
             title="已收到（KYC Accepted）"

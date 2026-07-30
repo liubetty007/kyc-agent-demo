@@ -3,6 +3,7 @@ import { followUpAttachmentNote, followUpTemplateIdsForMissingDocs } from './fol
 import { openingEmailSubject } from './caseMailThreads';
 import { formatDocTypeLabel } from './complianceSubmit';
 import { runReview } from './review';
+import { generateChecklist } from './checklist';
 import type { BackendChecklist, BackendDocument } from '@/lib/kyc-backend/client';
 
 export type ClientFollowUpSummary = {
@@ -76,7 +77,7 @@ export function buildClientFollowUpSummaryFromBackend(
 
 export function buildClientFollowUpSummaryFromLocal(caseData: KYCCase): ClientFollowUpSummary {
   const review = caseData.review || runReview(caseData);
-  const checklist = caseData.checklist || [];
+  const checklist = generateChecklist(caseData);
   const checklistName = new Map(checklist.map((item) => [item.id, item.name]));
 
   const receivedFromClient = caseData.receivedDocuments.map((doc) => ({

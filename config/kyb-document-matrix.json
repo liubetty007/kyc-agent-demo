@@ -1,4 +1,5 @@
 {
+  "rule_version": "AA-KYC-2026-07-15",
   "ubo_rule": {
     "threshold_percentage": 25,
     "operator": ">=",
@@ -62,28 +63,30 @@
     }
   },
   "base_documents": [
-    {"id":"certificate_of_incorporation","name":"Certificate of Incorporation","category":"Constitutional","required":true,"reason":"Required for all companies"},
-    {"id":"certificate_of_incumbency","name":"Certificate of Incumbency","category":"Constitutional","required":true,"reason":"Must be issued within the last 6 months"},
-    {"id":"business_registration_certificate","name":"Business Registration Certificate","category":"Constitutional","required":true,"reason":"Required for all companies if applicable"},
-    {"id":"articles_of_association","name":"Articles of Association","category":"Constitutional","required":true,"reason":"Required for all companies"},
-    {"id":"register_of_directors","name":"Register of Directors","category":"Constitutional","required":true,"reason":"Required for all companies"},
-    {"id":"register_of_shareholders","name":"Register of Shareholders","category":"Constitutional","required":true,"reason":"Required for all companies"},
-    {"id":"ownership_structure_chart","name":"Ownership Structure Chart","category":"Constitutional","required":true,"reason":"Required to identify UBOs"},
-    {"id":"business_description","name":"Business Description","category":"Constitutional","required":true,"reason":"Required for business risk assessment"},
-    {"id":"source_of_funds","name":"Source of Funds","category":"Constitutional","required":true,"reason":"Required for AML assessment"}
+    {"id":"certificate_of_incorporation","name":"Certificate of Incorporation","category":"Constitutional","required":true,"requirementType":"required","reason":"Required for all companies; Hong Kong COI has no recency limit"},
+    {"id":"certificate_of_incumbency","name":"Certificate of Incumbency","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Entity is incorporated outside Hong Kong and Singapore","validityMonths":6,"reason":"Required for non-Hong Kong / non-Singapore entities and must be issued within 6 months"},
+    {"id":"business_registration_certificate","name":"Business Registration Certificate","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Hong Kong company","reason":"Required for Hong Kong companies and must remain valid"},
+    {"id":"articles_of_association","name":"Memorandum & Articles of Association","category":"Constitutional","required":true,"requirementType":"required","reason":"Required constitutional document for all companies"},
+    {"id":"register_of_directors","name":"Register of Directors","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Current directors are not evidenced by the primary registry document","reason":"Required when current directors are not shown in the applicable registry document"},
+    {"id":"register_of_shareholders","name":"Register of Members / Shareholders","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Current shareholders are not evidenced by the primary registry document","reason":"Required when current shareholders are not shown in the applicable registry document"},
+    {"id":"ownership_structure_chart","name":"Ownership Structure Chart","category":"Constitutional","required":true,"requirementType":"required","reason":"Required to identify ownership and UBOs, unless an approved listed/licensed-entity exemption applies"},
+    {"id":"business_description","name":"Business Description","category":"Constitutional","required":true,"requirementType":"required","reason":"Required for business risk assessment"},
+    {"id":"source_of_funds","name":"Source of Funds Declaration / Confirmation","category":"Source of Funds","required":true,"requirementType":"required","reason":"For low/medium risk, a declaration in the onboarding form or written confirmation is sufficient"}
   ],
   "hk_specific_documents": [
-    {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"reason":"Required for Hong Kong registered companies"},
-    {"id":"hk_nnc1_or_nar1","name":"NNC1 or NAR1","category":"HK Specific","required":true,"reason":"Hong Kong companies must provide NNC1 if incorporated within 1 year, or NAR1 if incorporated for 1 year or more"},
-    {"id":"hk_nd2a_director_change","name":"ND2A Director Change Filing","category":"HK Specific","required":true,"reason":"Required for Hong Kong companies when director information has changed"}
+    {"id":"non_us_person_non_solicitation_hk_confirmation","name":"Non-US Person & Non-solicitation in HK Confirmation","category":"HK Specific","required":true,"requirementType":"conditional_required","condition":"Hong Kong company onboarding under the non-US / non-solicitation control","reason":"Required for Hong Kong registered companies when the control applies"},
+    {"id":"hk_nnc1_or_nar1","name":"NNC1 or Latest NAR1","category":"HK Specific","required":true,"requirementType":"conditional_required","condition":"Hong Kong company","reason":"Provide NNC1 if incorporated less than 1 year; otherwise latest NAR1 filed within the statutory 42-day period"},
+    {"id":"hk_nd2a_director_change","name":"ND2A Director Change Filing","category":"HK Specific","required":true,"requirementType":"conditional_required","condition":"Hong Kong director information has changed since NNC1/NAR1","reason":"Required when director information has changed"},
+    {"id":"hk_register_of_members","name":"Register of Members (ROM)","category":"HK Specific","required":true,"requirementType":"conditional_required","condition":"Hong Kong shareholder information has changed or is not current in NNC1/NAR1","allowEmailConfirmation":true,"reason":"Required for shareholder changes; for records older than 6 months, current information may be confirmed by email where permitted"}
+  ],
+  "singapore_specific_documents": [
+    {"id":"sg_acra_bizfile","name":"Latest ACRA BizFile","category":"Singapore Specific","required":true,"requirementType":"conditional_required","condition":"Singapore company","reason":"Required registry extract for Singapore companies"}
   ],
   "company_type_documents": {
     "llc": [
       {"id":"llc_operating_agreement","name":"LLC Operating Agreement","category":"Entity Type","required":true,"reason":"Required for Limited Liability Company entities"}
     ],
-    "limited_company": [
-      {"id":"memorandum_of_association","name":"Memorandum of Association","category":"Entity Type","required":true,"reason":"Required for Limited / Ltd entities where applicable"}
-    ],
+    "limited_company": [],
     "corporation": [
       {"id":"corporation_bylaws","name":"Bylaws","category":"Entity Type","required":true,"reason":"Required for Corporation / Inc entities"}
     ],
@@ -106,11 +109,12 @@
     ]
   },
   "internal_forms": [
-    {"id":"institution_onboarding_form","name":"Institution Onboarding Form","category":"Internal Form","required":true,"reason":"Required internal onboarding form"},
-    {"id":"authorization_letter","name":"Authorization Letter","category":"Internal Form","required":true,"reason":"Required to verify authorized representative"},
-    {"id":"mutual_nda","name":"Mutual NDA","category":"Internal Form","required":true,"reason":"Required internal form"},
-    {"id":"board_resolution","name":"Board Resolution","category":"Internal Form","required":true,"reason":"Required to authorize account opening and signatories"},
-    {"id":"declaration_source_of_fund_wealth","name":"Declaration of Source of Fund/Wealth","category":"Internal Form","required":true,"reason":"Required source of fund/wealth declaration"}
+    {"id":"institution_onboarding_form","name":"Institution Onboarding Form","category":"Internal Form","required":true,"requirementType":"required","reason":"Required for a new customer"},
+    {"id":"counterparty_due_diligence_form","name":"Counterparty Due Diligence Form","category":"Internal Form","required":true,"requirementType":"required","reason":"Required for a new counterparty"},
+    {"id":"authorization_letter","name":"Authorization Letter","category":"Internal Form","required":true,"requirementType":"required","reason":"Required to verify the authorized representative and approved contact email"},
+    {"id":"mutual_nda","name":"Mutual NDA","category":"Internal Form","required":true,"requirementType":"required","reason":"Required internal form"},
+    {"id":"board_resolution","name":"Board Resolution","category":"Internal Form","required":true,"requirementType":"conditional_required","condition":"Account-opening authority or signatories are not otherwise sufficiently evidenced","reason":"Required when needed to authorize account opening, business scope or signatories"},
+    {"id":"declaration_source_of_fund_wealth","name":"Declaration of Source of Fund/Wealth","category":"Internal Form","required":true,"requirementType":"conditional_required","condition":"High-risk / EDD case","reason":"Required for high-risk source-of-funds / source-of-wealth assessment"}
   ],
   "us_state_rules": {
     "Delaware": [
@@ -153,8 +157,9 @@
   },
   "risk_based_documents": {
     "financial_or_user_asset_manager": [
-      {"id":"aml_questionnaire","name":"AML / Wolfsberg Questionnaire","category":"Risk Based","required":true,"reason":"Required for licensed financial institutions or entities managing user/client assets or investing on behalf of clients"},
-      {"id":"letter_of_undertaking","name":"Letter of Undertaking","category":"Risk Based","required":true,"reason":"Required for licensed financial institutions or entities managing user/client assets"}
+      {"id":"financial_license_screenshot","name":"Financial Licence / Registry Screenshot","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"Licensed financial institution or regulated asset manager","reason":"Required evidence of the current licence / registration"},
+      {"id":"aml_questionnaire","name":"Wolfsberg Questionnaire / AML Questionnaire / Acceptable AML Policy","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"Financial institution or entity managing client/user assets","satisfactionMode":"one_of","alternatives":["Wolfsberg Questionnaire","AA AML Questionnaire","Acceptable AML Policy"],"reason":"Provide one acceptable AML framework document; this does not replace the Letter of Undertaking"},
+      {"id":"letter_of_undertaking","name":"Letter of Undertaking","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"Financial institution or entity managing client/user assets","reason":"Always required for an applicable FI / asset-manager case; alternative AML documents cannot replace it"}
     ],
     "entity_shareholder": [
       {"id":"ubo_no_other_shareholder_declaration","name":"UBO No Other Shareholder Declaration","category":"Risk Based","required":true,"reason":"Required when ownership structure cannot be fully traced to UBOs with >=25% beneficial ownership"}
@@ -164,18 +169,17 @@
       {"id":"worldcheck_news_explanation","name":"Worldcheck Alert News Explanation","category":"Risk Based","required":true,"reason":"Required when prior NCRS & PEP form exists and a new Worldcheck news alert needs explanation"}
     ],
     "high_risk_customer": [
-      {"id":"initial_source_of_funds_evidence","name":"Initial Source of Funds Evidence","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
-      {"id":"ongoing_source_of_funds_evidence","name":"Ongoing Source of Funds Evidence","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
-      {"id":"initial_and_ongoing_sof_explanation","name":"Initial and Ongoing Source of Funds Explanation Email","category":"Risk Based","required":true,"reason":"Required for high-risk customers"},
-      {"id":"associated_individual_background_profile","name":"Associated Individual Background Profile","category":"Risk Based","required":true,"reason":"High-risk customers must provide background information for associated individuals, including education and industry experience"}
+      {"id":"source_of_funds_wealth_evidence","name":"Source of Funds / Wealth Supporting Evidence","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"High-risk / EDD case","reason":"Documentary proof is required for high-risk customers"},
+      {"id":"high_risk_financial_statements","name":"Financial Statements / Operating Evidence","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"High-risk operating entity","reason":"Required to support source of funds for a high-risk operating entity"},
+      {"id":"associated_individual_background_profile","name":"UBO / Senior Management Background Profile","category":"Risk Based","required":true,"requirementType":"conditional_required","condition":"High-risk / EDD case","reason":"Provide education, industry experience and other relevant background for UBOs and senior management"}
     ]
   },
   "associated_individual_documents": {
     "roles": ["director", "authorized_representative", "ubo"],
     "documents": [
-      {"id":"online_identity_verification","name":"Online Identity Verification / Au10tix","category":"Individual","required":true,"reason":"Required when passport / ID is not certified true copy, or where online identity verification is required"},
-      {"id":"passport_or_id","name":"Certified Passport / Accepted National ID","category":"Individual","required":true,"reason":"All Director, AR and UBO must provide certified passport or accepted national ID, including HK PR ID, Singapore PR ID, or China ID"},
-      {"id":"proof_of_current_residential_address","name":"Proof of Current Residential Address","category":"Individual","required":true,"reason":"Must be issued within the last 3 months"}
+      {"id":"online_identity_verification","name":"Online Identity Verification / AU10TIX","category":"Individual","required":true,"requirementType":"conditional_required","condition":"Passport / ID is not provided as a certified true copy","validityMonths":6,"reason":"Required only when identity document is not CTC; completed verification is valid for 6 months"},
+      {"id":"passport_or_id","name":"Certified Passport / Accepted National ID","category":"Individual","required":true,"requirementType":"required","reason":"Each Director, AR and UBO must provide CTC passport or accepted national ID; passport should have at least 3 months validity"},
+      {"id":"proof_of_current_residential_address","name":"Proof of Current Residential Address","category":"Individual","required":true,"requirementType":"required","validityMonths":3,"reason":"Default maximum age is 3 months; extend to 6 months only for a documented onboarding delay"}
     ]
   },
   "crypto_business_rules": {
@@ -185,8 +189,7 @@
     "alternative_evidence_accepted": ["exchange_statement", "custodian_statement", "transaction_history", "audited_financial_statement", "bank_statement", "financing_agreement", "mining_pool_evidence"],
     "missing_evidence_issue": "missing_source_of_funds_evidence",
     "documents": [
-      {"id":"source_of_crypto_assets","name":"Source of Crypto Assets / Supporting Evidence","category":"Crypto Extra","required":true,"reason":"Required for crypto-related businesses"},
-      {"id":"aml_questionnaire","name":"AML Questionnaire","category":"Risk Based","required":true,"reason":"Required for crypto-related businesses"},
+      {"id":"source_of_crypto_assets","name":"Source of Crypto Assets / Supporting Evidence","category":"Crypto Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds includes crypto assets","reason":"Required to evidence the source of crypto assets"},
       {"id":"wallet_address_list","name":"Other Documents, if available","category":"Crypto Extra","required":false,"reason":"Optional slot for additional helpful documents, including wallet address lists if available or requested for chain risk review"}
     ]
   },
@@ -196,16 +199,16 @@
     "wallet_receiving_mining_proceeds_required": false,
     "wallet_policy": "request_if_available",
     "documents": [
-      {"id":"mining_proof","name":"Mining Proof, e.g. Antpool Observer Link","category":"Mining Extra","required":true,"reason":"Required for mining businesses"},
+      {"id":"mining_proof","name":"Mining Proof, e.g. Antpool Observer Link","category":"Mining Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds includes mining proceeds","reason":"Required for mining businesses"},
       {"id":"mining_revenue_evidence","name":"Mining Revenue Evidence","category":"Mining Extra","required":false,"reason":"Recommended evidence for mining businesses"},
       {"id":"mining_wallet_address","name":"Wallet Receiving Mining Proceeds, if available","category":"Mining Extra","required":false,"reason":"Request if available"}
     ]
   },
   "financing_source_rules": {
     "required_documents": [
-      {"id":"financing_agreement","name":"Financing Agreement","category":"Financing Extra","required":true,"reason":"Required when source of funds is financing"},
-      {"id":"investor_lender_information","name":"Investor / Lender Information","category":"Financing Extra","required":true,"reason":"Required when source of funds is financing"},
-      {"id":"proof_of_fund_transfer","name":"Proof of Fund Transfer","category":"Financing Extra","required":true,"reason":"Required to evidence movement of funds"}
+      {"id":"financing_agreement","name":"Financing Agreement","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required when source of funds is financing"},
+      {"id":"investor_lender_information","name":"Investor / Lender Information","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required to identify the investor / lender"},
+      {"id":"proof_of_fund_transfer","name":"Proof of Fund Transfer","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required to evidence movement of funds"}
     ],
     "supporting_documents": ["bank_statement", "wallet_transaction_evidence", "board_approval", "use_of_proceeds_explanation"]
   }

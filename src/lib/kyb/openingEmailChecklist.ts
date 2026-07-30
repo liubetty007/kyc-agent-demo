@@ -75,7 +75,7 @@ function deliveryForRequirement(
 }
 
 function baseChecklist(caseData: KYCCase): DocumentRequirement[] {
-  const items = [...(caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData))];
+  const items = [...generateChecklist(caseData)];
   if (caseData.needsNsBusiness) {
     for (const item of NS_CHECKLIST_ITEMS) {
       if (!items.some((existing) => existing.id === item.id)) items.push(item);

@@ -1,4 +1,5 @@
 import { getCase, updateCase } from '@/lib/kyb/storage';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
 import { NextResponse } from 'next/server';
@@ -17,6 +18,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
   if (user instanceof NextResponse) return user;
   const { caseId } = await params;
   const body = await request.json();
+  const current = await getCase(caseId);
+  if (!current) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
+  const checklistFields = [
+    'companyName',
+    'jurisdiction',
+    'usState',
+    'businessType',
+    'sourceOfFunds',
+    'customerType',
+    'entityType',
+    'riskRating',
+    'isFinancialInstitution',
+    'managesClientAssets',
+    'isListedEntity',
+    'isLicensedEntity',
+    'passportCtcProvided',
+    'hasThirdPartyFunding',
+    'legalExceptionApproved',
+    'individuals',
+  ];
+  if (checklistFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
+    body.checklist = generateChecklist({ ...current, ...body });
+  }
   const updated = await updateCase(caseId, body);
   if (!updated) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
   return NextResponse.json(updated);

@@ -1,4 +1,5 @@
 import type { KYCCase } from './types';
+import { generateChecklist } from './checklist';
 
 export type ComplianceChecklistSnapshot = {
   missing_required: string[];
@@ -12,20 +13,35 @@ export function formatDocTypeLabel(docType: string): string {
 }
 
 export function localChecklistSnapshot(caseData: KYCCase): ComplianceChecklistSnapshot {
-  const checklist = caseData.checklist || [];
+  return checklistSnapshotFromStatuses(caseData, [], []);
+}
+
+export function checklistSnapshotFromStatuses(
+  caseData: KYCCase,
+  externallyAcceptedIds: string[],
+  externallyPendingIds: string[],
+): ComplianceChecklistSnapshot {
+  const checklist = generateChecklist(caseData);
   const acceptedIds = new Set(
-    caseData.receivedDocuments.filter((doc) => doc.status === 'accepted').map((doc) => doc.requirementId),
+    [
+      ...caseData.receivedDocuments.filter((doc) => doc.status === 'accepted').map((doc) => doc.requirementId),
+      ...externallyAcceptedIds,
+    ],
   );
   const pendingIds = new Set(
-    caseData.receivedDocuments.filter((doc) => doc.status === 'needs_review').map((doc) => doc.requirementId),
+    [
+      ...caseData.receivedDocuments
+        .filter((doc) => doc.status === 'needs_review' || doc.status === 'received')
+        .map((doc) => doc.requirementId),
+      ...externallyPendingIds,
+    ],
   );
 
   const requiredIds = checklist.filter((item) => item.required).map((item) => item.id);
-  const recommendedIds = checklist.filter((item) => !item.required).map((item) => item.id);
 
   return {
     missing_required: requiredIds.filter((id) => !acceptedIds.has(id)),
-    missing_recommended: recommendedIds.filter((id) => !acceptedIds.has(id)),
+    missing_recommended: [],
     pending_doc_types: [...pendingIds],
     received_doc_types: [...acceptedIds],
   };

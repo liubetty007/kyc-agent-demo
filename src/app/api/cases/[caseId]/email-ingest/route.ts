@@ -118,7 +118,7 @@ async function listCaseThreadGmailMessages(caseData: Awaited<ReturnType<typeof g
 }
 
 function fallbackRequirementId(caseData: KYCCase, filename: string): string | undefined {
-  const checklist = caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData);
+  const checklist = generateChecklist(caseData);
   const allowed = new Set(checklist.map((item) => item.id));
   return classifyAttachmentFilename(filename, allowed)?.requirementId;
 }

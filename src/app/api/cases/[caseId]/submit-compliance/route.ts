@@ -2,7 +2,7 @@ import { requireApiUser } from '@/lib/auth/admin';
 import { generateComplianceEmail } from '@/lib/kyb/complianceEmail';
 import { acceptedDocumentNames, backendAcceptedDocumentNames } from '@/lib/kyb/complianceAttachments';
 import { defaultComplianceEmail } from '@/lib/kyb/mailbox';
-import { localChecklistSnapshot } from '@/lib/kyb/complianceSubmit';
+import { checklistSnapshotFromStatuses, localChecklistSnapshot } from '@/lib/kyb/complianceSubmit';
 import { generateCompliancePack } from '@/lib/kyb/compliancePack';
 import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
@@ -28,12 +28,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
     try {
       const checklist = await getBackendChecklist(caseId);
-      checklistSnapshot = {
-        missing_required: checklist.missing_required,
-        missing_recommended: checklist.missing_recommended,
-        pending_doc_types: checklist.pending_doc_types,
-        received_doc_types: checklist.received_doc_types,
-      };
+      checklistSnapshot = checklistSnapshotFromStatuses(
+        caseData,
+        checklist.received_doc_types,
+        checklist.pending_doc_types,
+      );
     } catch (error) {
       console.warn('Backend compliance checklist unavailable; falling back to local case data.', error);
       checklistSnapshot = localChecklistSnapshot(caseData);

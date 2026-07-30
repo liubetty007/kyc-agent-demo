@@ -4,7 +4,16 @@ import { Firestore } from '@google-cloud/firestore';
 import { createBackendCase, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { backendCaseToKycCase, toBackendIntake } from '@/lib/kyc-backend/mappers';
 import { generateChecklist } from './checklist';
-import type { BusinessType, CaseLanguage, Jurisdiction, KYCCase, ReceivedDocument } from './types';
+import type {
+  BusinessType,
+  CaseLanguage,
+  CustomerType,
+  EntityType,
+  Jurisdiction,
+  KYCCase,
+  ReceivedDocument,
+  RiskRating,
+} from './types';
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'cases.json');
 const COLLECTION = 'kycCases';
@@ -79,6 +88,16 @@ export async function createCase(input: {
   usState?: string;
   businessType: BusinessType;
   sourceOfFunds: string;
+  customerType?: CustomerType;
+  entityType?: EntityType;
+  riskRating?: RiskRating;
+  isFinancialInstitution?: boolean;
+  managesClientAssets?: boolean;
+  isListedEntity?: boolean;
+  isLicensedEntity?: boolean;
+  passportCtcProvided?: boolean;
+  hasThirdPartyFunding?: boolean;
+  legalExceptionApproved?: boolean;
   needsNsBusiness?: boolean;
   language?: CaseLanguage;
 }): Promise<KYCCase> {
@@ -104,6 +123,16 @@ export async function createCase(input: {
     usState: input.usState,
     businessType: input.businessType,
     sourceOfFunds: input.sourceOfFunds,
+    customerType: input.customerType || 'new_customer',
+    entityType: input.entityType || 'limited_company',
+    riskRating: input.riskRating || 'medium',
+    isFinancialInstitution: input.isFinancialInstitution,
+    managesClientAssets: input.managesClientAssets,
+    isListedEntity: input.isListedEntity,
+    isLicensedEntity: input.isLicensedEntity,
+    passportCtcProvided: input.passportCtcProvided,
+    hasThirdPartyFunding: input.hasThirdPartyFunding,
+    legalExceptionApproved: input.legalExceptionApproved,
     language: input.language,
     needsNsBusiness: input.needsNsBusiness,
     status: 'created',

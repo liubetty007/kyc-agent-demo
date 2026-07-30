@@ -32,6 +32,17 @@ export function businessTypeLabel(businessType: BusinessType): string {
 }
 
 export type CaseLanguage = 'zh' | 'en';
+export type CustomerType = 'new_customer' | 'new_counterparty';
+export type EntityType =
+  | 'limited_company'
+  | 'llc'
+  | 'corporation'
+  | 'limited_partnership'
+  | 'trust'
+  | 'spc_fund'
+  | 'other';
+export type RiskRating = 'low' | 'medium' | 'high';
+export type RequirementType = 'required' | 'conditional_required';
 
 export type CaseStatus =
   | 'created'
@@ -77,6 +88,12 @@ export type DocumentRequirement = {
   name: string;
   category: string;
   required: boolean;
+  requirementType?: RequirementType;
+  condition?: string;
+  satisfactionMode?: 'single' | 'one_of';
+  alternatives?: string[];
+  validityMonths?: number;
+  allowEmailConfirmation?: boolean;
   reason: string;
 };
 
@@ -161,6 +178,16 @@ export type KYCCase = {
   usState?: string;
   businessType: BusinessType;
   sourceOfFunds: string;
+  customerType?: CustomerType;
+  entityType?: EntityType;
+  riskRating?: RiskRating;
+  isFinancialInstitution?: boolean;
+  managesClientAssets?: boolean;
+  isListedEntity?: boolean;
+  isLicensedEntity?: boolean;
+  passportCtcProvided?: boolean;
+  hasThirdPartyFunding?: boolean;
+  legalExceptionApproved?: boolean;
   language?: CaseLanguage;
   needsNsBusiness?: boolean;
   status: CaseStatus;
@@ -212,6 +239,7 @@ export type ReviewResult = {
 };
 
 export type MatrixConfig = {
+  rule_version?: string;
   ubo_rule: { threshold_percentage: number; operator: '>='; description: string };
   address_proof_rule: { max_age_months: number; applies_to: string[]; required: boolean };
   standard_kyc_rules: {
@@ -248,6 +276,8 @@ export type MatrixConfig = {
   };
   base_documents: DocumentRequirement[];
   hk_specific_documents: DocumentRequirement[];
+  singapore_specific_documents?: DocumentRequirement[];
+  conditional_documents?: DocumentRequirement[];
   company_type_documents?: Record<string, DocumentRequirement[]>;
   internal_forms: DocumentRequirement[];
   us_state_rules: Record<string, DocumentRequirement[]>;

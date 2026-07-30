@@ -49,7 +49,7 @@ function previewText(text: string, maxChars = 2200): string {
 }
 
 function checklistOptions(caseData: KYCCase): ChecklistOption[] {
-  return (caseData.checklist?.length ? caseData.checklist : generateChecklist(caseData)).map((item) => ({
+  return generateChecklist(caseData).map((item) => ({
     id: item.id,
     name: item.name,
     category: item.category,

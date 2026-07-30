@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
 import { analyzeCaseDocument, llmProviderLabel, type DocumentAnalysis } from '@/lib/kyb/documentAnalysis';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import { readCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { getCase } from '@/lib/kyb/storage';
 import type { KYCCase, ReceivedDocument } from '@/lib/kyb/types';
@@ -23,7 +24,7 @@ function readableError(error: unknown): string {
 
 function requirementName(caseData: KYCCase, requirementId?: string): string | undefined {
   if (!requirementId) return undefined;
-  return caseData.checklist?.find((item) => item.id === requirementId)?.name;
+  return generateChecklist(caseData).find((item) => item.id === requirementId)?.name;
 }
 
 function failedReadAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unknown): DocumentAnalysis {

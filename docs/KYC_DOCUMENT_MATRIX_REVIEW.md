@@ -1,137 +1,118 @@
-# KYC Document Matrix — 给 KYC 团队审核用
+# AA KYC Rules — 15 Jul 2026
 
-> 这个页面是给 KYC / Compliance 同事看的政策清单。自动规则配置在
-> `config/kyb-document-matrix.json`，确定性审核逻辑在 `src/lib/kyb/review.ts`。
-> LLM 只辅助提取、分类和草稿，不做最终 KYC / Compliance 决策。
+> 本页是 KYC / Compliance 的网页审核副本，规则版本为 `AA-KYC-2026-07-15`。
+> 系统只显示 `Required` 和 `Conditional Required` 两类。可选辅助材料不计入 missing。
+> LLM 只辅助文件提取、分类、案件问答和草稿，不作最终 KYC / Compliance 决策。
 
-## 1. 标准 KYC 基础规则
+## 1. 两级文件规则
 
-| 项目 | 当前规则 | Agent 动作 |
+| 类型 | 定义 | Missing 计算 |
 |---|---|---|
-| KYC 有效期 | 机构通过 KYC 后有效期为 6 个月 | 作为复核规则记录 |
-| 文件格式 | 所有提交文件必须为 PDF | 非 PDF 文件触发 revision / review issue |
-| 签署规范 | 需要签字的文件必须有签署人姓名、职务/头衔、日期 | Board Resolution、NDA、授权书等触发人工复核 |
-| 授权代表签署 | Institution Onboarding Form 和 NDA 必须由 Authorization Letter 中的授权代表签署 | Analyze / Review 输出人工核验点 |
-| 受限国家 | 注册国需对照受限制国家清单 | 命中 prohibited 或 manual review |
-| 新业务国家 | 过往未开展业务的国家需触发业务确认流程 | 先进入人工复核 |
-| 对外邮件 | KYC 邮件 4 小时内输出，疑问句比例不超过 10% | 邮件模板和 policy 页记录 |
+| Required | 每个适用案件都必须提供 | 未被 KYC Accept 即计入 missing |
+| Conditional Required | 仅当页面显示的触发条件成立时必须提供 | 条件成立并进入清单后，未被 KYC Accept 即计入 missing |
 
-## 2. 核心文件审核要素
+## 2. Required
 
-| 文件 | 是否必需 | 关键审核点 |
-|---|---|---|
-| Certificate of Incorporation | 必需 | 需体现注册日期、公司编号、公司名称；如文件显示曾更名，需补 Certificate of Change of Name |
-| Certificate of Incumbency | 必需 / 如适用 | 出具日期必须在近 6 个月内；由注册代理、持牌会计师、律师或 US CPA 出具；需包括出具方身份、签名、公司存续/良好状态声明、当前 Members / Directors / Shareholders |
-| Business Registration Certificate | 如适用 / HK 必需 | 香港公司必须提供 |
-| Articles of Association | 必需 | 如无章程，需提供 Operating Agreement |
-| Source of Wealth / Source of Funds | 风险触发 | Low / Medium risk 一般不要求 SOW/SOF 证据；第三方出资、高风险客户、Crypto / Financing 等场景需补证据；需关注财富累积时间点、形式、合作机构、数量/金额 |
-| Authorization Letter | 必需 | 即使一人董事也必须提交；授权人信息完整，邮箱需与 KYC form 一致；多个授权代表时所有 AR 签署；最后一页需全体董事签署 |
-| Board Resolution | 必需 | 需列明授权人士和业务范围 |
-| NDA | 必需 | 必须为 PDF，由授权代表签署，并核验我方签约主体、真实签署日期、空白括号/底色、模板条款是否被修改 |
-| Certified Passport / Accepted National ID | Associated Individual 必需 | 可接受 certified true copy passport、HK PR ID、Singapore PR ID、China ID 等；如护照未认证，需完成 Au10tix 线上身份认证 |
-| Proof of Current Residential Address | Associated Individual 必需 | 最近 3 个月内出具 |
-| Ownership Structure Chart | Entity shareholder / UBO 场景必需 | 需穿透至 UBO，包含持股比例、董事签字、日期，以及真实准确声明；如无最终 UBO，需提供 no-other-natural-person-over-25% 控制声明 |
+| 文件 / 信息 | 规则 |
+|---|---|
+| Certificate of Incorporation | 所有公司必须提供；香港 COI 无日期限制 |
+| Memorandum & Articles of Association | 所有公司必须提供适用的组织章程文件 |
+| Ownership Structure Chart | 原则上必须穿透至自然人 UBO；上市、持牌机构及其合资格多数持股子公司可按批准的豁免规则处理 |
+| Business Description | 必须提供，以支持业务风险评估 |
+| Source of Funds Declaration / Confirmation | Low / Medium risk 可使用 onboarding form 内声明或书面确认，不默认要求证明文件 |
+| Institution Onboarding Form | New customer 必须提供 |
+| Counterparty Due Diligence Form | New counterparty 必须提供，取代 Institution Onboarding Form |
+| Authorization Letter | 必须提供；授权代表及联系邮箱须与 KYC form 一致 |
+| Mutual NDA | 必须提供，并按签署、日期、主体及模板规则核验 |
+| Certified Passport / Accepted National ID | 每名 Director、Authorized Representative、UBO 必须提供 |
+| Proof of Current Residential Address | 每名适用人士必须提供；默认最近 3 个月内 |
 
-## 3. 香港公司特定规则
+## 3. Conditional Required — 注册地与实体类型
 
-| 条件 | 文件 / 规则 | Agent 动作 |
-|---|---|---|
-| 香港注册公司 | 公司注册证明书 + 商业登记证 | 加入 checklist |
-| 成立不满 1 年 | NNC1 | checklist 使用 NNC1 / NAR1 槽位，人工判断适用文件 |
-| 成立满 1 年 | NAR1 | checklist 使用 NNC1 / NAR1 槽位，人工判断适用文件 |
-| 董事资料有变更 | ND2A | 当 case notes 或材料显示 director change / ND2A 时加入 checklist |
-| 香港业务确认 | Non-US Person & Non-solicitation in HK Confirmation | 加入 checklist |
+| 条件 | 文件 / 规则 |
+|---|---|
+| 香港公司 | 有效 Business Registration Certificate；成立不足 1 年提供 NNC1，满 1 年提供最新 NAR1 |
+| 香港董事变更 | ND2A |
+| 香港股东变更或 NNC1/NAR1 未反映当前股东 | Register of Members；资料超过 6 个月时，仅在规则允许下接受当前信息邮件确认 |
+| 新加坡公司 | 最新 ACRA BizFile |
+| 香港、新加坡以外公司 | Certificate of Incumbency，出具日期不超过 6 个月 |
+| LLC | Operating Agreement |
+| Corporation | Bylaws |
+| Limited Partnership | Limited Partnership Agreement；如结构适用，再提供 Investment Manager / Advisor Agreement、Administrator Agreement |
+| Trust | Trust Deed，需识别 settlor、trustee、beneficiary/class、protector/executor 及 ultimate controllers |
+| SPC / Fund | Fund Incumbency、Fund Management Agreement、Investment Manager / Advisor Agreement、Administrator Agreement |
+| 公司曾更名 | Certificate of Change of Name |
+| 美国注册或运营 | 先取得 Legal / Compliance exception approval；批准后再按州别要求文件 |
 
-## 4. COI / Incumbency 效期规则
+## 4. Conditional Required — 身份、风险与资金来源
+
+| 条件 | 文件 / 规则 |
+|---|---|
+| Passport / ID 不是 Certified True Copy | 完成 AU10TIX；完成结果有效 6 个月 |
+| 护照 | 剩余有效期至少 3 个月 |
+| 地址证明因 onboarding 延误过期 | 默认 3 个月；仅有记录的延误可放宽至 6 个月 |
+| High risk / EDD | SOF / SOW 证明、UBO / Senior Management 背景；运营实体另需 Financial Statements / Operating Evidence |
+| Crypto 资金来源 | Source of Crypto Assets / Supporting Evidence |
+| Mining proceeds | Mining Proof，例如 Antpool / mining-pool observer evidence |
+| Financing / third-party funding | Financing Agreement、Investor / Lender Information、Proof of Fund Transfer |
+| Entity shareholder | 穿透至自然人 UBO；无法完全穿透时提供适用的 no-other-UBO declaration |
+| 授权范围或签署权证据不足 | Board Resolution |
+
+## 5. Financial Institution / Client Asset Manager
 
 | 文件 | 规则 |
 |---|---|
-| COI | 除香港、新加坡外，出具日期必须在近 6 个月内 |
-| Certificate of Incumbency | 出具日期必须在近 6 个月内 |
-| US Good Standing / State Status Evidence | 建议按 6 个月有效期复核 |
+| Financial Licence / Registry Screenshot | 持牌金融机构或受监管资产管理人必须提供 |
+| Letter of Undertaking | 适用 FI / client-asset-manager 案件必须提供，不可被其他 AML 文件替代 |
+| AML framework evidence | `Wolfsberg Questionnaire`、`AA AML Questionnaire`、`acceptable AML Policy` 三者提供其一 |
 
-## 5. 美国机构州别规则
+## 6. 香港时效细则
 
-| State | 必需文件 |
+| 文件 | 规则 |
 |---|---|
-| Delaware | Formation / Incorporation, Good Standing, Operating Agreement / Bylaws, EIN Confirmation Letter |
-| Wyoming | Articles, Good Standing, Operating Agreement, EIN, Certificate of Incumbency, County Clerk Search Evidence |
-| Nevada | Articles, Certificate of Existence, Nevada State Business License, Operating Agreement |
-| California | Articles, Statement of Information (Form SI-550), EIN |
-| Texas | Certificate of Formation, Certificate of Fact - Status, Operating Agreement, EIN |
-| New York | LLC 需 Publication Proof |
-| Washington D.C. | Basic Business License |
+| COI | 无日期限制 |
+| Business Registration Certificate | 必须仍在有效期 |
+| NNC1 | 公司成立不足 1 年 |
+| NAR1 | 公司成立满 1 年，使用最新申报；关注法定 42 日申报期 |
+| ND2A | NNC1 / NAR1 后有董事变更 |
+| Register of Members | NNC1 / NAR1 后有股东变更 |
 
-## 6. 公司类型文件规则
-
-| 公司 / 结构类型 | 文件 / 规则 | Agent 动作 |
-|---|---|---|
-| LLC | LLC Operating Agreement | 公司名、业务类型或资金来源文本出现 LLC / Limited Liability Company 时加入 checklist |
-| Ltd / Limited | Memorandum of Association | 出现 Ltd / Limited 且非 LLC / LP 时加入 checklist |
-| Inc / Corporation | Bylaws | 出现 Inc / Corporation / Corp 时加入 checklist |
-| Limited Partnership | Limited Partnership Agreement, Investment Manager / Advisor Agreement, Administrator Agreement | 出现 LP / Limited Partnership 时加入 checklist |
-| Trust | Trust Deed | Trust Deed 需识别 trust name、beneficiaries/classes、settlor、trustee、protector/executor、ultimate controllers |
-| SPC Fund | Fund Certificate of Incumbency, Fund Management Agreement, Investment Manager / Advisor Agreement, Administrator Agreement | 出现 SPC / fund structure 时加入 checklist |
-| 曾更名 | Certificate of Change of Name | 文件或 case notes 显示 former name / changed name 时加入 checklist |
-
-## 7. 风险触发文件
-
-| 触发条件 | 文件 / 动作 |
-|---|---|
-| 申请机构被另一家公司持有 | Ownership Structure Chart 强制要求 |
-| 股权无法穿透至 UBO | 要求声明：No other shareholders are UBOs of XXX with total >= 25% beneficial ownership |
-| 持牌金融机构或管理用户 / 客户资产 | AML / Wolfsberg Questionnaire + Letter of Undertaking 强制要求 |
-| 高风险客户 | Initial SOF Evidence、Ongoing SOF Evidence、Initial/Ongoing SOF Explanation、Associated Individual Background Profile |
-| Crypto-related business | Source of Crypto Assets / Supporting Evidence + AML Questionnaire |
-| Mining business | Mining Proof，例如 Antpool Observer Link 或等价证明 |
-| Source of Funds 为 financing | Financing Agreement, Investor / Lender Information, Proof of Fund Transfer |
-
-## 8. Worldcheck DD 规则
-
-| 场景 | Agent 动作 |
-|---|---|
-| 最新 Match 可内部 Resolve | 拦截预警，不向客户发送邮件 |
-| 机构未完成 KYC 或处于定期审查 | 并入日常提交通知中索要资料 |
-| 机构已关户或关联人士已辞任 | 拦截，无需对客发送 |
-| 从未提交 NCRS & PEP 表格 | 要求客户提交 NCRS & PEP Form |
-| 已提交 NCRS & PEP，但有本次新闻预警 | 要求客户针对新闻说明 |
-| 客户回复归档后 | 更新系统状态，并回复合规组原始邮件说明 case 状态 |
-
-## 9. NDA 规则
+## 7. UBO、CTC 与认证人
 
 | 项目 | 规则 |
 |---|---|
-| 格式 | NDA 必须为 PDF |
-| 空白内容 | 不得保留未填写括号，需清除底色 |
-| 我方签约主体 | AA: Antalpha Digital Pte. Ltd.; NS: Northstar Digital (HK) Limited; AI: URSALPHA DIGITAL LLC |
+| UBO threshold | 自然人直接或间接持股 / 控制 `>= 25%` |
+| UBO 豁免 | 上市或持牌实体及其合资格多数持股子公司，须有支持豁免的状态及持股关系证据 |
+| Certified True Copy | 由规则认可的专业人士 / 机构认证；需可识别认证人姓名、身份、日期及签署 |
+| AU10TIX | 只在 Passport / ID 未提供 CTC 时触发 |
+
+## 8. 定期复核与事件触发
+
+| 风险等级 | Regular Review 周期 |
+|---|---|
+| High | 每 1 年 |
+| Medium | 每 2 年 |
+| Low | 每 3 年 |
+
+以下事件可提前触发复核：股东、董事、UBO、业务、注册地、牌照、资金来源、负面新闻或其他重大风险变化。
+
+## 9. NDA 与签署
+
+| 项目 | 规则 |
+|---|---|
+| 签署信息 | 需要签字的文件必须有签署人姓名、职务 / 头衔、真实日期 |
+| 格式 | NDA 使用 PDF，不得保留未填写括号或底色 |
 | 标准有效期 | 2 年 |
-| 使用我方模板但对方改条款 | 必须要求业务提供法务确认邮件 |
-| 使用他方模板 | 必须要求业务提供法务 + 业务双重确认邮件 |
-| 我方发起签署 | 需收集他方签署人姓名、职称、邮箱、抄送邮箱 |
+| 我方模板被修改 | 需要 Legal confirmation email |
+| 使用对方模板 | 需要 Legal + Business confirmation email |
+| 我方签约主体 | Antalpha Digital Pte. Ltd.; Northstar Digital (HK) Limited; URSALPHA DIGITAL LLC |
 
-## 10. 邮件生成 SOP
+## 10. 系统实现说明
 
-| 项目 | 规则 |
+| 模块 | 当前行为 |
 |---|---|
-| SLA | KYC 邮件优先级最高，4 小时内输出处理结果 |
-| 输出内容 | KYC 表格、缺漏文件清单、缴交说明、邮件正文、授权书模板 |
-| 文风 | 客观陈述，简单直述句 |
-| 疑问句比例 | 不超过 10% |
-| 日期格式 | 英文对外文件使用 05 May 2023 或严格 MM/DD/YYYY |
-
-## 11. 官方查验映射
-
-| 类型 | 查验网站 / 目标 |
-|---|---|
-| 香港地址证明 | 香港中电、香港水务署 |
-| 机构状态 | 台湾商工登记、香港注册处 ICRIS、加拿大 Federal Corporations、阿布扎比 TAMM / ADGM、瑞士 Zefix |
-
-## 12. 当前实现状态
-
-| 模块 | 状态 |
-|---|---|
-| Checklist 生成 | 已加入 HK NNC1/NAR1、HK ND2A 条件触发、US state routing、公司类型文件、FI / 高风险客户 trigger |
-| Deterministic Review | 已加入 PDF、6 个月效期、授权书、Incumbency、Ownership Chart、NDA、Letter of Undertaking、高风险客户 EDD 复核 issue |
-| Document Analyze | 已加入授权签署、COI、Incumbency、Authorization Letter、Ownership Chart、NDA、Trust Deed 和跨文件一致性 prompt |
-| Email Intake LLM / Fetch fallback | 已加入新文件类型关键词和 checklist-id 约束 |
-| Worldcheck | 规则已记录，仍需筛查事件数据结构后才能自动闭环 |
+| Case fields | Relationship type、Entity type、Risk rating、FI / client assets、listed / licensed、Passport CTC、third-party funding、US exception |
+| Checklist | 根据案件字段与规则实时生成；旧案件已接收及已 Accept 文件不会被删除 |
+| Document panel | 显示 Required / Conditional Required 及每项触发条件 |
+| Compliance snapshot | 只统计 Required 与已适用的 Conditional Required；不再显示 optional / recommended missing |
+| AI 问答与邮件 | 使用同一套实时规则清单回答案件进度、识别文件与生成缺件内容 |
