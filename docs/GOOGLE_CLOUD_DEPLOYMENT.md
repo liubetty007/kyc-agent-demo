@@ -20,10 +20,13 @@ case whose `contactEmail` matches the signed-in email.
 - `GOOGLE_CLOUD_PROJECT`
 - `KYC_DOCUMENT_BUCKET`
 - `FIREBASE_API_KEY`
-- `ANTHROPIC_API_KEY` through Secret Manager when cloud AI drafting is enabled
-- `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
-- Optional local development only: `LLM_PROVIDER=ollama`,
-  `OLLAMA_BASE_URL=http://127.0.0.1:11434`, and `OLLAMA_MODEL=qwen2.5:0.5b`
+- Production default: `LLM_PROVIDER=ollama`,
+  `OLLAMA_BASE_URL=https://kyc-ollama-llm-qam2sdmeuq-df.a.run.app`,
+  `OLLAMA_MODEL=qwen2.5:0.5b`, and `OLLAMA_AUTH_MODE=google_id_token`
+- Optional local development: change `OLLAMA_BASE_URL` to
+  `http://127.0.0.1:11434`
+- Optional Claude fallback: `ANTHROPIC_API_KEY` through Secret Manager and
+  `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
 - Optional company OpenAI-compatible vision model:
   `LLM_PROVIDER=newapi`,
   `NEWAPI_BASE_URL=https://newapi.elevatesphere.com/v1`,
@@ -91,7 +94,8 @@ Recommended setup:
 4. Configure one LLM provider:
    - `LLM_PROVIDER=newapi` with `NEWAPI_API_KEY` for the company
      OpenAI-compatible Qwen3-VL model.
-   - `LLM_PROVIDER=ollama` for the Cloud Run Ollama service.
+   - `LLM_PROVIDER=ollama` for the private Cloud Run Ollama service (the Betty
+     deployment default).
    - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` for Claude.
 5. Keep KYC Team approval before external sends and document acceptance.
 
@@ -108,8 +112,9 @@ Document analysis conversion:
 Ollama note:
 
 - `127.0.0.1` points to the runtime container. It works for local `npm run dev`
-  when Ollama runs on the same machine, but not for Cloud Run unless you provide
-  a separately hosted, private Ollama endpoint.
+  when Ollama runs on the same machine. Betty's Cloud Run deployment instead
+  uses the separately hosted private `kyc-ollama-llm` service and authenticates
+  with the frontend service account's Google ID token.
 
 Helper scripts:
 

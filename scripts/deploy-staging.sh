@@ -16,6 +16,10 @@ AUTH_USERS="${KYC_AUTH_USERS:-liubetty007@gmail.com,alenw0620@gmail.com,kexin.li
 SESSION_SECRET="${KYC_SESSION_SECRET:-$(openssl rand -base64 32)}"
 GMAIL_SENDER_EMAIL="${GMAIL_SENDER_EMAIL:-liubetty007@gmail.com}"
 KYC_TEAM_EMAIL="${KYC_TEAM_EMAIL:-liubetty007@gmail.com}"
+LLM_PROVIDER="${LLM_PROVIDER:-ollama}"
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-https://kyc-ollama-llm-qam2sdmeuq-df.a.run.app}"
+OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:0.5b}"
+OLLAMA_AUTH_MODE="${OLLAMA_AUTH_MODE:-google_id_token}"
 
 # Betty demo Drive (see config/betty-drive.defaults.json)
 KYC_DRIVE_ROOT_FOLDER_ID="${KYC_DRIVE_ROOT_FOLDER_ID:-1ROwiFHPpJyE7zHQGHQanAY43QHrc6eRF}"
@@ -36,6 +40,7 @@ echo "==> Betty demo deploy"
 echo "    Project: $PROJECT_ID | Service: $SERVICE | Region: $REGION"
 echo "    Gmail sender: $GMAIL_SENDER_EMAIL"
 echo "    Drive root: $KYC_DRIVE_ROOT_FOLDER_ID"
+echo "    LLM: $LLM_PROVIDER / $OLLAMA_MODEL"
 
 gcloud config set project "$PROJECT_ID"
 gcloud services enable \
@@ -59,6 +64,10 @@ KYC_DRIVE_ROOT_FOLDER_ID: ${KYC_DRIVE_ROOT_FOLDER_ID}
 KYC_DRIVE_CASES_FOLDER_ID: ${KYC_DRIVE_CASES_FOLDER_ID}
 KYC_DRIVE_TEMPLATES_FOLDER_ID: ${KYC_DRIVE_TEMPLATES_FOLDER_ID}
 KYC_STANDARD_DRIVE_FOLDER_ID: ${KYC_STANDARD_DRIVE_FOLDER_ID}
+LLM_PROVIDER: ${LLM_PROVIDER}
+OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+OLLAMA_MODEL: ${OLLAMA_MODEL}
+OLLAMA_AUTH_MODE: ${OLLAMA_AUTH_MODE}
 NODE_ENV: production
 EOF
 
@@ -89,7 +98,8 @@ fi
 gcloud run services update "$SERVICE" \
   --project="$PROJECT_ID" \
   --region="$REGION" \
-  --remove-env-vars="KYC_DEV_BYPASS_AUTH,KYC_USE_LOCAL_STORAGE,FIREBASE_API_KEY" \
+  --remove-env-vars="KYC_DEV_BYPASS_AUTH,KYC_USE_LOCAL_STORAGE,FIREBASE_API_KEY,ANTHROPIC_MODEL" \
+  --remove-secrets="ANTHROPIC_API_KEY" \
   --quiet
 
 rm -f "$ENV_FILE"

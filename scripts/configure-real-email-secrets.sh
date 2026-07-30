@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-kyc-agent-staging-20260610}"
 REGION="${REGION:-asia-east2}"
-SERVICE="${SERVICE:-kyc-agent-staging}"
+SERVICE="${SERVICE:-kyc-agent-frontend}"
 SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-kyc-agent-runner@${PROJECT_ID}.iam.gserviceaccount.com}"
 GCLOUD="${GCLOUD:-gcloud}"
 
@@ -48,21 +48,18 @@ upsert_secret() {
 gmail_client_id="$(read_secret GMAIL_CLIENT_ID)"
 gmail_client_secret="$(read_secret GMAIL_CLIENT_SECRET)"
 gmail_refresh_token="$(read_secret GMAIL_REFRESH_TOKEN)"
-anthropic_api_key="$(read_secret ANTHROPIC_API_KEY)"
 gmail_sender_email="$(read_plain GMAIL_SENDER_EMAIL)"
 kyc_team_email="$(read_plain KYC_TEAM_EMAIL "$gmail_sender_email")"
-anthropic_model="$(read_plain ANTHROPIC_MODEL "claude-sonnet-4-5")"
 
 upsert_secret gmail-client-id "$gmail_client_id"
 upsert_secret gmail-client-secret "$gmail_client_secret"
 upsert_secret gmail-refresh-token "$gmail_refresh_token"
-upsert_secret anthropic-api-key "$anthropic_api_key"
 
 "$GCLOUD" run services update "$SERVICE" \
   --project="$PROJECT_ID" \
   --region="$REGION" \
-  --update-secrets=GMAIL_CLIENT_ID=gmail-client-id:latest,GMAIL_CLIENT_SECRET=gmail-client-secret:latest,GMAIL_REFRESH_TOKEN=gmail-refresh-token:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest \
-  --update-env-vars=GMAIL_SENDER_EMAIL="$gmail_sender_email",KYC_TEAM_EMAIL="$kyc_team_email",ANTHROPIC_MODEL="$anthropic_model" \
+  --update-secrets=GMAIL_CLIENT_ID=gmail-client-id:latest,GMAIL_CLIENT_SECRET=gmail-client-secret:latest,GMAIL_REFRESH_TOKEN=gmail-refresh-token:latest \
+  --update-env-vars=GMAIL_SENDER_EMAIL="$gmail_sender_email",KYC_TEAM_EMAIL="$kyc_team_email" \
   --quiet
 
-printf '\nConfigured real Gmail + LLM secrets for %s in %s.\n' "$SERVICE" "$PROJECT_ID"
+printf '\nConfigured real Gmail secrets for %s in %s.\n' "$SERVICE" "$PROJECT_ID"
