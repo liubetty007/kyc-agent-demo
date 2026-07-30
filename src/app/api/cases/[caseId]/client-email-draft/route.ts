@@ -4,6 +4,8 @@ import {
   buildClientFollowUpSummaryFromBackend,
   buildClientFollowUpSummaryFromLocal,
 } from '@/lib/kyb/clientEmailDraft';
+import { checklistSnapshotFromStatuses } from '@/lib/kyb/complianceSubmit';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { getBackendChecklist, isBackendEnabled, listBackendDocuments } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
@@ -27,7 +29,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         getBackendChecklist(caseId),
         listBackendDocuments(caseId),
       ]);
-      summary = buildClientFollowUpSummaryFromBackend(checklist, documents);
+      const snapshot = checklistSnapshotFromStatuses(
+        caseData,
+        checklist.received_doc_types,
+        checklist.pending_doc_types,
+      );
+      summary = buildClientFollowUpSummaryFromBackend({
+        ...checklist,
+        ...snapshot,
+        required_doc_types: generateChecklist(caseData).filter((item) => item.required).map((item) => item.id),
+      }, documents);
     } catch (error) {
       console.warn('Backend follow-up summary unavailable; falling back to local case data.', error);
       summary = buildClientFollowUpSummaryFromLocal(caseData);

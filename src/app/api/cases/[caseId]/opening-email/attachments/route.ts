@@ -35,7 +35,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     const checklist = buildOpeningEmailChecklist(caseData, standard);
     return NextResponse.json({ packages, standard, checklist });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Could not load attachments.' }, { status: 500 });
+    return NextResponse.json({
+      packages: [],
+      standard: [],
+      checklist: buildOpeningEmailChecklist(caseData, []),
+      warning: error instanceof Error ? error.message : 'Could not load standard attachments.',
+    });
   }
 }
 

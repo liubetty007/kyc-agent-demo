@@ -70,7 +70,7 @@
     {"id":"register_of_directors","name":"Register of Directors","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Current directors are not evidenced by the primary registry document","reason":"Required when current directors are not shown in the applicable registry document"},
     {"id":"register_of_shareholders","name":"Register of Members / Shareholders","category":"Constitutional","required":true,"requirementType":"conditional_required","condition":"Current shareholders are not evidenced by the primary registry document","reason":"Required when current shareholders are not shown in the applicable registry document"},
     {"id":"ownership_structure_chart","name":"Ownership Structure Chart","category":"Constitutional","required":true,"requirementType":"required","reason":"Required to identify ownership and UBOs, unless an approved listed/licensed-entity exemption applies"},
-    {"id":"business_description","name":"Business Description","category":"Constitutional","required":true,"requirementType":"required","reason":"Required for business risk assessment"},
+    {"id":"business_description","name":"Business Description","category":"Supporting Documents","required":false,"requirementType":"supporting","reason":"Useful context for business risk assessment; not a mandatory uploaded document"},
     {"id":"source_of_funds","name":"Source of Funds Declaration / Confirmation","category":"Source of Funds","required":true,"requirementType":"required","reason":"For low/medium risk, a declaration in the onboarding form or written confirmation is sufficient"}
   ],
   "hk_specific_documents": [
@@ -206,9 +206,9 @@
   },
   "financing_source_rules": {
     "required_documents": [
-      {"id":"financing_agreement","name":"Financing Agreement","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required when source of funds is financing"},
-      {"id":"investor_lender_information","name":"Investor / Lender Information","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required to identify the investor / lender"},
-      {"id":"proof_of_fund_transfer","name":"Proof of Fund Transfer","category":"Financing Extra","required":true,"requirementType":"conditional_required","condition":"Source of funds is financing / third-party funding","reason":"Required to evidence movement of funds"}
+      {"id":"financing_agreement","name":"Financing Agreement","category":"Supporting Documents","required":false,"requirementType":"supporting","reason":"Useful evidence when financing or third-party funding requires further explanation; not mandatory by default"},
+      {"id":"investor_lender_information","name":"Investor / Lender Information","category":"Supporting Documents","required":false,"requirementType":"supporting","reason":"Useful evidence when financing or third-party funding requires further explanation; not mandatory by default"},
+      {"id":"proof_of_fund_transfer","name":"Proof of Fund Transfer","category":"Supporting Documents","required":false,"requirementType":"supporting","reason":"Useful evidence when financing or third-party funding requires further explanation; not mandatory by default"}
     ],
     "supporting_documents": ["bank_statement", "wallet_transaction_evidence", "board_approval", "use_of_proceeds_explanation"]
   }

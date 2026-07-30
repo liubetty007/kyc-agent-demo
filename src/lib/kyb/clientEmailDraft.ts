@@ -136,15 +136,17 @@ export function buildClientFollowUpEmailDraft(caseData: KYCCase, summary: Client
 
   if (caseData.language === 'zh') {
     const bodyParts = [
-      `尊敬的 ${caseData.companyName} 团队：`,
+      `尊敬的 ${caseData.companyName} 团队，`,
       '',
-      '感谢您的回复。我们已初步查看您提交的文件。',
+      '感谢您对 Antalpha 的支持。',
       '',
-      ...buildSummarySection('已收到的文件：', receivedLines),
-      ...buildSummarySection('已接受的文件：', summary.accepted),
-      ...buildSummarySection('仍需补充的文件：', summary.missing),
-      ...buildSummarySection('需修改后重新提交的文件：', revisionLines),
-      ...buildSummarySection('仍在审核中的文件：', summary.pendingReview),
+      `以下为 ${caseData.companyName} 的待办文件资料表，供您参考：`,
+      '',
+      ...buildSummarySection('待补充文件：', summary.missing),
+      ...buildSummarySection('需修改后重新提交：', revisionLines),
+      ...buildSummarySection('待完成或仍在审核：', summary.pendingReview),
+      ...buildSummarySection('本轮已收到：', receivedLines),
+      ...buildSummarySection('已确认接受：', summary.accepted),
     ];
 
     const stillNeeded = summary.missing.length + summary.needsRevision.length;
@@ -156,27 +158,36 @@ export function buildClientFollowUpEmailDraft(caseData: KYCCase, summary: Client
       });
       const attachmentNote = followUpAttachmentNote(templateIds, caseData.language);
       if (attachmentNote) bodyParts.push(attachmentNote);
-      bodyParts.push('请在本邮件线程中回复并提交缺失或修订后的文件；如适用，请优先提供 PDF 版本。', '');
+      bodyParts.push(
+        '请直接回复本邮件并提交缺失或修订后的文件。如资料审核后仍需补充其他信息，我们会继续在本邮件线程与您联系。',
+        '',
+      );
     } else if (summary.pendingReview.length > 0) {
-      bodyParts.push('剩余文件审核完成后，我们会继续跟进。', '');
+      bodyParts.push('剩余文件审核完成后，我们会继续与您跟进。', '');
     } else {
       bodyParts.push('现阶段暂不需要进一步补充文件，我们会继续处理贵司申请。', '');
     }
 
-    bodyParts.push('此致，', 'KYC Team');
+    bodyParts.push(
+      '若有任何申请疑问，欢迎随时与我们联络。感谢您的协助！',
+      '',
+      'Antalpha Onboarding Team',
+    );
     return `Subject: ${subject}\n\n${bodyParts.join('\n')}`;
   }
 
   const bodyParts = [
     `Dear ${caseData.companyName} Team,`,
     '',
-    'Thank you for your reply. We have reviewed the documents you sent.',
+    'Thank you for your support in Antalpha.',
     '',
-    ...buildSummarySection('Documents received from your reply:', receivedLines),
-    ...buildSummarySection('Documents accepted:', summary.accepted),
-    ...buildSummarySection('Documents still required:', summary.missing),
+    `The list below shows the ${caseData.companyName} documents required for further processing.`,
+    '',
+    ...buildSummarySection('Documents pending submission:', summary.missing),
     ...buildSummarySection('Documents requiring revision:', revisionLines),
-    ...buildSummarySection('Documents still under review:', summary.pendingReview),
+    ...buildSummarySection('Pending verification or review:', summary.pendingReview),
+    ...buildSummarySection('Documents received in this round:', receivedLines),
+    ...buildSummarySection('Documents accepted:', summary.accepted),
   ];
 
   const stillNeeded = summary.missing.length + summary.needsRevision.length;
@@ -189,16 +200,22 @@ export function buildClientFollowUpEmailDraft(caseData: KYCCase, summary: Client
     const attachmentNote = followUpAttachmentNote(templateIds, caseData.language);
     if (attachmentNote) bodyParts.push(attachmentNote);
     bodyParts.push(
-      'Please reply to this email thread with the missing or revised documents in PDF format where applicable.',
+      'Please reply to this email thread with the missing or revised documents. If additional information or documents are required after our review, we will promptly request them in the same thread.',
       '',
     );
   } else if (summary.pendingReview.length > 0) {
-    bodyParts.push('We will follow up once the remaining documents finish review.', '');
+    bodyParts.push('We will follow up once the remaining documents have completed review.', '');
   } else {
     bodyParts.push('No further documents are required at this stage. We will continue processing your application.', '');
   }
 
-  bodyParts.push('Best regards,', 'KYC Team');
+  bodyParts.push(
+    'Thank you for your cooperation.',
+    'Please do not hesitate to contact us if you require further information.',
+    '',
+    'Best regards,',
+    'Antalpha Onboarding Team',
+  );
 
   const body = bodyParts.join('\n');
   return `Subject: ${subject}\n\n${body}`;

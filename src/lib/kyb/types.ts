@@ -42,7 +42,7 @@ export type EntityType =
   | 'spc_fund'
   | 'other';
 export type RiskRating = 'low' | 'medium' | 'high';
-export type RequirementType = 'required' | 'conditional_required';
+export type RequirementType = 'required' | 'conditional_required' | 'supporting';
 
 export type CaseStatus =
   | 'created'

@@ -9,9 +9,10 @@ export type OpeningEmailChecklistItem = {
   name: string;
   category: string;
   required: boolean;
+  requirementType?: DocumentRequirement['requirementType'];
   reason: string;
   delivery: OpeningChecklistDelivery;
-  section: 'entity' | 'individual' | 'conditional';
+  section: 'required' | 'conditional' | 'supporting';
   templateAttachmentName?: string;
 };
 
@@ -57,10 +58,12 @@ const NS_CHECKLIST_ITEMS: DocumentRequirement[] = [
   },
 ];
 
-function checklistSection(item: Pick<DocumentRequirement, 'category' | 'required'>): OpeningEmailChecklistItem['section'] {
-  if (item.category === 'Individual') return 'individual';
-  if (!item.required) return 'conditional';
-  return 'entity';
+function checklistSection(
+  item: Pick<DocumentRequirement, 'required' | 'requirementType'>,
+): OpeningEmailChecklistItem['section'] {
+  if (!item.required || item.requirementType === 'supporting') return 'supporting';
+  if (item.requirementType === 'conditional_required') return 'conditional';
+  return 'required';
 }
 
 function deliveryForRequirement(
@@ -112,6 +115,7 @@ export function buildOpeningEmailChecklist(
         name: item.name,
         category: item.category,
         required: item.required,
+        requirementType: item.requirementType,
         reason: item.reason,
         delivery,
         section: checklistSection(item),
@@ -119,7 +123,7 @@ export function buildOpeningEmailChecklist(
       };
     })
     .sort((a, b) => {
-      const sectionOrder = { entity: 0, individual: 1, conditional: 2 };
+      const sectionOrder = { required: 0, conditional: 1, supporting: 2 };
       if (sectionOrder[a.section] !== sectionOrder[b.section]) {
         return sectionOrder[a.section] - sectionOrder[b.section];
       }
@@ -143,13 +147,13 @@ function deliveryLabel(item: OpeningEmailChecklistItem, language?: KYCCase['lang
 
 function sectionHeading(section: OpeningEmailChecklistItem['section'], language?: KYCCase['language']): string {
   if (language === 'zh') {
-    if (section === 'entity') return '关于机构（必缴交）';
-    if (section === 'individual') return '关于关联人士（董事、授权代表、最终受益人）';
-    return '视情况补充';
+    if (section === 'required') return '必缴文件';
+    if (section === 'conditional') return '条件适用时必缴';
+    return 'Supporting Documents（辅助文件）';
   }
-  if (section === 'entity') return 'Entity documents (required)';
-  if (section === 'individual') return 'Associated individuals (directors, ARs, UBOs)';
-  return 'Conditional / recommended';
+  if (section === 'required') return 'Required Documents';
+  if (section === 'conditional') return 'Conditional Required Documents';
+  return 'Supporting Documents';
 }
 
 export function formatOpeningEmailChecklist(caseData: KYCCase, attachments: { name: string }[] = []): string {

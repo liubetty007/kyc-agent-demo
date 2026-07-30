@@ -77,6 +77,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       const standard = body.standard || [];
       const packages = body.packages || [];
       const checklist = body.checklist || [];
+      setAttachmentError(body.warning || '');
       setStandardAttachments(standard);
       setAttachmentPackages(packages);
       setClientChecklist(checklist);
@@ -146,7 +147,11 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
 
   async function generate() {
     setLoading('generate');
-    const response = await fetch(`/api/cases/${caseData.id}/opening-email`, { method: 'POST' });
+    const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'regenerate' }),
+    });
     const updated = await response.json();
     setDraft(updated.openingEmailDraft || '');
     setSentAt(updated.openingEmailSentAt);
@@ -227,18 +232,19 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
         <button className="button primary" disabled={Boolean(loading)} onClick={generate}>Generate Opening Email</button>
         )
       ) : (
-        <>
-          <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} readOnly={readOnly} />
-          {!readOnly && clientChecklist.length > 0 && (
+        <textarea className="email-editor" value={draft} onChange={(event) => setDraft(event.target.value)} readOnly={readOnly} />
+      )}
+      {clientChecklist.length > 0 && (
           <div className="opening-checklist-panel">
             <div className="section-title">
               <div>
                 <strong>Client Document Checklist</strong>
-                <span>完整清单（含无模板项）</span>
+                <span>必缴文件集中在前，辅助材料单独列出</span>
               </div>
             </div>
             <p className="small">
-              下方列出客户需准备的所有文件。有 Drive 模板的会随邮件附件发出；无模板项（如股权架构图、公司注册证）仅出现在清单中，由客户自备后回传。
+              Required 与适用的 Conditional Required 会集中排序；Business Description、Financing Agreement 等非必缴材料列在 Supporting Documents，不计入 missing。
+              有 Drive 模板的文件会随邮件附件发出；无模板项由客户自行准备后回传。
             </p>
             {checklistSections.map((section) => (
               <div className="opening-checklist-section" key={section.key}>
@@ -257,8 +263,8 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
               </div>
             ))}
           </div>
-          )}
-          {!readOnly && (
+      )}
+      {!readOnly && (
           <div className="attachment-panel">
             <div className="section-title">
               <div>
@@ -344,9 +350,12 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
               ))}
             </div>
           </div>
-          )}
-          {!readOnly && (
+      )}
+      {!readOnly && draft && (
           <div className="actions">
+            <button className="button" disabled={Boolean(loading)} onClick={generate}>
+              {loading === 'generate' ? 'Regenerating…' : 'Regenerate from Template'}
+            </button>
             <button className="button" disabled={Boolean(loading)} onClick={save}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={demoSend}>{loading === 'send' ? 'Sending…' : 'Demo Send'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={realSend}>{loading === 'real-send' ? 'Sending Gmail…' : 'Send via Gmail'}</button>
@@ -354,10 +363,8 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
             {sendNotice && <span className="small">{sendNotice}</span>}
             {sentAt && <span className="badge accepted">Demo sent: {new Date(sentAt).toLocaleString()}</span>}
           </div>
-          )}
-          {readOnly && sentAt && <span className="badge accepted">Sent: {new Date(sentAt).toLocaleString()}</span>}
-        </>
       )}
+      {readOnly && sentAt && <span className="badge accepted">Sent: {new Date(sentAt).toLocaleString()}</span>}
     </div>
   );
 }

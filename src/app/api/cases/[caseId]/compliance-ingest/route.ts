@@ -40,9 +40,12 @@ function applyComplianceReplyStatus(caseData: Awaited<ReturnType<typeof getCase>
     reply.body,
   );
   const complianceReplyAnalysis = analyzeComplianceReplyText(reply.body);
+  const riskRating = complianceReplyAnalysis.riskLevel === 'unclear'
+    ? caseData.riskRating
+    : complianceReplyAnalysis.riskLevel;
   if (caseData.status === 'approved') return {};
   if (caseData.status === 'rejected' && outcome === 'rejected') return {};
-  return { status: statusAfterComplianceDecision(outcome), complianceReplyAnalysis };
+  return { status: statusAfterComplianceDecision(outcome), complianceReplyAnalysis, riskRating };
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

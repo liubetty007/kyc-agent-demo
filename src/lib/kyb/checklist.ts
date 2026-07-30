@@ -1,6 +1,13 @@
 import { getMatrix } from './matrix';
 import type { DocumentRequirement, EntityType, KYCCase } from './types';
 
+const SUPPORTING_DOCUMENT_IDS = new Set([
+  'business_description',
+  'financing_agreement',
+  'investor_lender_information',
+  'proof_of_fund_transfer',
+]);
+
 function uniqueById(docs: DocumentRequirement[]): DocumentRequirement[] {
   return Array.from(new Map(docs.map((doc) => [doc.id, doc])).values());
 }
@@ -20,6 +27,16 @@ function conditional(docs: DocumentRequirement[], condition?: string): DocumentR
       requirementType: 'conditional_required',
       condition: doc.condition || condition,
     }));
+}
+
+function supporting(docs: DocumentRequirement[]): DocumentRequirement[] {
+  return docs.map((doc) => ({
+    ...doc,
+    category: 'Supporting Documents',
+    required: false,
+    requirementType: 'supporting',
+    condition: undefined,
+  }));
 }
 
 function conditionalRequirement(
@@ -169,7 +186,6 @@ function regionalCoreDocuments(caseData: KYCCase): DocumentRequirement[] {
   const commonRequiredIds = [
     'certificate_of_incorporation',
     'articles_of_association',
-    'business_description',
     'source_of_funds',
   ];
   if (!caseData.isListedEntity && !caseData.isLicensedEntity) {
@@ -177,6 +193,7 @@ function regionalCoreDocuments(caseData: KYCCase): DocumentRequirement[] {
   }
 
   const docs = required(docsById(base, commonRequiredIds));
+  docs.push(...supporting(docsById(base, ['business_description'])));
 
   if (caseData.isListedEntity || caseData.isLicensedEntity) {
     docs.push(conditionalRequirement(
@@ -288,7 +305,7 @@ export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
     docs.push(...conditional(matrix.mining_business_rules.documents));
   }
   if (isFinancingSource(caseData)) {
-    docs.push(...conditional(matrix.financing_source_rules.required_documents));
+    docs.push(...supporting(matrix.financing_source_rules.required_documents));
   }
   if (isFinancialInstitutionOrAssetManager(caseData)) {
     docs.push(...conditional(matrix.risk_based_documents.financial_or_user_asset_manager));
@@ -297,5 +314,17 @@ export function generateChecklist(caseData: KYCCase): DocumentRequirement[] {
     docs.push(...conditional(matrix.risk_based_documents.high_risk_customer || []));
   }
 
-  return uniqueById(docs);
+  return uniqueById(docs).map((doc) => {
+    if (!SUPPORTING_DOCUMENT_IDS.has(doc.id)) return doc;
+    return {
+      ...doc,
+      category: 'Supporting Documents',
+      required: false,
+      requirementType: 'supporting',
+      condition: undefined,
+      reason: doc.id === 'business_description'
+        ? 'Useful supporting context for understanding the customer business; not a mandatory uploaded document'
+        : 'Useful supporting evidence when financing or third-party funding requires further explanation; not mandatory by default',
+    };
+  });
 }

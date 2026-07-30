@@ -47,39 +47,37 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ cas
         </div>
       </section>
 
-      <section className="grid two">
-        <CaseSnapshotEditor caseData={caseData} readOnly={!kycCanOperate} />
-        <div className="card">
-          <h2>Workflow Notes</h2>
-          <p>Use the opening email first, then fetch Gmail replies or upload client documents, run Agent review, and prepare follow-up emails.</p>
-          <ul className="list">
-            <li>
-              Company registration place: {caseData.jurisdiction}
-              {caseData.usState ? ` (${caseData.usState})` : ''}
-            </li>
-            {caseData.driveFolderId && (
-              <li>
-                Client Drive folder:{' '}
-                <a href={`https://drive.google.com/drive/folders/${caseData.driveFolderId}`} target="_blank" rel="noreferrer">
-                  Open in Google Drive
-                </a>
-              </li>
-            )}
-            {caseData.complianceSubmittedAt && (
-              <li>Submitted to compliance: {new Date(caseData.complianceSubmittedAt).toLocaleString()}</li>
-            )}
-            <li>Document intake can be manual, Gmail-based, or demo fallback when Gmail is not configured.</li>
-            <li>Policy rules are available under Policy Review.</li>
-          </ul>
-        </div>
-      </section>
-
+      <CaseSnapshotEditor caseData={caseData} readOnly={!kycCanOperate} />
       <OpeningEmailPanel caseData={caseData} readOnly={!kycCanOperate} />
+
+      <div className="card">
+        <h2>Workflow Notes</h2>
+        <p>Save the case details, send the opening email, fetch the client reply, analyze the documents, and send supplemental-document requests as many times as needed.</p>
+        <ul className="list">
+          <li>
+            Company registration place: {caseData.jurisdiction}
+            {caseData.usState ? ` (${caseData.usState})` : ''}
+          </li>
+          {caseData.driveFolderId && (
+            <li>
+              Client Drive folder:{' '}
+              <a href={`https://drive.google.com/drive/folders/${caseData.driveFolderId}`} target="_blank" rel="noreferrer">
+                Open in Google Drive
+              </a>
+            </li>
+          )}
+          {caseData.complianceSubmittedAt && (
+            <li>Submitted to compliance: {new Date(caseData.complianceSubmittedAt).toLocaleString()}</li>
+          )}
+          <li>Risk Rating is shown only after Compliance returns its review result.</li>
+        </ul>
+      </div>
+
       <EmailReplyFetchPanel caseData={caseData} readOnly={!kycCanOperate} />
       <DocumentPanel caseData={caseData} viewerRole={user.role} />
       <DocumentAnalysisPanel caseData={caseData} />
-      <ClientUploadedFilesPanel caseData={caseData} />
       <ClientFollowUpEmailPanel caseData={caseData} readOnly={!kycCanOperate} />
+      <ClientUploadedFilesPanel caseData={caseData} />
       {kycCanOperate && <CaseActions caseData={caseData} />}
       <MailboxTimelinePanel caseData={caseData} />
       <KycComplianceSubmitPanel caseData={caseData} readOnly={!kycCanOperate} />

@@ -83,7 +83,7 @@ export function toBackendIntake(input: {
     attributes: {
       customer_type: input.customerType || 'new_customer',
       entity_type: input.entityType || 'limited_company',
-      risk_rating: input.riskRating || 'medium',
+      risk_rating: input.riskRating || 'pending_compliance_review',
       is_financial_institution: Boolean(input.isFinancialInstitution),
       manages_client_assets: Boolean(input.managesClientAssets),
       is_listed_entity: Boolean(input.isListedEntity),
@@ -130,7 +130,7 @@ export function backendCaseToKycCase(
     sourceOfFunds: input.sourceOfFunds,
     customerType: input.customerType || 'new_customer',
     entityType: input.entityType || 'limited_company',
-    riskRating: input.riskRating || 'medium',
+    riskRating: input.riskRating,
     isFinancialInstitution: input.isFinancialInstitution,
     managesClientAssets: input.managesClientAssets,
     isListedEntity: input.isListedEntity,

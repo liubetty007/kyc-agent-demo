@@ -73,21 +73,24 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
     window.location.reload();
   }
 
-  if (!canReply) return null;
-
   const parsed = draft ? splitEmailDraft(draft, `Re: KYC Follow-up – ${caseData.companyName}`) : null;
 
   return (
     <div className="card" id="follow-up-email">
       <div className="card-heading">
-        <h2>补充资料邮件</h2>
-        <span className="small">checklist 后的客户往来邮件</span>
+        <h2>补充文件邮件发送</h2>
+        <span className="small">Analyze 后可反复生成并发送</span>
       </div>
       <p className="small">
-        根据客户已发送文件、已 Accept 文件和仍缺文件，生成跟进邮件，并在<strong>原开户邮件线程</strong>里回复客户。
-        发送时会附上开户邮件模板（已 Accept 的类型除外）。
+        根据客户已发送、已 Accept、仍缺及需修改的文件生成补件邮件，并在<strong>原开户邮件线程</strong>中回复。
+        每轮收到新材料并完成 Analyze / Accept 后，都可以重新生成并再次发送。
         {threadId ? ` Thread: ${threadId}` : ''}
       </p>
+      {!canReply && (
+        <p className="small">
+          请先在上方通过 Gmail 发送 Opening Email。现在可以先生成补件草稿，开户邮件发送后即可在原线程发送。
+        </p>
+      )}
 
       {parsed && (
         <p className="small">
@@ -100,20 +103,20 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         readOnly={readOnly}
-        placeholder="点击「重新生成 Follow-up 邮件」后，这里会列出客户已发送、已接受和仍缺的文件。"
+        placeholder="点击「生成补充文件邮件」后，这里会列出客户仍需补充或修改的材料。"
       />
 
       {error && <p className="form-error">{error}</p>}
       {!readOnly && (
         <div className="actions">
           <button className="button primary" type="button" disabled={Boolean(loading)} onClick={regenerateDraft}>
-            {loading === 'generate' ? '生成中…' : '重新生成 Follow-up 邮件'}
+            {loading === 'generate' ? '生成中…' : '生成补充文件邮件'}
           </button>
           <button className="button" type="button" disabled={Boolean(loading)} onClick={saveDraft}>
             {loading === 'save' ? 'Saving…' : 'Save Draft'}
           </button>
-          <button className="button primary" type="button" disabled={Boolean(loading) || !draft.trim()} onClick={replyInThread}>
-            {loading === 'send' ? '发送中…' : 'Reply in Thread'}
+          <button className="button primary" type="button" disabled={Boolean(loading) || !draft.trim() || !canReply} onClick={replyInThread}>
+            {loading === 'send' ? '发送中…' : '在原线程发送'}
           </button>
           {saved && <span className="small">Saved.</span>}
         </div>

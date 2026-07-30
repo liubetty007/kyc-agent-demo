@@ -41,6 +41,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     body = {};
   }
 
+  if (body.action === 'regenerate') {
+    const openingEmailDraft = generateOpeningEmail(caseData);
+    const updated = await updateCase(caseId, { openingEmailDraft });
+    return NextResponse.json(updated);
+  }
+
   if (body.action === 'send_demo') {
     try {
       if (isBackendEnabled()) {

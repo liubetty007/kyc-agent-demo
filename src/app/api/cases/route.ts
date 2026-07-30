@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       sourceOfFunds: body.sourceOfFunds,
       customerType: (body.customerType as CustomerType) || 'new_customer',
       entityType: (body.entityType as EntityType) || 'limited_company',
-      riskRating: (body.riskRating as RiskRating) || 'medium',
+      riskRating: body.riskRating as RiskRating | undefined,
       isFinancialInstitution: Boolean(body.isFinancialInstitution),
       managesClientAssets: Boolean(body.managesClientAssets),
       isListedEntity: Boolean(body.isListedEntity),

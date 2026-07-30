@@ -71,10 +71,21 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
   } | null>(null);
   const backendMode = isBackendCaseId(caseData.id);
   const checklistItems = [...generateChecklist(caseData)].sort((a, b) => {
+    const order = { required: 0, conditional_required: 1, supporting: 2 };
     const aType = a.requirementType || 'required';
     const bType = b.requirementType || 'required';
-    return aType === bType ? 0 : aType === 'required' ? -1 : 1;
+    return order[aType] - order[bType];
   });
+
+  function requirementBadge(requirement: (typeof checklistItems)[number]) {
+    if (!requirement.required || requirement.requirementType === 'supporting') {
+      return <span className="badge">Supporting Document</span>;
+    }
+    if (requirement.requirementType === 'conditional_required') {
+      return <span className="badge medium">Conditional Required</span>;
+    }
+    return <span className="badge accepted">Required</span>;
+  }
 
   async function refreshBackend() {
     const [docsRes, checklistRes] = await Promise.all([
@@ -192,8 +203,9 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
     );
   }
 
-  function statusBadgeBackend(doc?: BackendDocument, localDoc?: ReceivedDocument) {
-    if (!doc && localDoc) return statusBadgeLocal(localDoc);
+  function statusBadgeBackend(doc?: BackendDocument, localDoc?: ReceivedDocument, isRequired = true) {
+    if (!doc && localDoc) return statusBadgeLocal(localDoc, isRequired);
+    if (!doc && !isRequired) return <span className="badge">not provided</span>;
     if (!doc) return <span className="badge medium">missing</span>;
     if (doc.review.status === 'accepted') return <span className="badge accepted">accepted</span>;
     if (doc.review.status === 'rejected') return <span className="badge prohibited">revision requested</span>;
@@ -202,7 +214,8 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
 
   const receivedByRequirement = new Map(caseData.receivedDocuments.map((doc) => [doc.requirementId, doc]));
 
-  function statusBadgeLocal(doc?: ReceivedDocument) {
+  function statusBadgeLocal(doc?: ReceivedDocument, isRequired = true) {
+    if (!doc && !isRequired) return <span className="badge">not provided</span>;
     if (!doc) return <span className="badge medium">missing</span>;
     if (doc.status === 'needs_review') return <span className="badge needs-review">pending review</span>;
     if (doc.status === 'invalid') return <span className="badge prohibited">invalid</span>;
@@ -289,13 +302,9 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                       </div>
                     )}
                   </td>
-                  <td>
-                    {requirement.requirementType === 'conditional_required'
-                      ? <span className="badge medium">Conditional Required</span>
-                      : <span className="badge accepted">Required</span>}
-                  </td>
+                  <td>{requirementBadge(requirement)}</td>
                   <td>{requirement.category}</td>
-                  <td>{statusBadgeBackend(doc, localDoc)}</td>
+                  <td>{statusBadgeBackend(doc, localDoc, requirement.required)}</td>
                   <td>
                     {viewerRole !== 'client' && !acceptedAndLocked && renderUploadButton(requirement.id, doc || localDoc ? 'Replace file' : 'Upload file')}
                     {viewerRole !== 'client' && viewerRole !== 'compliance' && doc && doc.review.status === 'pending' && (
@@ -365,13 +374,9 @@ export function DocumentPanel({ caseData, viewerRole }: { caseData: KYCCase; vie
                     </div>
                   )}
                 </td>
-                <td>
-                  {requirement.requirementType === 'conditional_required'
-                    ? <span className="badge medium">Conditional Required</span>
-                    : <span className="badge accepted">Required</span>}
-                </td>
+                <td>{requirementBadge(requirement)}</td>
                 <td>{requirement.category}</td>
-                <td>{statusBadgeLocal(receivedDoc)}</td>
+                <td>{statusBadgeLocal(receivedDoc, requirement.required)}</td>
                 <td>
                   {viewerRole !== 'client' && !acceptedAndLocked && (
                     <label className="button upload-button">

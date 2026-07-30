@@ -125,7 +125,7 @@ export async function createCase(input: {
     sourceOfFunds: input.sourceOfFunds,
     customerType: input.customerType || 'new_customer',
     entityType: input.entityType || 'limited_company',
-    riskRating: input.riskRating || 'medium',
+    riskRating: input.riskRating,
     isFinancialInstitution: input.isFinancialInstitution,
     managesClientAssets: input.managesClientAssets,
     isListedEntity: input.isListedEntity,

@@ -1,15 +1,16 @@
 # AA KYC Rules — 15 Jul 2026
 
 > 本页是 KYC / Compliance 的网页审核副本，规则版本为 `AA-KYC-2026-07-15`。
-> 系统只显示 `Required` 和 `Conditional Required` 两类。可选辅助材料不计入 missing。
+> 系统显示 `Required`、`Conditional Required` 和 `Supporting Documents`。辅助材料不计入 missing。
 > LLM 只辅助文件提取、分类、案件问答和草稿，不作最终 KYC / Compliance 决策。
 
-## 1. 两级文件规则
+## 1. 文件分组规则
 
 | 类型 | 定义 | Missing 计算 |
 |---|---|---|
 | Required | 每个适用案件都必须提供 | 未被 KYC Accept 即计入 missing |
 | Conditional Required | 仅当页面显示的触发条件成立时必须提供 | 条件成立并进入清单后，未被 KYC Accept 即计入 missing |
+| Supporting Documents | 帮助解释业务、资金来源或交易背景的辅助材料 | 不计入 missing |
 
 ## 2. Required
 
@@ -18,7 +19,6 @@
 | Certificate of Incorporation | 所有公司必须提供；香港 COI 无日期限制 |
 | Memorandum & Articles of Association | 所有公司必须提供适用的组织章程文件 |
 | Ownership Structure Chart | 原则上必须穿透至自然人 UBO；上市、持牌机构及其合资格多数持股子公司可按批准的豁免规则处理 |
-| Business Description | 必须提供，以支持业务风险评估 |
 | Source of Funds Declaration / Confirmation | Low / Medium risk 可使用 onboarding form 内声明或书面确认，不默认要求证明文件 |
 | Institution Onboarding Form | New customer 必须提供 |
 | Counterparty Due Diligence Form | New counterparty 必须提供，取代 Institution Onboarding Form |
@@ -54,7 +54,7 @@
 | High risk / EDD | SOF / SOW 证明、UBO / Senior Management 背景；运营实体另需 Financial Statements / Operating Evidence |
 | Crypto 资金来源 | Source of Crypto Assets / Supporting Evidence |
 | Mining proceeds | Mining Proof，例如 Antpool / mining-pool observer evidence |
-| Financing / third-party funding | Financing Agreement、Investor / Lender Information、Proof of Fund Transfer |
+| Financing / third-party funding | Financing Agreement、Investor / Lender Information、Proof of Fund Transfer 作为 Supporting Documents；需要进一步解释时再索取 |
 | Entity shareholder | 穿透至自然人 UBO；无法完全穿透时提供适用的 no-other-UBO declaration |
 | 授权范围或签署权证据不足 | Board Resolution |
 
@@ -111,8 +111,8 @@
 
 | 模块 | 当前行为 |
 |---|---|
-| Case fields | Relationship type、Entity type、Risk rating、FI / client assets、listed / licensed、Passport CTC、third-party funding、US exception |
+| Case fields | 开户前只输入客户关系、实体类型及公司基本信息；Risk Rating 由 Compliance review 结果产生 |
 | Checklist | 根据案件字段与规则实时生成；旧案件已接收及已 Accept 文件不会被删除 |
 | Document panel | 显示 Required / Conditional Required 及每项触发条件 |
-| Compliance snapshot | 只统计 Required 与已适用的 Conditional Required；不再显示 optional / recommended missing |
+| Compliance snapshot | 只统计 Required 与已适用的 Conditional Required；Supporting Documents 不计入 missing |
 | AI 问答与邮件 | 使用同一套实时规则清单回答案件进度、识别文件与生成缺件内容 |

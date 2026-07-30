@@ -8,6 +8,7 @@ import {
   readOpeningEmailAttachment,
 } from '@/lib/kyb/documentStorage';
 import { followUpTemplateIdsForMissingDocs } from '@/lib/kyb/followUpAttachments';
+import { checklistSnapshotFromStatuses } from '@/lib/kyb/complianceSubmit';
 import { appendMailboxMessage, customerEmailRecipients, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { runReview } from '@/lib/kyb/review';
@@ -44,11 +45,16 @@ async function localFollowUpAttachments(caseId: string, caseData: Awaited<Return
         getBackendChecklist(caseId),
         listBackendDocuments(caseId),
       ]);
+      const snapshot = checklistSnapshotFromStatuses(
+        caseData,
+        checklist.received_doc_types,
+        checklist.pending_doc_types,
+      );
       missingDocTypes = [
-        ...checklist.missing_required,
+        ...snapshot.missing_required,
         ...documents.filter((doc) => doc.review.status === 'rejected' && doc.doc_type).map((doc) => doc.doc_type as string),
       ];
-      acceptedDocTypes = checklist.received_doc_types;
+      acceptedDocTypes = snapshot.received_doc_types;
       rejectedDocTypes = documents
         .filter((doc) => doc.review.status === 'rejected' && doc.doc_type)
         .map((doc) => doc.doc_type as string);

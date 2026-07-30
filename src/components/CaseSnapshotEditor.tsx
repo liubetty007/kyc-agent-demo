@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { CustomerType, EntityType, KYCCase, RiskRating } from '@/lib/kyb/types';
+import type { CustomerType, EntityType, KYCCase } from '@/lib/kyb/types';
 
 const CUSTOMER_EMAIL_BOOK_KEY = 'kyc_customer_emails';
 
@@ -24,14 +24,6 @@ export function CaseSnapshotEditor({ caseData, readOnly = false }: { caseData: K
   const [sourceOfFunds, setSourceOfFunds] = useState(caseData.sourceOfFunds);
   const [customerType, setCustomerType] = useState<CustomerType>(caseData.customerType || 'new_customer');
   const [entityType, setEntityType] = useState<EntityType>(caseData.entityType || 'limited_company');
-  const [riskRating, setRiskRating] = useState<RiskRating>(caseData.riskRating || 'medium');
-  const [isFinancialInstitution, setIsFinancialInstitution] = useState(Boolean(caseData.isFinancialInstitution));
-  const [managesClientAssets, setManagesClientAssets] = useState(Boolean(caseData.managesClientAssets));
-  const [isListedEntity, setIsListedEntity] = useState(Boolean(caseData.isListedEntity));
-  const [isLicensedEntity, setIsLicensedEntity] = useState(Boolean(caseData.isLicensedEntity));
-  const [passportCtcProvided, setPassportCtcProvided] = useState(Boolean(caseData.passportCtcProvided));
-  const [hasThirdPartyFunding, setHasThirdPartyFunding] = useState(Boolean(caseData.hasThirdPartyFunding));
-  const [legalExceptionApproved, setLegalExceptionApproved] = useState(Boolean(caseData.legalExceptionApproved));
   const [savedEmails, setSavedEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -70,14 +62,6 @@ export function CaseSnapshotEditor({ caseData, readOnly = false }: { caseData: K
         sourceOfFunds,
         customerType,
         entityType,
-        riskRating,
-        isFinancialInstitution,
-        managesClientAssets,
-        isListedEntity,
-        isLicensedEntity,
-        passportCtcProvided,
-        hasThirdPartyFunding,
-        legalExceptionApproved,
       }),
     });
     rememberEmails(normalizedContactEmail);
@@ -149,25 +133,6 @@ export function CaseSnapshotEditor({ caseData, readOnly = false }: { caseData: K
               <option value="other">Other</option>
             </select>
           </label>
-        </div>
-        <label>
-          Risk Rating
-          <select value={riskRating} onChange={(event) => setRiskRating(event.target.value as RiskRating)} disabled={readOnly}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High / EDD</option>
-          </select>
-        </label>
-        <div className="saved-email-options" style={{ marginBottom: 12 }}>
-          <label><input type="checkbox" checked={isFinancialInstitution} onChange={(event) => setIsFinancialInstitution(event.target.checked)} disabled={readOnly} /> Financial institution</label>
-          <label><input type="checkbox" checked={managesClientAssets} onChange={(event) => setManagesClientAssets(event.target.checked)} disabled={readOnly} /> Manages client/user assets</label>
-          <label><input type="checkbox" checked={isListedEntity} onChange={(event) => setIsListedEntity(event.target.checked)} disabled={readOnly} /> Listed entity / eligible subsidiary</label>
-          <label><input type="checkbox" checked={isLicensedEntity} onChange={(event) => setIsLicensedEntity(event.target.checked)} disabled={readOnly} /> Licensed entity</label>
-          <label><input type="checkbox" checked={passportCtcProvided} onChange={(event) => setPassportCtcProvided(event.target.checked)} disabled={readOnly} /> Passport / ID is certified true copy</label>
-          <label><input type="checkbox" checked={hasThirdPartyFunding} onChange={(event) => setHasThirdPartyFunding(event.target.checked)} disabled={readOnly} /> Third-party funding / financing</label>
-          {caseData.jurisdiction === 'United States' && (
-            <label><input type="checkbox" checked={legalExceptionApproved} onChange={(event) => setLegalExceptionApproved(event.target.checked)} disabled={readOnly} /> US Legal / Compliance exception approved</label>
-          )}
         </div>
         {!readOnly && (
         <div className="actions">
