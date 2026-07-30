@@ -28,7 +28,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
   try {
-    const packages = await listOpeningEmailStandardDocumentPackages(caseData);
+    // Client-facing email copy may be English or Chinese, but Antalpha sends one
+    // standardized English version of every form/template.
+    const attachmentContext = { ...caseData, language: 'en' as const };
+    const packages = await listOpeningEmailStandardDocumentPackages(attachmentContext);
     const standard = packages.length
       ? packages.flatMap((item) => item.attachments)
       : await listOpeningEmailStandardDocuments();

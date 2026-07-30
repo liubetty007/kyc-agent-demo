@@ -206,8 +206,8 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       </div>
       <p>Prepare and send the opening email to the client. Use Gmail send only after the draft has been reviewed by KYC Team.</p>
       <p className="small">
-        Attachment language follows the case language ({caseData.language === 'zh' ? '中文' : 'English'}).
-        Each template folder keeps EN/ZH versions; the newest file in the matching folder is attached automatically.
+        Email body language: {caseData.language === 'zh' ? '中文' : 'English'}.
+        All attached forms and templates use the standardized English version; the newest EN file is selected automatically.
       </p>
       {!draft ? (
         readOnly ? <p className="small">No opening email draft yet.</p> : (
@@ -226,7 +226,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
             </div>
             <p className="small">
               Required 与适用的 Conditional Required 会集中排序；Business Description、Financing Agreement 等非必缴材料列在 Supporting Documents，不计入 missing。
-              有 Drive 模板的文件会随邮件附件发出；无模板项由客户自行准备后回传。
+              有英文 Drive 模板的文件会随邮件附件发出；无模板项由客户自行准备后回传。
             </p>
             {checklistSections.map((section) => (
               <div className="opening-checklist-section" key={section.key}>
