@@ -109,8 +109,8 @@ export async function createCase(input: {
       cases.unshift(mapped);
       await saveCases(cases);
       return mapped;
-    } catch (error) {
-      console.warn('Backend case creation failed; falling back to frontend case storage.', error);
+    } catch {
+      console.warn('Backend case creation failed; falling back to frontend case storage.');
     }
   }
 

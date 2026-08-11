@@ -19,6 +19,7 @@ import type { KYCCase } from '@/lib/kyb/types';
 import type { GmailMessage } from '@/lib/kyb/gmail';
 import { ingestBackendEmail, ingestBackendEmailMock, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -136,16 +137,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       return NextResponse.json({ mode: summary.mode, summary });
     } catch (error) {
       if (isBackendGmailScopeError(error)) {
-        console.warn('Backend Gmail ingest has invalid OAuth scope; falling back to Next.js Gmail ingest.', error);
+        console.warn('Backend Gmail ingest has invalid OAuth scope; falling back to Next.js Gmail ingest.');
       } else if (backendStatus(error) !== 404) {
-        const message = error instanceof Error ? error.message : 'Gmail ingest failed';
-        return NextResponse.json(
-          {
-            error: message,
-            hint: '请先 Send via Gmail 发开户邮件，等客户回信后再点 Fetch Client Reply。不会自动导入 demo 假文件。',
-          },
-          { status: 502 },
-        );
+        return safeUpstreamErrorResponse('Backend Gmail ingest failed', error, 'Gmail ingest failed.');
       }
     }
   }
@@ -189,7 +183,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           continue;
         }
         const attachmentAnalysis = analysis.attachments.find((item) => item.filename === attachment.filename);
-        const requirementId = attachmentAnalysis?.suggestedRequirementId || fallbackRequirementId(updated, attachment.filename);
+        const deterministicRequirementId = fallbackRequirementId(updated, attachment.filename);
+        const validRequirementIds = new Set(generateChecklist(updated).map((item) => item.id));
+        const suggestedRequirementId = attachmentAnalysis?.suggestedRequirementId;
+        const requirementId = suggestedRequirementId
+          && validRequirementIds.has(suggestedRequirementId)
+          && suggestedRequirementId === deterministicRequirementId
+          ? suggestedRequirementId
+          : deterministicRequirementId;
         if (!requirementId) {
           skippedAttachments.push({
             name: attachment.filename,
@@ -214,7 +215,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           fromEmail: message.from,
           emailSubject: message.subject,
           receivedAt: message.receivedAt,
-          confidence: attachmentAnalysis?.confidence || 0.55,
+          confidence: suggestedRequirementId === deterministicRequirementId
+            ? Math.min(attachmentAnalysis?.confidence || 0.55, 0.8)
+            : 0.55,
           storageObject,
         };
         const next = await upsertReceivedDocument(caseId, doc);

@@ -9,8 +9,9 @@ const secretName = process.env.GMAIL_REFRESH_TOKEN_SECRET || 'gmail-refresh-toke
 const port = Number(process.env.OAUTH_PORT || 8765);
 const redirectUri = `http://127.0.0.1:${port}/oauth2callback`;
 const scopes = (process.env.OAUTH_SCOPES || [
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/drive.file',
 ].join(' ')).trim();
 
 function gcloud(args, input) {

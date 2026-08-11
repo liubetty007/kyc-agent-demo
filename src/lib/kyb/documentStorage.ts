@@ -317,11 +317,12 @@ export async function storeOpeningEmailUpload(
   caseId: string,
   file: File,
   parentFolderId?: string,
+  validatedData?: Buffer,
 ): Promise<OpeningEmailAttachmentRef> {
   const uploaded = await uploadBytesToDrive({
     filename: `${caseId} - ${safeFilename(file.name)}`,
     contentType: file.type || 'application/octet-stream',
-    data: Buffer.from(await file.arrayBuffer()),
+    data: validatedData || Buffer.from(await file.arrayBuffer()),
     parentId: parentFolderId || (await ensureKycDriveFolder()),
   });
   const objectName = `drive://${uploaded.id}`;
@@ -343,10 +344,10 @@ export type ClientEmailAttachmentRef = {
   size?: number;
 };
 
-export async function storeClientEmailUpload(caseId: string, file: File): Promise<ClientEmailAttachmentRef> {
+export async function storeClientEmailUpload(caseId: string, file: File, validatedData?: Buffer): Promise<ClientEmailAttachmentRef> {
   const safeName = safeFilename(file.name);
   const objectName = `cases/${caseId}/client-email-attachments/${crypto.randomUUID()}-${safeName}`;
-  await bucket().file(objectName).save(Buffer.from(await file.arrayBuffer()), {
+  await bucket().file(objectName).save(validatedData || Buffer.from(await file.arrayBuffer()), {
     resumable: false,
     contentType: file.type || 'application/octet-stream',
     metadata: { cacheControl: 'private, no-store' },
@@ -377,7 +378,7 @@ export async function readClientEmailUpload(caseId: string, attachment: ClientEm
   };
 }
 
-export async function readOpeningEmailAttachment(caseId: string, attachment: OpeningEmailAttachmentRef): Promise<{
+export async function readOpeningEmailAttachment(caseId: string, attachment: OpeningEmailAttachmentRef, caseDriveFolderId?: string): Promise<{
   filename: string;
   contentType?: string;
   data: Buffer;
@@ -387,11 +388,17 @@ export async function readOpeningEmailAttachment(caseId: string, attachment: Ope
   const isAllowedDriveStandard = attachment.source === 'standard'
     && attachment.objectName.startsWith(uploadPrefix)
     && (await listOpeningEmailStandardDocuments()).some((item) => item.objectName === attachment.objectName);
-  const isAllowedUpload = attachment.source === 'uploaded' && attachment.objectName.startsWith(uploadPrefix);
+  const isAllowedUpload = attachment.source === 'uploaded'
+    && attachment.objectName.startsWith(uploadPrefix)
+    && Boolean(caseDriveFolderId);
   if (!isAllowedStandard && !isAllowedDriveStandard && !isAllowedUpload) throw new Error('Attachment path is not allowed.');
   if (attachment.objectName.startsWith('drive://')) {
     const fileId = attachment.objectName.replace('drive://', '');
-    const [metadata, data] = await Promise.all([readMetadataFromDrive(fileId), readBytesFromDrive(fileId)]);
+    const metadata = await readMetadataFromDrive(fileId);
+    if (attachment.source === 'uploaded' && !metadata.parents?.includes(caseDriveFolderId!)) {
+      throw new Error('Attachment does not belong to this case.');
+    }
+    const data = await readBytesFromDrive(fileId);
     return {
       filename: attachment.name || metadata.name || filenameFromObject(attachment.objectName),
       contentType: attachment.contentType || metadata.mimeType,

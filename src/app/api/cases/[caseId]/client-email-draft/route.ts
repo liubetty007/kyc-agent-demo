@@ -39,8 +39,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         ...snapshot,
         required_doc_types: generateChecklist(caseData).filter((item) => item.required).map((item) => item.id),
       }, documents);
-    } catch (error) {
-      console.warn('Backend follow-up summary unavailable; falling back to local case data.', error);
+    } catch {
+      console.warn('Backend follow-up summary unavailable; falling back to local case data.');
       summary = buildClientFollowUpSummaryFromLocal(caseData);
     }
   } else {

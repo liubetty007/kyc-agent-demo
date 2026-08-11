@@ -33,8 +33,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         checklist.received_doc_types,
         checklist.pending_doc_types,
       );
-    } catch (error) {
-      console.warn('Backend compliance checklist unavailable; falling back to local case data.', error);
+    } catch {
+      console.warn('Backend compliance checklist unavailable; falling back to local case data.');
       checklistSnapshot = localChecklistSnapshot(caseData);
     }
   } else {
@@ -47,8 +47,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
     try {
       attachmentNames = await backendAcceptedDocumentNames(caseId);
-    } catch (error) {
-      console.warn('Backend accepted document list unavailable; falling back to local case data.', error);
+    } catch {
+      console.warn('Backend accepted document list unavailable; falling back to local case data.');
     }
   }
   const complianceEmailTo = caseData.complianceEmailTo || defaultComplianceEmail(caseData);

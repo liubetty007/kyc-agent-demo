@@ -13,7 +13,7 @@ Read this before making changes in this repository.
 | What | URL |
 |------|-----|
 | **Betty demo (official)** | `https://kyc-agent-frontend-20130272975.asia-east2.run.app` |
-| **Login** | `/login` — authorized emails only (see `KYC_AUTH_PASSWORDS`) |
+| **Login** | `/login` — Identity Platform email/password plus the allowlist in `src/lib/auth/roles.ts` |
 | Local dev | `http://localhost:3000` |
 | Backend API (local) | `http://127.0.0.1:8012` |
 | ~~Alen personal deploy~~ | `https://kyc-agent-frontend-767566934621.asia-east2.run.app` — not Betty's Drive |

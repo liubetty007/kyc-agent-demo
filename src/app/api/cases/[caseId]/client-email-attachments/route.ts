@@ -3,6 +3,10 @@ import { canPerformKycOperations, canSubmitComplianceDecision } from '@/lib/auth
 import { storeClientEmailUpload } from '@/lib/kyb/documentStorage';
 import { getCase } from '@/lib/kyb/storage';
 import { NextResponse } from 'next/server';
+import { EMAIL_ATTACHMENT_TYPES, readValidatedUpload, UploadValidationError } from '@/lib/kyb/uploadSecurity';
+import { safeErrorResponse } from '@/lib/api/errorResponse';
+
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin', 'compliance']);
@@ -22,12 +26,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   }
 
   try {
-    const attachment = await storeClientEmailUpload(caseId, file);
+    const validatedData = await readValidatedUpload(file, EMAIL_ATTACHMENT_TYPES, MAX_UPLOAD_BYTES);
+    const attachment = await storeClientEmailUpload(caseId, file, validatedData);
     return NextResponse.json({ attachment });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Upload failed.' },
-      { status: 502 },
-    );
+    if (error instanceof UploadValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    return safeErrorResponse('Client-email attachment upload failed', error, 'Upload failed.', 502);
   }
 }

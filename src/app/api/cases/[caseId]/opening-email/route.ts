@@ -4,26 +4,12 @@ import { readOpeningEmailAttachment, type OpeningEmailAttachmentRef } from '@/li
 import { hasGmailConfigured, kycMailboxAddress, sendGmailMessage, splitEmailDraft } from '@/lib/kyb/gmail';
 import { generateOpeningEmail } from '@/lib/kyb/openingEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
+import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function apiError(error: unknown, fallback: string) {
-  const raw = error instanceof Error ? error.message : fallback;
-  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
-  if (statusMatch) {
-    const body = statusMatch[2].trim();
-    try {
-      const parsed = JSON.parse(body) as { detail?: string; error?: string };
-      if (parsed.detail) return NextResponse.json({ error: parsed.detail }, { status: Number(statusMatch[1]) });
-      if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: Number(statusMatch[1]) });
-    } catch {
-      if (body && body !== 'Internal Server Error') {
-        return NextResponse.json({ error: body }, { status: Number(statusMatch[1]) });
-      }
-    }
-  }
-  const message = raw || fallback;
-  const status = message.includes('404') ? 404 : message.includes('503') ? 503 : 502;
-  return NextResponse.json({ error: message }, { status });
+  return safeUpstreamErrorResponse('Opening email operation failed', error, fallback);
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -51,7 +37,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       if (!hasGmailConfigured()) return NextResponse.json({ error: 'Gmail is not configured.' }, { status: 503 });
       const draft = caseData.openingEmailDraft || generateOpeningEmail(caseData);
       const parsed = splitEmailDraft(draft, 'KYC Account Opening Documents');
-      const attachments = await Promise.all((body.attachments || []).map((attachment) => readOpeningEmailAttachment(caseId, attachment)));
+      const caseDriveFolderId = await ensureCaseDriveFolder(caseId);
+      const attachments = await Promise.all((body.attachments || []).map(
+        (attachment) => readOpeningEmailAttachment(caseId, attachment, caseDriveFolderId),
+      ));
       const recipients = customerEmailRecipients(caseData);
       const sent = await sendGmailMessage({
         to: recipients,

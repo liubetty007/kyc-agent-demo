@@ -11,27 +11,28 @@ Firebase Authentication, Secret Manager, and Cloud Audit Logs.
 | `liubetty007@gmail.com` | Admin |
 | `liuy00066@gmail.com` | Admin |
 | `alenw0620@gmail.com` | Admin (includes KYC Team access) |
+| `kexin.li@antalpha.com` | Admin |
+| `aaron.pang@antalpha.com` | Admin |
 
 Roles are enforced in `src/lib/auth/roles.ts`. The client can only access a
 case whose `contactEmail` matches the signed-in email.
 
-## Required environment
+## Required environment and secrets
 
 - `GOOGLE_CLOUD_PROJECT`
 - `KYC_DOCUMENT_BUCKET`
-- `FIREBASE_API_KEY`
-- Production default: `LLM_PROVIDER=ollama`,
-  `OLLAMA_BASE_URL=https://kyc-ollama-llm-qam2sdmeuq-df.a.run.app`,
-  `OLLAMA_MODEL=qwen2.5:0.5b`, and `OLLAMA_AUTH_MODE=google_id_token`
-- Optional local development: change `OLLAMA_BASE_URL` to
-  `http://127.0.0.1:11434`
+- `FIREBASE_API_KEY` for email/password sign-in through Firebase
+  Authentication / Identity Platform
+- Production document analysis: `LLM_PROVIDER=newapi`,
+  `NEWAPI_BASE_URL=https://newapi.elevatesphere.com/v1`,
+  `NEWAPI_MODEL=gpustack-minimax-m2.7`, and Secret Manager secret
+  `newapi-api-key` bound as `NEWAPI_API_KEY`
+- PaddleOCR preprocessing: `PADDLEOCR_BASE_URL` for a private service,
+  `PADDLEOCR_AUTH_MODE=google_id_token`, and `PADDLEOCR_REQUIRED=true`
+- Optional local development: use `LLM_PROVIDER=ollama` with
+  `OLLAMA_BASE_URL=http://127.0.0.1:11434`
 - Optional Claude fallback: `ANTHROPIC_API_KEY` through Secret Manager and
   `ANTHROPIC_MODEL` such as `claude-sonnet-4-5`
-- Optional company OpenAI-compatible vision model:
-  `LLM_PROVIDER=newapi`,
-  `NEWAPI_BASE_URL=https://newapi.elevatesphere.com/v1`,
-  `NEWAPI_MODEL=qwen3-vl-235b-a22b-instruct-fp8`, and Secret Manager value
-  `NEWAPI_API_KEY`
 - `GMAIL_CLIENT_ID`
 - `GMAIL_CLIENT_SECRET`
 - `GMAIL_REFRESH_TOKEN`
@@ -44,6 +45,17 @@ case whose `contactEmail` matches the signed-in email.
   bucket-level access enabled.
 - Browser users never receive bucket IAM permissions.
 - Downloads are authorized by the application and use five-minute signed URLs.
+- The browser exchanges a recent, verified Identity Platform ID token for an
+  eight-hour HttpOnly, Secure, SameSite session cookie. The ID token is kept in
+  memory only and is cleared immediately after the exchange.
+- Every protected page and API verifies the Firebase session cookie and the
+  server-side email/role allowlist; middleware cookie checks are not treated as
+  an authorization boundary.
+- Staging uses administrator-provisioned, strong unique passwords without MFA.
+  Enable MFA only after every allowlisted user has a tested enrollment and
+  recovery path.
+- Uploads are size-limited and checked by MIME type, filename extension, and
+  file signature before storage or document parsing.
 - Cloud Run uses a dedicated service account with only Firestore and object
   access required by this application.
 - Real customer documents must not be used until retention, deletion, malware
@@ -57,7 +69,7 @@ case whose `contactEmail` matches the signed-in email.
 - Cloud Run service account:
   `kyc-agent-runner@kyc-agent-staging-20260610.iam.gserviceaccount.com`
 - Idempotent base setup: `scripts/deploy-gcp.sh`
-- Cloud Shell authentication and deployment: `scripts/cloud-shell-finish.sh`
+- Legacy Firebase-compatible Cloud Shell deployment: `scripts/cloud-shell-finish.sh`
 
 Current frontend URL (Betty demo — latest Next.js UI):
 
@@ -65,6 +77,11 @@ Current frontend URL (Betty demo — latest Next.js UI):
 
 Deploy: `bash scripts/deploy-staging.sh` on project `kyc-agent-staging-20260610`.  
 Gmail/Drive OAuth on that service must be **Betty's** refresh token (`liubetty007@gmail.com`) so files use her `KYC文件` Drive. See `config/betty-drive.defaults.json`.
+
+Before the first deployment, enable Email/Password in Identity Platform, create
+a Firebase Web app, and pass its API key as `FIREBASE_API_KEY` to the deployment
+script. Provision only allowlisted users, mark administrator-verified addresses
+as verified, and assign strong unique passwords outside source control.
 
 Note: `https://kyc-agent-frontend-767566934621.asia-east2.run.app` is a separate personal project (`aiasm-497707`) and does **not** use Betty's Drive.
 
@@ -82,8 +99,9 @@ configured. Without those variables it falls back to demo mailbox ingestion.
 
 Required Gmail OAuth scope:
 
-- `https://www.googleapis.com/auth/gmail.modify`
-- `https://www.googleapis.com/auth/drive`
+- `https://www.googleapis.com/auth/gmail.send`
+- `https://www.googleapis.com/auth/gmail.readonly`
+- `https://www.googleapis.com/auth/drive.file`
 
 Recommended setup:
 
@@ -92,22 +110,21 @@ Recommended setup:
    the refresh token in Secret Manager or Cloud Run environment variables.
 3. Set `GMAIL_SENDER_EMAIL` to the mailbox that sends opening/follow-up emails.
 4. Configure one LLM provider:
-   - `LLM_PROVIDER=newapi` with `NEWAPI_API_KEY` for the company
-     OpenAI-compatible Qwen3-VL model.
-   - `LLM_PROVIDER=ollama` for the private Cloud Run Ollama service (the Betty
-     deployment default).
+   - Production: `LLM_PROVIDER=newapi` with `NEWAPI_API_KEY` for the company
+     OpenAI-compatible MiniMax model.
+   - Local development: `LLM_PROVIDER=ollama` for a local Ollama service.
    - `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` for Claude.
 5. Keep KYC Team approval before external sends and document acceptance.
 
-Document analysis conversion:
+Document analysis conversion (full configuration and security boundary:
+`docs/PADDLEOCR_MINIMAX_ANALYSIS.md`):
 
-- Image files (`png`, `jpg`, `jpeg`, `webp`, `gif`, `bmp`) are sent to the
-  vision model as `image_url` data URLs.
+- Image files and PDFs are sent to private PaddleOCR first. Only normalized,
+  length-limited OCR text is sent to MiniMax.
 - PDF, DOCX, XLSX, TXT, CSV, JSON, XML, Markdown, and HTML are converted to
-  article text before analysis.
-- Scanned PDFs without embedded text require OCR/page rendering before the
-  model can read them. The current converter reports this as a conversion
-  warning instead of silently returning a blank analysis.
+  article text before analysis; PDF/image OCR uses the PaddleOCR result.
+- With `PADDLEOCR_REQUIRED=true`, an OCR failure stops MiniMax analysis instead
+  of silently sending the original image or returning an unsupported result.
 
 Ollama note:
 
@@ -126,7 +143,7 @@ Helper scripts:
   `node scripts/reauthorize-google-oauth.mjs`
 - Store secrets and update Cloud Run:
   `./scripts/configure-real-email-secrets.sh`
-- Configure the company NewAPI/Qwen3-VL model for document analysis:
+- Configure the company PaddleOCR/NewAPI MiniMax chain for document analysis:
   `NEWAPI_API_KEY=... ./scripts/configure-newapi-llm.sh`
 
 Inbound Gmail sync:

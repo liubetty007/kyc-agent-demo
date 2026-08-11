@@ -3,11 +3,11 @@ import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
-import { customAuthEnabled, verifyCustomSessionToken } from './custom-session';
+import { rejectCrossSiteRequest } from './request-security';
 import { roleForEmail, type AppRole, type AppUser } from './roles';
+import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from './session-config';
 
-export const SESSION_COOKIE = 'kyc_session';
-export const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+export { SESSION_COOKIE, SESSION_MAX_AGE_MS } from './session-config';
 
 const DEV_USER: AppUser = {
   uid: 'local-dev',
@@ -16,7 +16,12 @@ const DEV_USER: AppUser = {
 };
 
 export function isDevAuthBypass(): boolean {
-  return process.env.KYC_DEV_BYPASS_AUTH === 'true';
+  const requested = process.env.KYC_DEV_BYPASS_AUTH === 'true';
+  if (requested && process.env.NODE_ENV === 'production') {
+    console.error('SECURITY: Ignoring KYC_DEV_BYPASS_AUTH in production.');
+    return false;
+  }
+  return requested;
 }
 
 function adminAuth() {
@@ -26,9 +31,6 @@ function adminAuth() {
 
 export async function verifySessionCookie(value?: string): Promise<AppUser | null> {
   if (!value) return null;
-  const customUser = verifyCustomSessionToken(value);
-  if (customUser) return customUser;
-  if (!process.env.FIREBASE_API_KEY) return null;
   try {
     const decoded = await adminAuth().verifySessionCookie(value, true);
     const email = decoded.email?.toLowerCase();
@@ -54,6 +56,8 @@ export async function requirePageUser(roles?: AppRole[]): Promise<AppUser> {
 }
 
 export async function requireApiUser(request: Request, roles?: AppRole[]): Promise<AppUser | NextResponse> {
+  const crossSiteResponse = rejectCrossSiteRequest(request);
+  if (crossSiteResponse) return crossSiteResponse;
   if (isDevAuthBypass()) {
     if (roles && !roles.includes(DEV_USER.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -66,7 +70,13 @@ export async function requireApiUser(request: Request, roles?: AppRole[]): Promi
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${SESSION_COOKIE}=`))
     ?.slice(SESSION_COOKIE.length + 1);
-  const user = await verifySessionCookie(session ? decodeURIComponent(session) : undefined);
+  let decodedSession: string | undefined;
+  try {
+    decodedSession = session ? decodeURIComponent(session) : undefined;
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const user = await verifySessionCookie(decodedSession);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (roles && !roles.includes(user.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   return user;

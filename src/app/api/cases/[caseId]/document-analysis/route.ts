@@ -6,6 +6,9 @@ import { generateChecklist } from '@/lib/kyb/checklist';
 import { readCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { getCase } from '@/lib/kyb/storage';
 import type { KYCCase, ReceivedDocument } from '@/lib/kyb/types';
+import { ANALYSIS_UPLOAD_TYPES, readValidatedUpload, UploadValidationError } from '@/lib/kyb/uploadSecurity';
+
+const MAX_ANALYSIS_FILES = 10;
 
 function collectFiles(form: FormData): File[] {
   const files = form.getAll('files').filter((item): item is File => item instanceof File);
@@ -30,6 +33,7 @@ function requirementName(caseData: KYCCase, requirementId?: string): string | un
 function failedReadAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unknown): DocumentAnalysis {
   const reason = readableError(error);
   const isGoogleAuth = /google oauth|gmail oauth|invalid_grant|invalid_scope/i.test(reason);
+  console.error(`Document read failed for ${doc.id}: ${isGoogleAuth ? 'Google authorization error' : 'storage read error'}.`);
   return {
     filename: doc.name,
     storageObject: doc.storageObject,
@@ -45,7 +49,7 @@ function failedReadAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unk
     keyPoints: [],
     riskFlags: ['file_read_failed'],
     missingFields: [],
-    issues: [reason],
+    issues: [isGoogleAuth ? 'Storage authorization failed before analysis.' : 'The stored file could not be read.'],
     recommendations: isGoogleAuth
       ? ['Reconnect or refresh the Google Gmail/Drive OAuth token, then run Analyze again.']
       : ['Re-upload this file or check that the stored Drive file still exists and is accessible.'],
@@ -56,7 +60,7 @@ function failedReadAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unk
 }
 
 function failedAnalyzeAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unknown): DocumentAnalysis {
-  const reason = readableError(error);
+  console.error(`Document analysis failed for ${doc.id}: ${error instanceof Error ? error.name : 'unknown error'}.`);
   return {
     filename: doc.name,
     storageObject: doc.storageObject,
@@ -70,7 +74,7 @@ function failedAnalyzeAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: 
     keyPoints: [],
     riskFlags: ['analysis_failed'],
     missingFields: [],
-    issues: [reason],
+    issues: ['Automated analysis failed. Manual review is required.'],
     recommendations: ['Retry Analyze. If this repeats, check the LLM service and document parser logs.'],
     followUpPoints: [],
     severity: 'medium',
@@ -98,12 +102,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const analyses = [];
   if (files.length) {
+    if (files.length > MAX_ANALYSIS_FILES) {
+      return NextResponse.json({ error: `A maximum of ${MAX_ANALYSIS_FILES} files may be analyzed at once.` }, { status: 400 });
+    }
+    if (files.reduce((total, file) => total + file.size, 0) > 40 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Combined analysis uploads exceed the 40 MB limit.' }, { status: 400 });
+    }
     for (const file of files) {
-      if (file.size > 20 * 1024 * 1024) {
-        return NextResponse.json({ error: `${file.name} exceeds the 20 MB limit.` }, { status: 400 });
+      let data: Buffer;
+      try {
+        data = await readValidatedUpload(file, ANALYSIS_UPLOAD_TYPES, 20 * 1024 * 1024);
+      } catch (error) {
+        if (error instanceof UploadValidationError) {
+          return NextResponse.json({ error: `${file.name}: ${error.message}` }, { status: 400 });
+        }
+        throw error;
       }
-
-      const data = Buffer.from(await file.arrayBuffer());
       try {
         const analysis = await analyzeCaseDocument({
           caseData,

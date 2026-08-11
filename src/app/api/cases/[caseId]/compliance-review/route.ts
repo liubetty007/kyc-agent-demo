@@ -7,10 +7,10 @@ import { sendClientThreadEmail } from '@/lib/kyb/sendClientThreadEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import type { ComplianceDecisionOutcome, KYCCase } from '@/lib/kyb/types';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function apiError(error: unknown, fallback: string) {
-  const raw = error instanceof Error ? error.message : fallback;
-  return NextResponse.json({ error: raw || fallback }, { status: 502 });
+  return safeUpstreamErrorResponse('Compliance decision email failed', error, fallback);
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {

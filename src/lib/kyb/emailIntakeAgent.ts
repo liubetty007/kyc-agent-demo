@@ -48,8 +48,8 @@ function normalizeAnalysis(candidate: EmailIntakeAnalysis, fallback: EmailIntake
     keywords: Array.isArray(candidate.keywords) ? candidate.keywords.slice(0, 12) : fallback.keywords,
     entities: candidate.entities || fallback.entities,
     summary: candidate.summary || fallback.summary,
-    suggestedCaseStatus: candidate.suggestedCaseStatus,
-    requiresHumanReview: typeof candidate.requiresHumanReview === 'boolean' ? candidate.requiresHumanReview : confidence < 0.85,
+    suggestedCaseStatus: undefined,
+    requiresHumanReview: true,
     confidence,
     evidence: Array.isArray(candidate.evidence) ? candidate.evidence.slice(0, 8) : fallback.evidence,
     attachments: Array.isArray(candidate.attachments) ? candidate.attachments.map((item, index) => ({

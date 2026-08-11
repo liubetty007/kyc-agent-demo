@@ -16,12 +16,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
   if (document.storageObject.startsWith('drive://')) {
     const fileId = document.storageObject.replace('drive://', '');
     const [metadata, data] = await Promise.all([readMetadataFromDrive(fileId), readCaseDocumentBytes(document.storageObject)]);
+    const filename = (metadata.name || document.name || 'document').replace(/["\r\n]/g, '_');
     return new NextResponse(new Uint8Array(data), {
       headers: {
         'Content-Type': metadata.mimeType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${(metadata.name || document.name || 'document').replace(/"/g, '\\"')}"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'private, no-store',
       },
     });
   }
-  return NextResponse.redirect(await createDocumentDownloadUrl(document.storageObject));
+  const response = NextResponse.redirect(await createDocumentDownloadUrl(document.storageObject));
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
 }

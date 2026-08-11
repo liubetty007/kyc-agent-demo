@@ -15,6 +15,7 @@ import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { getBackendChecklist, isBackendEnabled, listBackendDocuments, sendBackendClientFollowUpEmail } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -97,20 +98,7 @@ async function localFollowUpAttachments(caseId: string, caseData: Awaited<Return
 }
 
 function apiError(error: unknown, fallback: string) {
-  const raw = error instanceof Error ? error.message : fallback;
-  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
-  if (statusMatch) {
-    const body = statusMatch[2].trim();
-    try {
-      const parsed = JSON.parse(body) as { detail?: string };
-      if (parsed.detail) return NextResponse.json({ error: parsed.detail }, { status: Number(statusMatch[1]) });
-    } catch {
-      if (body && body !== 'Internal Server Error') {
-        return NextResponse.json({ error: body }, { status: Number(statusMatch[1]) });
-      }
-    }
-  }
-  return NextResponse.json({ error: raw || fallback }, { status: 502 });
+  return safeUpstreamErrorResponse('Client follow-up email operation failed', error, fallback);
 }
 
 function backendStatus(error: unknown): number | null {
@@ -137,9 +125,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     body = {};
   }
 
-  const draft = body.draft || caseData.emailDraft;
+  const draft = body.draft;
   if (!draft?.trim()) {
-    return NextResponse.json({ error: '请先生成或填写客户邮件草稿。' }, { status: 400 });
+    return NextResponse.json({ error: '发送前必须由操作员确认并提交邮件草稿。' }, { status: 400 });
   }
 
   const attachMissingTemplates = body.attachMissingTemplates !== false;

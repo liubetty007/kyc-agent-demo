@@ -11,19 +11,9 @@ import { storeCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { createCase, getCase, listCases, upsertReceivedDocument } from '@/lib/kyb/storage';
 import type { BusinessType, CaseLanguage, Jurisdiction } from '@/lib/kyb/types';
+import { DOCUMENT_UPLOAD_TYPES, readValidatedUpload, UploadValidationError } from '@/lib/kyb/uploadSecurity';
+import { safeErrorResponse } from '@/lib/api/errorResponse';
 import { NextResponse } from 'next/server';
-
-const ALLOWED_UPLOAD_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-]);
 
 function canCreateCases(role: string): boolean {
   return role === 'kyc' || role === 'admin';
@@ -46,7 +36,9 @@ async function createCaseFromDraft(draft: NonNullable<AssistantSession['createCa
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const user = await requireApiUser(request);
+  if (user instanceof NextResponse) return user;
   return NextResponse.json({
     welcome: '你好，我是 KYC 助手。你可以创建新 Case、查询客户进展，或直接上传补充资料。',
     capabilities: assistantCapabilitiesMessage,
@@ -75,11 +67,12 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'File is required.' }, { status: 400 });
     }
-    if (file.size > 15 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File exceeds the 15 MB limit.' }, { status: 400 });
-    }
-    if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
-      return NextResponse.json({ error: 'Only PDF, Word, Excel, TXT, CSV, JPEG, and PNG files are allowed.' }, { status: 400 });
+    let validatedData: Buffer;
+    try {
+      validatedData = await readValidatedUpload(file, DOCUMENT_UPLOAD_TYPES, 15 * 1024 * 1024);
+    } catch (error) {
+      if (error instanceof UploadValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+      throw error;
     }
 
     const reply = await handleAssistantUpload({
@@ -95,7 +88,7 @@ export async function POST(request: Request) {
           caseId,
           filename: file.name,
           contentType: file.type || 'application/octet-stream',
-          data: Buffer.from(await file.arrayBuffer()),
+          data: validatedData,
           parentFolderId: driveFolderId,
         });
         return upsertReceivedDocument(caseId, {
@@ -151,10 +144,7 @@ export async function POST(request: Request) {
         links: [{ href: `/cases/${created.id}`, label: `进入 ${created.companyName}` }],
       });
     } catch (error) {
-      return NextResponse.json({
-        message: error instanceof Error ? error.message : '创建 Case 失败。',
-        session: { mode: 'create_case', createCaseDraft: draft },
-      }, { status: 500 });
+      return safeErrorResponse('Assistant case creation failed', error, '创建 Case 失败。');
     }
   }
 

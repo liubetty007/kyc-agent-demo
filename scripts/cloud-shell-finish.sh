@@ -6,7 +6,6 @@ REGION="${REGION:-asia-east2}"
 SERVICE="${SERVICE:-kyc-agent-staging}"
 BUCKET="${BUCKET:-kyc-agent-docs-20130272975}"
 SERVICE_ACCOUNT="kyc-agent-runner@${PROJECT_ID}.iam.gserviceaccount.com"
-PASSWORD_FILE="$HOME/kyc-agent-test-passwords.txt"
 
 gcloud config set project "$PROJECT_ID"
 gcloud services enable \
@@ -14,16 +13,11 @@ gcloud services enable \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
   identitytoolkit.googleapis.com \
+  securetoken.googleapis.com \
   apikeys.googleapis.com
 
 ACCESS_TOKEN="$(gcloud auth print-access-token)"
-curl --fail --silent --show-error \
-  -X PATCH \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "X-Goog-User-Project: ${PROJECT_ID}" \
-  -H 'Content-Type: application/json' \
-  "https://identitytoolkit.googleapis.com/admin/v2/projects/${PROJECT_ID}/config?updateMask=signIn.email" \
-  -d '{"signIn":{"email":{"enabled":true,"passwordRequired":true}}}' >/dev/null
+: "${ACCESS_TOKEN:?Unable to obtain a Google Cloud access token}"
 
 KEY_NAME="$(gcloud services api-keys list \
   --filter='displayName=KYC Agent Web Login' \
@@ -34,6 +28,7 @@ if [[ -z "$KEY_NAME" ]]; then
   gcloud services api-keys create \
     --display-name='KYC Agent Web Login' \
     --api-target=service=identitytoolkit.googleapis.com \
+    --api-target=service=securetoken.googleapis.com \
     --quiet >/dev/null
   KEY_NAME="$(gcloud services api-keys list \
     --filter='displayName=KYC Agent Web Login' \
@@ -65,34 +60,9 @@ SERVICE_URL="$(gcloud run services describe "$SERVICE" \
 
 gcloud services api-keys update "$KEY_NAME" \
   --api-target=service=identitytoolkit.googleapis.com \
+  --api-target=service=securetoken.googleapis.com \
   --allowed-referrers="${SERVICE_URL}/*,http://localhost:3000/*" \
   --quiet
 
-create_test_user() {
-  local email="$1"
-  local password
-  password="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)Aa1!"
-  local response
-  response="$(curl --silent --show-error \
-    -X POST \
-    -H 'Content-Type: application/json' \
-    "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}" \
-    -d "{\"email\":\"${email}\",\"password\":\"${password}\",\"returnSecureToken\":false}")"
-  if jq -e '.localId' >/dev/null 2>&1 <<<"$response"; then
-    printf '%s\t%s\n' "$email" "$password" >>"$PASSWORD_FILE"
-  elif jq -e '.error.message == "EMAIL_EXISTS"' >/dev/null 2>&1 <<<"$response"; then
-    printf '%s\t%s\n' "$email" 'EXISTING ACCOUNT - reset password in Identity Platform' >>"$PASSWORD_FILE"
-  else
-    printf 'Failed to create %s: %s\n' "$email" "$response" >&2
-    return 1
-  fi
-}
-
-umask 077
-: >"$PASSWORD_FILE"
-create_test_user 'liuyueanan@icloud.com'
-create_test_user 'liubetty007@gmail.com'
-create_test_user 'liuy00066@gmail.com'
-chmod 600 "$PASSWORD_FILE"
-
-printf '\nDeployment complete.\nURL: %s\nPasswords: %s\n' "$SERVICE_URL" "$PASSWORD_FILE"
+printf '\nDeployment complete.\nURL: %s\n' "$SERVICE_URL"
+printf 'Enable Email/Password in Identity Platform and provision verified allowlisted users with strong unique passwords before login testing.\n'

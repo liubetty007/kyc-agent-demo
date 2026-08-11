@@ -234,6 +234,19 @@ function wrapBase64(input: Buffer): string {
   return input.toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
 }
 
+function safeMailboxHeader(value: string): string {
+  const cleaned = escapeHeaderValue(value);
+  const addresses = cleaned.split(',').map((item) => item.trim()).filter(Boolean);
+  if (!addresses.length || addresses.some((item) => !/^(?:[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+|[^<>\r\n]+\s*<[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>)$/.test(item))) {
+    throw new Error('Invalid email address.');
+  }
+  return addresses.join(', ');
+}
+
+function safeContentType(value?: string): string {
+  return value && /^[\w.+-]+\/[\w.+-]+$/.test(value) ? value : 'application/octet-stream';
+}
+
 function buildRawEmail(input: {
   from: string;
   to: string;
@@ -243,8 +256,8 @@ function buildRawEmail(input: {
 }): Buffer {
   if (!input.attachments?.length) {
     return Buffer.from([
-      `From: ${input.from}`,
-      `To: ${input.to}`,
+      `From: ${safeMailboxHeader(input.from)}`,
+      `To: ${safeMailboxHeader(input.to)}`,
       `Subject: ${encodeMimeHeaderValue(input.subject)}`,
       'MIME-Version: 1.0',
       'Content-Type: text/plain; charset=UTF-8',
@@ -255,8 +268,8 @@ function buildRawEmail(input: {
 
   const boundary = `kyc-agent-${crypto.randomUUID()}`;
   const lines = [
-    `From: ${input.from}`,
-    `To: ${input.to}`,
+    `From: ${safeMailboxHeader(input.from)}`,
+    `To: ${safeMailboxHeader(input.to)}`,
     `Subject: ${encodeMimeHeaderValue(input.subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -271,7 +284,7 @@ function buildRawEmail(input: {
 
   for (const attachment of input.attachments) {
     const filename = escapeHeaderValue(attachment.filename || 'attachment');
-    const contentType = attachment.contentType || 'application/octet-stream';
+    const contentType = safeContentType(attachment.contentType);
     lines.push(
       `--${boundary}`,
       `Content-Type: ${contentType}; name="${filename}"`,

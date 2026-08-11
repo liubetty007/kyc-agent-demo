@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /**
  * End-to-end smoke test against deployed KYC Agent frontend.
- * Usage: node scripts/smoke-demo.mjs [baseUrl] [loginEmail]
+ * Usage: KYC_SMOKE_COOKIE='__Host-kyc_session=...' node scripts/smoke-demo.mjs [baseUrl]
  */
-const BASE = (process.argv[2] || 'https://kyc-agent-frontend-767566934621.asia-east2.run.app').replace(/\/$/, '');
-const LOGIN_EMAIL = process.argv[3] || 'kexin.li@antalpha.com';
-const PASSWORD = '1234';
+const BASE = (process.argv[2] || 'https://kyc-agent-frontend-20130272975.asia-east2.run.app').replace(/\/$/, '');
+const SESSION_COOKIE = process.env.KYC_SMOKE_COOKIE || '';
 
 const steps = [];
-let cookie = '';
+let cookie = SESSION_COOKIE;
 
 function fail(step, detail) {
   steps.push({ step, ok: false, detail });
@@ -27,8 +26,8 @@ async function request(path, init = {}) {
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
   const setCookie = response.headers.getSetCookie?.() || [];
   for (const part of setCookie) {
-    const match = part.match(/kyc_session=([^;]+)/);
-    if (match) cookie = `kyc_session=${match[1]}`;
+    const match = part.match(/((?:__Host-)?kyc_session)=([^;]+)/);
+    if (match) cookie = `${match[1]}=${match[2]}`;
   }
   const text = await response.text();
   let body;
@@ -41,15 +40,19 @@ async function request(path, init = {}) {
 }
 
 async function main() {
-  console.log(`Smoke demo: ${BASE} as ${LOGIN_EMAIL}\n`);
+  console.log(`Smoke demo: ${BASE}\n`);
 
-  let r = await request('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: LOGIN_EMAIL, password: PASSWORD }),
-  });
-  if (!r.response.ok) fail('login', r.body.error || r.response.status);
-  pass('login', LOGIN_EMAIL);
+  let r;
+  if (!SESSION_COOKIE) {
+    r = await request('/login');
+    if (r.response.status !== 200) fail('public login page', `status ${r.response.status}`);
+    pass('public login page');
+    r = await request('/api/cases', { redirect: 'manual' });
+    if (r.response.status !== 401) fail('unauthenticated API boundary', `status ${r.response.status}`);
+    pass('unauthenticated API boundary', '401');
+    console.log('\nPublic security smoke steps passed. Set KYC_SMOKE_COOKIE for authenticated workflow tests.');
+    return;
+  }
 
   r = await request('/', { redirect: 'manual' });
   if (r.response.status !== 200 && r.response.status !== 307) fail('home', `status ${r.response.status}`);

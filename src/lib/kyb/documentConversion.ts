@@ -10,7 +10,7 @@ export type ConvertedDocument = {
   kind: 'image' | 'article';
   filename: string;
   mimeType?: string;
-  extractionMethod: 'image' | 'pdf' | 'docx' | 'xlsx' | 'text' | 'html' | 'binary';
+  extractionMethod: 'image' | 'paddleocr' | 'pdf' | 'docx' | 'xlsx' | 'text' | 'html' | 'binary';
   text: string;
   images: ConvertedDocumentImage[];
   warnings: string[];
@@ -155,7 +155,8 @@ export async function convertDocumentForLlm(input: {
       if (!text) warnings.push('No embedded text was found in this PDF. Scanned PDFs need OCR or page rendering before vision analysis.');
       return { kind: 'article', filename, mimeType, extractionMethod: 'pdf', text, images: [], warnings };
     } catch (error) {
-      warnings.push(error instanceof Error ? error.message : 'PDF text extraction failed.');
+      console.error(`PDF text extraction failed: ${error instanceof Error ? error.name : 'unknown error'}.`);
+      warnings.push('PDF text extraction failed.');
       return { kind: 'article', filename, mimeType, extractionMethod: 'binary', text: '', images: [], warnings };
     }
   }
@@ -167,7 +168,8 @@ export async function convertDocumentForLlm(input: {
     try {
       return { kind: 'article', filename, mimeType, extractionMethod: 'docx', text: await extractDocxText(input.content), images: [], warnings };
     } catch (error) {
-      warnings.push(error instanceof Error ? error.message : 'DOCX text extraction failed.');
+      console.error(`DOCX text extraction failed: ${error instanceof Error ? error.name : 'unknown error'}.`);
+      warnings.push('DOCX text extraction failed.');
       return { kind: 'article', filename, mimeType, extractionMethod: 'binary', text: '', images: [], warnings };
     }
   }
@@ -179,7 +181,8 @@ export async function convertDocumentForLlm(input: {
     try {
       return { kind: 'article', filename, mimeType, extractionMethod: 'xlsx', text: await extractXlsxText(input.content), images: [], warnings };
     } catch (error) {
-      warnings.push(error instanceof Error ? error.message : 'XLSX text extraction failed.');
+      console.error(`XLSX text extraction failed: ${error instanceof Error ? error.name : 'unknown error'}.`);
+      warnings.push('XLSX text extraction failed.');
       return { kind: 'article', filename, mimeType, extractionMethod: 'binary', text: '', images: [], warnings };
     }
   }

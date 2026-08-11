@@ -91,8 +91,8 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
         <span className="small">LLM review for checklist files</span>
       </div>
       <p>
-        对已收到的 checklist 文件做辅助审核（可选，不影响收信识别）。系统会先把 PDF/图片转成文字，再调用云端视觉模型
-        （生产环境通常是 NewAPI Qwen3-VL，不是本地模型）检查字段是否齐全、NDA/BR 是否与标准模板接近。
+        对已收到的 checklist 文件做辅助审核（可选，不影响收信识别）。系统会先调用 PaddleOCR 将 PDF/图片识别为文字，
+        再把受限且经过清洗的 OCR 文本交给公司内部 MiniMax 分析字段完整性、风险提示，以及 NDA/BR 与标准模板的一致性。
         收信后点 <strong>Fetch Client Reply</strong> 即可自动归类；Analyze 只是人工复核辅助，可以跳过。
       </p>
 

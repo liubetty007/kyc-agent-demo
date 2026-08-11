@@ -1,14 +1,8 @@
 import { createCase, listCases } from '@/lib/kyb/storage';
 import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
-import type {
-  BusinessType,
-  CaseLanguage,
-  CustomerType,
-  EntityType,
-  Jurisdiction,
-  RiskRating,
-} from '@/lib/kyb/types';
+import { CaseValidationError, validateNewCaseInput } from '@/lib/kyb/caseValidation';
+import { safeErrorResponse } from '@/lib/api/errorResponse';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -21,30 +15,10 @@ export async function POST(request: Request) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
   try {
-    const body = await request.json();
-    const created = await createCase({
-      companyName: body.companyName,
-      contactEmail: body.contactEmail,
-      jurisdiction: body.jurisdiction as Jurisdiction,
-      usState: body.usState,
-      businessType: body.businessType as BusinessType,
-      sourceOfFunds: body.sourceOfFunds,
-      customerType: (body.customerType as CustomerType) || 'new_customer',
-      entityType: (body.entityType as EntityType) || 'limited_company',
-      riskRating: body.riskRating as RiskRating | undefined,
-      isFinancialInstitution: Boolean(body.isFinancialInstitution),
-      managesClientAssets: Boolean(body.managesClientAssets),
-      isListedEntity: Boolean(body.isListedEntity),
-      isLicensedEntity: Boolean(body.isLicensedEntity),
-      passportCtcProvided: Boolean(body.passportCtcProvided),
-      hasThirdPartyFunding: Boolean(body.hasThirdPartyFunding),
-      legalExceptionApproved: Boolean(body.legalExceptionApproved),
-      needsNsBusiness: Boolean(body.needsNsBusiness),
-      language: (body.language as CaseLanguage) || 'zh',
-    });
+    const created = await createCase(validateNewCaseInput(await request.json()));
     return NextResponse.json(created);
   } catch (error) {
-    console.error('Failed to create case', error);
-    return NextResponse.json({ error: 'Failed to create case' }, { status: 500 });
+    if (error instanceof CaseValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+    return safeErrorResponse('Case creation failed', error, 'Failed to create case');
   }
 }

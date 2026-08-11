@@ -251,9 +251,9 @@ export async function readBytesFromDrive(fileId: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
-export async function readMetadataFromDrive(fileId: string): Promise<{ name?: string; mimeType?: string; size?: string }> {
-  const response = await driveFetch(`/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size`, { method: 'GET' });
-  return response.json() as Promise<{ name?: string; mimeType?: string; size?: string }>;
+export async function readMetadataFromDrive(fileId: string): Promise<{ name?: string; mimeType?: string; size?: string; parents?: string[] }> {
+  const response = await driveFetch(`/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,parents`, { method: 'GET' });
+  return response.json() as Promise<{ name?: string; mimeType?: string; size?: string; parents?: string[] }>;
 }
 
 async function listDriveChildren(parentId: string, mimeFilter: string): Promise<DriveFileSummary[]> {

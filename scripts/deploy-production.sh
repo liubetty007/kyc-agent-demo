@@ -10,20 +10,14 @@ PROJECT_ID="${PROJECT_ID:-aiasm-497707}"
 REGION="${REGION:-asia-east2}"
 SERVICE="${SERVICE:-kyc-agent-frontend}"
 BUCKET="${BUCKET:-kyc-agent-docs-767566934621}"
-DEFAULT_PASSWORD="${KYC_DEFAULT_PASSWORD:-1234}"
-AUTH_USERS="${KYC_AUTH_USERS:-alenw0620@gmail.com,liubetty007@gmail.com,kexin.li@antalpha.com,aaron.pang@antalpha.com}"
-SESSION_SECRET="${KYC_SESSION_SECRET:-$(openssl rand -base64 32)}"
-
-IFS=',' read -r -a USER_ARRAY <<< "$AUTH_USERS"
-AUTH_PASSWORDS=""
-for EMAIL in "${USER_ARRAY[@]}"; do
-  EMAIL="$(echo "$EMAIL" | tr '[:upper:]' '[:lower:]' | xargs)"
-  [[ -z "$EMAIL" ]] && continue
-  if [[ -n "$AUTH_PASSWORDS" ]]; then AUTH_PASSWORDS+=","; fi
-  AUTH_PASSWORDS+="${EMAIL}:${DEFAULT_PASSWORD}"
-done
+FIREBASE_API_KEY="${FIREBASE_API_KEY:-}"
 
 echo "==> Project: $PROJECT_ID | Service: $SERVICE | Region: $REGION"
+
+if [[ -z "$FIREBASE_API_KEY" ]]; then
+  echo "ERROR: FIREBASE_API_KEY is required for Identity Platform password login." >&2
+  exit 1
+fi
 
 gcloud config set project "$PROJECT_ID"
 gcloud services enable \
@@ -32,6 +26,7 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   firestore.googleapis.com \
   storage.googleapis.com \
+  secretmanager.googleapis.com \
   --quiet
 
 if ! gcloud firestore databases describe --database='(default)' --project="$PROJECT_ID" >/dev/null 2>&1; then
@@ -63,14 +58,13 @@ ENV_FILE="$(mktemp)"
 cat >"$ENV_FILE" <<EOF
 GOOGLE_CLOUD_PROJECT: ${PROJECT_ID}
 KYC_DOCUMENT_BUCKET: ${BUCKET}
-KYC_SESSION_SECRET: ${SESSION_SECRET}
-KYC_AUTH_PASSWORDS: ${AUTH_PASSWORDS}
 GMAIL_SENDER_EMAIL: ${GMAIL_SENDER_EMAIL}
 KYC_TEAM_EMAIL: ${KYC_TEAM_EMAIL}
 KYC_DRIVE_ROOT_FOLDER_ID: ${KYC_DRIVE_ROOT_FOLDER_ID}
 KYC_DRIVE_CASES_FOLDER_ID: ${KYC_DRIVE_CASES_FOLDER_ID}
 KYC_DRIVE_TEMPLATES_FOLDER_ID: ${KYC_DRIVE_TEMPLATES_FOLDER_ID}
 KYC_STANDARD_DRIVE_FOLDER_ID: ${KYC_STANDARD_DRIVE_FOLDER_ID}
+FIREBASE_API_KEY: ${FIREBASE_API_KEY}
 NODE_ENV: production
 EOF
 
@@ -92,6 +86,7 @@ gcloud run services update "$SERVICE" \
   --region="$REGION" \
   --env-vars-file="$ENV_FILE" \
   --update-secrets=GMAIL_CLIENT_ID=gmail-client-id:latest,GMAIL_CLIENT_SECRET=gmail-client-secret:latest,GMAIL_REFRESH_TOKEN=gmail-refresh-token:latest \
+  --remove-secrets=KYC_SESSION_SECRET,KYC_AUTH_PASSWORDS_JSON \
   --quiet
 
 rm -f "$ENV_FILE"
@@ -104,5 +99,3 @@ SERVICE_URL="$(gcloud run services describe "$SERVICE" \
 printf '\n✓ Deployment complete\n'
 printf 'URL: %s\n' "$SERVICE_URL"
 printf 'Login: %s/login\n' "$SERVICE_URL"
-printf 'Authorized users: %s\n' "$AUTH_USERS"
-printf 'Password: %s\n' "$DEFAULT_PASSWORD"

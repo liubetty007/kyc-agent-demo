@@ -592,6 +592,8 @@ pre { white-space: pre-wrap; background: #0f172a; color: #eff6ff; padding: 16px;
   padding: 10px 12px;
   font: inherit;
 }
+.google-login-button { width: 100%; margin-top: 18px; }
+.login-security-note { margin: 12px 0 0; }
 .form-error { color: var(--danger); margin: 0; }
 .upload-button { display: inline-flex; }
 .upload-button input { display: none; }

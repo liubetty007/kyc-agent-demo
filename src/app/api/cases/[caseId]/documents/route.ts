@@ -4,8 +4,10 @@ import { requireApiUser } from '@/lib/auth/admin';
 import { canAccessCase } from '@/lib/auth/roles';
 import { storeCaseDocumentBytes } from '@/lib/kyb/documentStorage';
 import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
+import { generateChecklist } from '@/lib/kyb/checklist';
 import { createBackendDocument, isBackendEnabled, reviewBackendDocument } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { DOCUMENT_UPLOAD_TYPES, readValidatedUpload, UploadValidationError } from '@/lib/kyb/uploadSecurity';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -22,27 +24,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const file = form.get('file');
     const requirementId = String(form.get('requirementId') || '');
     if (!(file instanceof File) || !requirementId) return NextResponse.json({ error: 'File and requirement are required.' }, { status: 400 });
-    if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: 'File exceeds the 15 MB limit.' }, { status: 400 });
-    const allowedTypes = new Set([
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain',
-      'text/csv',
-    ]);
-    if (!allowedTypes.has(file.type)) {
-      return NextResponse.json({ error: 'Only PDF, Word, Excel, TXT, CSV, JPEG, and PNG files are allowed.' }, { status: 400 });
+    if (!generateChecklist(caseData).some((item) => item.id === requirementId)) {
+      return NextResponse.json({ error: 'Checklist requirement is invalid for this case.' }, { status: 400 });
+    }
+    let validatedData: Buffer;
+    try {
+      validatedData = await readValidatedUpload(file, DOCUMENT_UPLOAD_TYPES, 15 * 1024 * 1024);
+    } catch (error) {
+      if (error instanceof UploadValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+      throw error;
     }
     const driveFolderId = await ensureCaseDriveFolder(caseId);
     const storageObject = await storeCaseDocumentBytes({
       caseId,
       filename: file.name,
       contentType: file.type || 'application/octet-stream',
-      data: Buffer.from(await file.arrayBuffer()),
+      data: validatedData,
       parentFolderId: driveFolderId,
     });
     const localDoc = {
@@ -70,27 +67,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             note: `Uploaded from checklist item ${requirementId}.`,
           });
         }
-      } catch (error) {
-        console.warn('Backend document sync failed:', error);
+      } catch {
+        console.warn('Backend document sync failed; continuing with local document storage.');
       }
     }
     return NextResponse.json(updated);
   }
   if (user.role === 'client') return NextResponse.json({ error: 'Clients may upload files but cannot change review status.' }, { status: 403 });
-  const body = await request.json();
+  const body = await request.json() as { id?: unknown; requirementId?: unknown; status?: unknown; issueDate?: unknown; notes?: unknown };
+  const id = typeof body.id === 'string' ? body.id : '';
+  const requirementId = typeof body.requirementId === 'string' ? body.requirementId : '';
+  const existing = caseData.receivedDocuments.find((doc) => doc.id === id && doc.requirementId === requirementId);
+  if (!existing) return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+  const allowedStatuses = new Set(['received', 'needs_review', 'accepted', 'invalid']);
+  if (typeof body.status !== 'string' || !allowedStatuses.has(body.status)) {
+    return NextResponse.json({ error: 'Invalid review status.' }, { status: 400 });
+  }
   const updated = await upsertReceivedDocument(caseId, {
-    id: body.id || `${body.requirementId}-${Date.now()}`,
-    requirementId: body.requirementId,
-    name: body.name,
-    status: body.status || 'received',
-    issueDate: body.issueDate || undefined,
-    notes: body.notes || undefined,
-    source: body.source || undefined,
-    fromEmail: body.fromEmail || undefined,
-    emailSubject: body.emailSubject || undefined,
-    receivedAt: body.receivedAt || undefined,
-    confidence: body.confidence || undefined,
-    storageObject: body.storageObject || undefined,
+    ...existing,
+    status: body.status as typeof existing.status,
+    issueDate: typeof body.issueDate === 'string' ? body.issueDate.slice(0, 64) : existing.issueDate,
+    notes: typeof body.notes === 'string' ? body.notes.slice(0, 2000) : existing.notes,
   });
   if (!updated) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
   return NextResponse.json(updated);

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { readResponseError } from '@/lib/http';
 import {
   assistantCapabilitiesMessage,
@@ -24,9 +24,17 @@ type HomeAssistantPanelProps = {
 };
 
 function renderMarkdownLite(text: string) {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br />');
+  const lines = text.split('\n');
+  return lines.map((line, lineIndex) => (
+    <Fragment key={`${lineIndex}-${line}`}>
+      {line.split(/(\*\*.+?\*\*)/g).filter(Boolean).map((part, partIndex) => (
+        part.startsWith('**') && part.endsWith('**')
+          ? <strong key={partIndex}>{part.slice(2, -2)}</strong>
+          : <Fragment key={partIndex}>{part}</Fragment>
+      ))}
+      {lineIndex < lines.length - 1 ? <br /> : null}
+    </Fragment>
+  ));
 }
 
 export function HomeAssistantPanel({ canCreate }: HomeAssistantPanelProps) {
@@ -139,10 +147,7 @@ export function HomeAssistantPanel({ canCreate }: HomeAssistantPanelProps) {
       <div className="home-assistant-messages" aria-live="polite">
         {messages.map((message) => (
           <div key={message.id} className={`home-assistant-message ${message.role}`}>
-            <div
-              className="home-assistant-bubble"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownLite(message.content) }}
-            />
+            <div className="home-assistant-bubble">{renderMarkdownLite(message.content)}</div>
             {message.links?.length ? (
               <div className="home-assistant-links">
                 {message.links.map((link) => (

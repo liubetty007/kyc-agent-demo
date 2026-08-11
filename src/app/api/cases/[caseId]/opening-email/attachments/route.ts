@@ -8,18 +8,10 @@ import {
 import { buildOpeningEmailChecklist } from '@/lib/kyb/openingEmailChecklist';
 import { ensureCaseDriveFolder } from '@/lib/kyb/driveFolders';
 import { NextResponse } from 'next/server';
+import { EMAIL_ATTACHMENT_TYPES, readValidatedUpload, UploadValidationError } from '@/lib/kyb/uploadSecurity';
+import { safeErrorResponse } from '@/lib/api/errorResponse';
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-]);
-
 export async function GET(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
@@ -38,11 +30,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ case
     const checklist = buildOpeningEmailChecklist(caseData, standard);
     return NextResponse.json({ packages, standard, checklist });
   } catch (error) {
+    console.warn('Opening email attachment templates could not be loaded.');
     return NextResponse.json({
       packages: [],
       standard: [],
       checklist: buildOpeningEmailChecklist(caseData, []),
-      warning: error instanceof Error ? error.message : 'Could not load standard attachments.',
+      warning: 'Could not load standard attachments.',
     });
   }
 }
@@ -60,13 +53,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const form = await request.formData();
   const file = form.get('file');
   if (!(file instanceof File)) return NextResponse.json({ error: 'File is required.' }, { status: 400 });
-  if (file.size > MAX_UPLOAD_BYTES) return NextResponse.json({ error: 'File exceeds the 15 MB limit.' }, { status: 400 });
-  if (!ALLOWED_TYPES.has(file.type)) return NextResponse.json({ error: 'Only PDF, Word, Excel, JPEG, and PNG files are allowed.' }, { status: 400 });
+  let validatedData: Buffer;
+  try {
+    validatedData = await readValidatedUpload(file, EMAIL_ATTACHMENT_TYPES, MAX_UPLOAD_BYTES);
+  } catch (error) {
+    if (error instanceof UploadValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
 
   try {
     const driveFolderId = await ensureCaseDriveFolder(caseId);
-    return NextResponse.json({ attachment: await storeOpeningEmailUpload(caseId, file, driveFolderId) });
+    return NextResponse.json({ attachment: await storeOpeningEmailUpload(caseId, file, driveFolderId, validatedData) });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Upload failed.' }, { status: 500 });
+    return safeErrorResponse('Opening-email attachment upload failed', error, 'Upload failed.');
   }
 }

@@ -4,48 +4,28 @@ import { appendMailboxMessage, COMPLIANCE_TEAM_EMAIL } from '@/lib/kyb/mailbox';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { ingestBackendComplianceEmail, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { complianceThreadId, latestComplianceReply } from '@/lib/kyb/caseMailThreads';
-import { statusAfterComplianceDecision } from '@/lib/kyb/complianceReview';
-import { inferComplianceOutcomeFromText, outcomeForAutomaticComplianceHandling } from '@/lib/kyb/complianceOutcome';
 import { analyzeComplianceReplyText } from '@/lib/kyb/complianceReplyAnalysis';
 import { hasGmailConfigured, listCaseGmailMessages } from '@/lib/kyb/gmail';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
 }
 
 function apiError(error: unknown, fallback: string) {
-  const raw = error instanceof Error ? error.message : fallback;
-  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
-  if (statusMatch) {
-    const body = statusMatch[2].trim();
-    try {
-      const parsed = JSON.parse(body) as { detail?: string };
-      if (parsed.detail) return NextResponse.json({ error: parsed.detail }, { status: Number(statusMatch[1]) });
-    } catch {
-      if (body && body !== 'Internal Server Error') {
-        return NextResponse.json({ error: body }, { status: Number(statusMatch[1]) });
-      }
-    }
-  }
-  return NextResponse.json({ error: raw || fallback }, { status: 502 });
+  return safeUpstreamErrorResponse('Compliance email ingestion failed', error, fallback);
 }
 
-function applyComplianceReplyStatus(caseData: Awaited<ReturnType<typeof getCase>>, mailboxMessages: NonNullable<NonNullable<Awaited<ReturnType<typeof getCase>>>['mailboxMessages']>) {
+function analyzeComplianceReply(caseData: Awaited<ReturnType<typeof getCase>>, mailboxMessages: NonNullable<NonNullable<Awaited<ReturnType<typeof getCase>>>['mailboxMessages']>) {
   if (!caseData) return {};
   const reply = latestComplianceReply({ ...caseData, mailboxMessages });
   if (!reply) return {};
-  const outcome = outcomeForAutomaticComplianceHandling(
-    inferComplianceOutcomeFromText(reply.body),
-    reply.body,
-  );
   const complianceReplyAnalysis = analyzeComplianceReplyText(reply.body);
   const riskRating = complianceReplyAnalysis.riskLevel === 'unclear'
     ? caseData.riskRating
     : complianceReplyAnalysis.riskLevel;
-  if (caseData.status === 'approved') return {};
-  if (caseData.status === 'rejected' && outcome === 'rejected') return {};
-  return { status: statusAfterComplianceDecision(outcome), complianceReplyAnalysis, riskRating };
+  return { complianceReplyAnalysis, riskRating };
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -88,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const updated = await updateCase(caseId, {
         complianceGmailThreadId: result.messages[0]?.gmail_thread_id || complianceThreadId(caseData),
         mailboxMessages,
-        ...applyComplianceReplyStatus(caseData, mailboxMessages),
+        ...analyzeComplianceReply(caseData, mailboxMessages),
       });
       return NextResponse.json({ case: updated, imported });
     }
@@ -103,7 +83,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const complianceMessages = messages.filter((message) => {
       const from = message.from.toLowerCase();
       const fromEmail = from.match(/<([^>]+)>/)?.[1]?.toLowerCase() || from;
-      if (!fromEmail.includes('liubetty007')) return false;
+      const allowedComplianceSenders = new Set(
+        (process.env.KYC_COMPLIANCE_EMAILS || COMPLIANCE_TEAM_EMAIL)
+          .split(',').map((email) => email.trim().toLowerCase()).filter(Boolean),
+      );
+      if (!allowedComplianceSenders.has(fromEmail)) return false;
       if (kycSender && fromEmail === kycSender) return false;
       if (threadId && message.threadId !== threadId) return false;
       return !mailboxMessages.some((item) => item.providerMessageId === message.id);
@@ -130,7 +114,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const updated = await updateCase(caseId, {
       complianceGmailThreadId: threadId || complianceMessages[0]?.threadId,
       mailboxMessages,
-      ...applyComplianceReplyStatus(caseData, mailboxMessages),
+      ...analyzeComplianceReply(caseData, mailboxMessages),
     });
     return NextResponse.json({ case: updated, imported });
   } catch (error) {

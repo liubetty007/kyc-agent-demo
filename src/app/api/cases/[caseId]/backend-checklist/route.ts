@@ -4,6 +4,7 @@ import { generateChecklist } from '@/lib/kyb/checklist';
 import { getCase } from '@/lib/kyb/storage';
 import { getBackendChecklist, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { safeErrorResponse } from '@/lib/api/errorResponse';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(_request, ['kyc', 'admin', 'compliance']);
@@ -32,6 +33,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cas
       required_doc_types: generateChecklist(caseData).filter((item) => item.required).map((item) => item.id),
     });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Failed to load checklist.' }, { status: 502 });
+    return safeErrorResponse('Backend checklist loading failed', error, 'Failed to load checklist.', 502);
   }
 }

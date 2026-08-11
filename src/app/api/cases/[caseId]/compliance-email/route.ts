@@ -7,6 +7,7 @@ import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { isBackendEnabled, sendBackendComplianceEmail } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -17,29 +18,15 @@ async function resolveAttachmentNames(caseId: string, caseData: Awaited<ReturnTy
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
     try {
       return await backendAcceptedDocumentNames(caseId);
-    } catch (error) {
-      console.warn('Backend accepted document list unavailable; falling back to local case data.', error);
+    } catch {
+      console.warn('Backend accepted document list unavailable; falling back to local case data.');
     }
   }
   return acceptedDocumentNames(caseData);
 }
 
 function apiError(error: unknown, fallback: string) {
-  const raw = error instanceof Error ? error.message : fallback;
-  const statusMatch = raw.match(/^(\d{3}):\s*([\s\S]*)$/);
-  if (statusMatch) {
-    const body = statusMatch[2].trim();
-    try {
-      const parsed = JSON.parse(body) as { detail?: string; error?: string };
-      if (parsed.detail) return NextResponse.json({ error: parsed.detail }, { status: Number(statusMatch[1]) });
-      if (parsed.error) return NextResponse.json({ error: parsed.error }, { status: Number(statusMatch[1]) });
-    } catch {
-      if (body && body !== 'Internal Server Error') {
-        return NextResponse.json({ error: body }, { status: Number(statusMatch[1]) });
-      }
-    }
-  }
-  return NextResponse.json({ error: raw || fallback }, { status: 502 });
+  return safeUpstreamErrorResponse('Compliance email operation failed', error, fallback);
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -92,8 +79,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             }),
           });
           return NextResponse.json({ ...updated, attachments_sent: sent.attachments_sent });
-        } catch (error) {
-          console.warn('Backend compliance email send unavailable; falling back to local Gmail sender.', error);
+        } catch {
+          console.warn('Backend compliance email send unavailable; falling back to local Gmail sender.');
         }
       }
 
