@@ -133,8 +133,8 @@ export function ComplianceWorkflowPanel({
     setLoading(null);
   }
 
-  async function saveClientDraft() {
-    setLoading('save-client');
+  async function saveClientDraft(mode: 'save-client' | 'send-client' = 'save-client'): Promise<boolean> {
+    setLoading(mode);
     setError('');
     const response = await fetch(`/api/cases/${caseData.id}`, {
       method: 'PATCH',
@@ -144,9 +144,10 @@ export function ComplianceWorkflowPanel({
     if (!response.ok) {
       setError(await readResponseError(response, '保存失败'));
       setLoading(null);
-      return;
+      return false;
     }
-    setLoading(null);
+    if (mode === 'save-client') setLoading(null);
+    return true;
   }
 
   async function uploadClientAttachment(file?: File) {
@@ -167,9 +168,8 @@ export function ComplianceWorkflowPanel({
   }
 
   async function sendClientEmail() {
-    setLoading('send-client');
     setError('');
-    await saveClientDraft();
+    if (!await saveClientDraft('send-client')) return;
     const response = await fetch(`/api/cases/${caseData.id}/client-email-send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -371,7 +371,7 @@ export function ComplianceWorkflowPanel({
               </div>
               {clientDraft && (
                 <div className="actions">
-                  <button className="button" type="button" disabled={Boolean(loading)} onClick={saveClientDraft}>
+                  <button className="button" type="button" disabled={Boolean(loading)} onClick={() => void saveClientDraft()}>
                     {loading === 'save-client' ? '保存中…' : '保存草稿'}
                   </button>
                   <button className="button primary" type="button" disabled={Boolean(loading)} onClick={sendClientEmail}>

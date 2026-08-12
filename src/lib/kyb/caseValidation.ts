@@ -114,7 +114,8 @@ export function validateCasePatch(value: unknown): Partial<KYCCase> {
   const body = record(value);
   const allowedFields = new Set([
     'companyName', 'contactEmail', 'jurisdiction', 'usState', 'businessType', 'sourceOfFunds',
-    'customerType', 'entityType', 'riskRating', 'individuals', 'language', ...BOOLEAN_FIELDS,
+    'customerType', 'entityType', 'riskRating', 'individuals', 'language',
+    'emailDraft', 'openingEmailDraft', ...BOOLEAN_FIELDS,
   ]);
   const unknownFields = Object.keys(body).filter((field) => !allowedFields.has(field));
   if (unknownFields.length) throw new CaseValidationError('Request contains fields that cannot be changed through this endpoint.');
@@ -132,6 +133,8 @@ export function validateCasePatch(value: unknown): Partial<KYCCase> {
   if ('riskRating' in body) patch.riskRating = enumValue(body.riskRating, 'riskRating', RISK_RATINGS);
   if ('language' in body) patch.language = enumValue(body.language, 'language', LANGUAGES, true)!;
   if ('individuals' in body) patch.individuals = individuals(body.individuals)!;
+  if ('emailDraft' in body) patch.emailDraft = text(body.emailDraft, 'emailDraft', 100_000);
+  if ('openingEmailDraft' in body) patch.openingEmailDraft = text(body.openingEmailDraft, 'openingEmailDraft', 100_000);
   for (const field of BOOLEAN_FIELDS) {
     if (field in body) {
       if (typeof body[field] !== 'boolean') throw new CaseValidationError(`${field} must be boolean.`);

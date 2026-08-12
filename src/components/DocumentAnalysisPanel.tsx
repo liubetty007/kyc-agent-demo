@@ -7,6 +7,7 @@ import type { KYCCase } from '@/lib/kyb/types';
 type AnalyzeResponse = {
   provider: string;
   analyses: DocumentAnalysis[];
+  warning?: string;
 };
 
 function formatConfidence(value: number): string {
@@ -74,13 +75,14 @@ export function DocumentAnalysisPanel({ caseData }: { caseData: KYCCase }) {
     for (const doc of checklistFiles) form.append('documentIds', doc.id);
     const response = await fetch(`/api/cases/${caseData.id}/document-analysis`, { method: 'POST', body: form });
     const data = (await response.json().catch(() => ({}))) as Partial<AnalyzeResponse> & { error?: string };
+    setAnalyses(data.analyses || []);
+    setProvider(data.provider || '');
     if (!response.ok) {
       setError(data.error || 'Analysis failed.');
       setLoading(false);
       return;
     }
-    setAnalyses(data.analyses || []);
-    setProvider(data.provider || '');
+    if (data.warning) setError(data.warning);
     setLoading(false);
   }
 

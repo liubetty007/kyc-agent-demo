@@ -15,8 +15,8 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
   const threadId = openingThreadId(caseData);
   const canReply = Boolean(caseData.openingEmailSentAt || threadId);
 
-  async function saveDraft() {
-    setLoading('save');
+  async function saveDraft(mode: 'save' | 'send' = 'save'): Promise<boolean> {
+    setLoading(mode);
     setSaved(false);
     setError('');
     const response = await fetch(`/api/cases/${caseData.id}`, {
@@ -27,10 +27,11 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
     if (!response.ok) {
       setError(await readResponseError(response, '保存失败'));
       setLoading(null);
-      return;
+      return false;
     }
     setSaved(true);
-    setLoading(null);
+    if (mode === 'save') setLoading(null);
+    return true;
   }
 
   async function regenerateDraft() {
@@ -57,9 +58,8 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
       return;
     }
 
-    setLoading('send');
     setError('');
-    await saveDraft();
+    if (!await saveDraft('send')) return;
     const response = await fetch(`/api/cases/${caseData.id}/client-email-send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -112,7 +112,7 @@ export function ClientFollowUpEmailPanel({ caseData, readOnly = false }: { caseD
           <button className="button primary" type="button" disabled={Boolean(loading)} onClick={regenerateDraft}>
             {loading === 'generate' ? '生成中…' : '生成补充文件邮件'}
           </button>
-          <button className="button" type="button" disabled={Boolean(loading)} onClick={saveDraft}>
+          <button className="button" type="button" disabled={Boolean(loading)} onClick={() => void saveDraft()}>
             {loading === 'save' ? 'Saving…' : 'Save Draft'}
           </button>
           <button className="button primary" type="button" disabled={Boolean(loading) || !draft.trim() || !canReply} onClick={replyInThread}>

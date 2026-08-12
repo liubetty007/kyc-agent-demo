@@ -25,7 +25,16 @@ export function safeErrorResponse(
 
 export function safeUpstreamErrorResponse(context: string, error: unknown, publicMessage: string): NextResponse {
   const raw = error instanceof Error ? error.message : '';
+  const isGoogleTokenExpired = /invalid_grant|token has been expired or revoked/i.test(raw);
+  const isGoogleScopeError = /invalid_scope|insufficient.*scope/i.test(raw);
   const parsedStatus = Number(raw.match(/^(\d{3}):/)?.[1] || 0);
-  const status = parsedStatus >= 400 && parsedStatus < 500 ? parsedStatus : 502;
-  return safeErrorResponse(context, error, publicMessage, status);
+  const status = isGoogleTokenExpired || isGoogleScopeError
+    ? 503
+    : parsedStatus >= 400 && parsedStatus < 500 ? parsedStatus : 502;
+  const safePublicMessage = isGoogleTokenExpired
+    ? 'Google Gmail/Drive authorization has expired or was revoked. Please ask an administrator to reconnect Betty’s Google account, then retry.'
+    : isGoogleScopeError
+      ? 'Google Gmail/Drive authorization is missing required permissions. Please ask an administrator to reconnect Betty’s Google account with Gmail and Drive access, then retry.'
+      : publicMessage;
+  return safeErrorResponse(context, error, safePublicMessage, status);
 }

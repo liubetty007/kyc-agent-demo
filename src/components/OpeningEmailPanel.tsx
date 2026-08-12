@@ -158,16 +158,22 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
     setLoading(null);
   }
 
-  async function save() {
-    setLoading('save');
+  async function save(mode: 'save' | 'real-send' = 'save'): Promise<boolean> {
+    setLoading(mode);
     setSaved(false);
-    await fetch(`/api/cases/${caseData.id}`, {
+    const response = await fetch(`/api/cases/${caseData.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ openingEmailDraft: draft }),
     });
+    if (!response.ok) {
+      alert(await readResponseError(response, '保存失败'));
+      setLoading(null);
+      return false;
+    }
     setSaved(true);
-    setLoading(null);
+    if (mode === 'save') setLoading(null);
+    return true;
   }
 
   async function realSend() {
@@ -175,9 +181,8 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
       return;
     }
 
-    setLoading('real-send');
     setSendNotice('');
-    await save();
+    if (!await save('real-send')) return;
     const response = await fetch(`/api/cases/${caseData.id}/opening-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -338,7 +343,7 @@ export function OpeningEmailPanel({ caseData, readOnly = false }: { caseData: KY
             <button className="button" disabled={Boolean(loading)} onClick={generate}>
               {loading === 'generate' ? 'Regenerating…' : 'Regenerate from Template'}
             </button>
-            <button className="button" disabled={Boolean(loading)} onClick={save}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
+            <button className="button" disabled={Boolean(loading)} onClick={() => void save()}>{loading === 'save' ? 'Saving…' : 'Save Draft'}</button>
             <button className="button primary" disabled={Boolean(loading)} onClick={realSend}>{loading === 'real-send' ? 'Sending Gmail…' : 'Send via Gmail'}</button>
             {saved && <span className="small">Saved.</span>}
             {sendNotice && <span className="small">{sendNotice}</span>}

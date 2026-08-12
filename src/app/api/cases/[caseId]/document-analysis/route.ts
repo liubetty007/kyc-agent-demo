@@ -47,7 +47,7 @@ function failedReadAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: unk
     confidence: 0,
     templateMatchApplicable: false,
     keyPoints: [],
-    riskFlags: ['file_read_failed'],
+    riskFlags: ['file_read_failed', ...(isGoogleAuth ? ['google_oauth_failed'] : [])],
     missingFields: [],
     issues: [isGoogleAuth ? 'Storage authorization failed before analysis.' : 'The stored file could not be read.'],
     recommendations: isGoogleAuth
@@ -80,6 +80,26 @@ function failedAnalyzeAnalysis(caseData: KYCCase, doc: ReceivedDocument, error: 
     severity: 'medium',
     requiresHumanReview: true,
   };
+}
+
+function analysisResponse(analyses: DocumentAnalysis[]) {
+  const failures = analyses.filter((analysis) => ['unreadable', 'analysis_failed'].includes(analysis.extractionMethod));
+  const provider = llmProviderLabel();
+  if (!failures.length) return NextResponse.json({ provider, analyses });
+
+  const googleAuthorizationFailed = failures.some((analysis) => analysis.riskFlags.includes('google_oauth_failed'));
+  const error = googleAuthorizationFailed
+    ? 'Google Gmail/Drive authorization has expired or is missing required permissions. No unreadable file was sent to PaddleOCR or the LLM. Please reconnect Betty’s Google account and retry Analyze.'
+    : 'One or more files could not be read or analyzed. Review the failed rows and retry before relying on the analysis.';
+
+  if (failures.length === analyses.length) {
+    return NextResponse.json({ provider, analyses, error }, { status: googleAuthorizationFailed ? 503 : 502 });
+  }
+  return NextResponse.json({
+    provider,
+    analyses,
+    warning: `${failures.length} of ${analyses.length} files failed analysis.`,
+  }, { status: 207 });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -137,10 +157,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         analyses.push(failedAnalyzeAnalysis(caseData, syntheticDoc, error));
       }
     }
-    return NextResponse.json({
-      provider: llmProviderLabel(),
-      analyses,
-    });
+    return analysisResponse(analyses);
   }
 
   const receivedDocuments = (requestedDocumentIds.length
@@ -178,8 +195,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     }
   }
 
-  return NextResponse.json({
-    provider: llmProviderLabel(),
-    analyses,
-  });
+  return analysisResponse(analyses);
 }
