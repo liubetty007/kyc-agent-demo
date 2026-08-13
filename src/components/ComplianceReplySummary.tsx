@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { latestComplianceReply } from '@/lib/kyb/caseMailThreads';
 import { complianceReplyExcerpt } from '@/lib/kyb/complianceReplyText';
 import { COMPLIANCE_OUTCOME_LABELS } from '@/lib/kyb/complianceReview';
 import type { KYCCase } from '@/lib/kyb/types';
+import { currentComplianceRound, feedbackAfterCurrentSubmission } from '@/lib/kyb/complianceWorkflow';
 
 const RISK_LABELS = {
   low: '低风险',
@@ -12,11 +12,12 @@ const RISK_LABELS = {
 } as const;
 
 export function ComplianceReplySummary({ caseData }: { caseData: KYCCase }) {
-  const reply = latestComplianceReply(caseData);
-  const started = Boolean(caseData.complianceSubmittedAt || caseData.complianceEmailSentAt || reply);
+  const round = currentComplianceRound(caseData);
+  const feedback = feedbackAfterCurrentSubmission(caseData);
+  const started = Boolean(round || caseData.complianceSubmittedAt || caseData.complianceEmailSentAt);
   if (!started) return null;
 
-  const excerpt = reply ? complianceReplyExcerpt(reply.body) : '';
+  const excerpt = feedback ? complianceReplyExcerpt(feedback.note) : '';
   const analysis = caseData.complianceReplyAnalysis;
 
   return (
@@ -25,10 +26,10 @@ export function ComplianceReplySummary({ caseData }: { caseData: KYCCase }) {
         <h2>合规回复</h2>
         <Link className="small" href={`/cases/${caseData.id}/compliance`}>查看详情 →</Link>
       </div>
-      {reply && excerpt ? (
+      {feedback && excerpt ? (
         <>
           <p className="small">
-            {reply.from} · {new Date(reply.createdAt).toLocaleString()}
+            第 {round?.round || 1} 轮 · {feedback.from} · {new Date(feedback.at).toLocaleString()}
           </p>
           {analysis && (
             <div className="compliance-reply-result">
@@ -44,7 +45,7 @@ export function ComplianceReplySummary({ caseData }: { caseData: KYCCase }) {
           <p className="compliance-history-note">{excerpt}</p>
         </>
       ) : (
-        <p className="small">等待合规回复</p>
+        <p className="small">等待第 {round?.round || 1} 轮合规回复</p>
       )}
     </div>
   );

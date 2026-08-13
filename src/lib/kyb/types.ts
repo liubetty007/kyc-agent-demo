@@ -64,6 +64,7 @@ export type ComplianceDecision = {
   note: string;
   reviewerEmail: string;
   decidedAt: string;
+  round?: number;
 };
 
 export type ComplianceReplyAnalysis = {
@@ -81,6 +82,19 @@ export type ComplianceSubmitSnapshot = {
   received_doc_types: string[];
   submittedBy: string;
   submittedAt: string;
+};
+
+export type ComplianceReviewRound = {
+  round: number;
+  status: 'draft' | 'sent' | 'changes_requested' | 'approved' | 'rejected';
+  submittedBy: string;
+  submittedAt: string;
+  emailSentAt?: string;
+  feedbackAt?: string;
+  feedbackOutcome?: ComplianceDecisionOutcome | 'unclear';
+  clientFollowUpSentAt?: string;
+  attachmentNames: string[];
+  snapshot: ComplianceSubmitSnapshot;
 };
 
 export type DocumentRequirement = {
@@ -207,6 +221,11 @@ export type KYCCase = {
   complianceGmailThreadId?: string;
   complianceSubmittedAt?: string;
   complianceSubmitSnapshot?: ComplianceSubmitSnapshot;
+  complianceRound?: number;
+  complianceReviewRounds?: ComplianceReviewRound[];
+  clientFollowUpSentAt?: string;
+  clientApprovalEmailSentAt?: string;
+  clientApprovalEmailError?: string;
   complianceReplyAnalysis?: ComplianceReplyAnalysis;
   complianceDecisions?: ComplianceDecision[];
   mailboxMessages?: MailboxMessage[];

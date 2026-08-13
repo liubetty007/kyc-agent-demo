@@ -8,6 +8,7 @@ import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import { getBackendChecklist, isBackendEnabled } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
+import { prepareComplianceRound, resubmissionBlockers } from '@/lib/kyb/complianceWorkflow';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -41,8 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     checklistSnapshot = localChecklistSnapshot(caseData);
   }
 
-  const review = caseData.review || runReview(caseData);
-  const compliancePack = caseData.compliancePack || generateCompliancePack(caseData, review);
+  const review = runReview(caseData);
   let attachmentNames = acceptedDocumentNames(caseData);
   if (isBackendEnabled() && isBackendCaseId(caseId)) {
     try {
@@ -51,22 +51,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       console.warn('Backend accepted document list unavailable; falling back to local case data.');
     }
   }
-  const complianceEmailTo = caseData.complianceEmailTo || defaultComplianceEmail(caseData);
-  const complianceEmailDraft = caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, complianceEmailTo);
   const submittedAt = new Date().toISOString();
+  const complianceSubmitSnapshot = {
+    ...checklistSnapshot,
+    submittedBy: user.email,
+    submittedAt,
+  };
+  const blockers = resubmissionBlockers(caseData, complianceSubmitSnapshot);
+  if (blockers.length) {
+    return NextResponse.json({ error: blockers.join('\n'), blockers }, { status: 409 });
+  }
+
+  const prepared = prepareComplianceRound({
+    caseData,
+    snapshot: complianceSubmitSnapshot,
+    attachmentNames,
+    submittedBy: user.email,
+    submittedAt,
+  });
+  const complianceEmailTo = caseData.complianceEmailTo || defaultComplianceEmail(caseData);
+  const compliancePack = generateCompliancePack(caseData, review);
+  const complianceEmailDraft = generateComplianceEmail(caseData, review, attachmentNames, complianceEmailTo, prepared.round);
 
   const updated = await updateCase(caseId, {
     review,
     compliancePack,
     complianceEmailDraft,
     complianceEmailTo,
+    complianceEmailSentAt: undefined,
     status: 'compliance_review',
     complianceSubmittedAt: submittedAt,
-    complianceSubmitSnapshot: {
-      ...checklistSnapshot,
-      submittedBy: user.email,
-      submittedAt,
-    },
+    complianceSubmitSnapshot,
+    complianceRound: prepared.round,
+    complianceReviewRounds: prepared.rounds,
+    complianceReplyAnalysis: undefined,
   });
 
   return NextResponse.json({

@@ -10,6 +10,13 @@ import type { ClientEmailAttachmentRef } from '@/lib/kyb/documentStorage';
 import { splitEmailDraft } from '@/lib/kyb/gmail';
 import { defaultComplianceEmail } from '@/lib/kyb/mailbox';
 import type { KYCCase } from '@/lib/kyb/types';
+import type { ComplianceDecisionOutcome } from '@/lib/kyb/types';
+import {
+  complianceNeedsClientAction,
+  currentComplianceRound,
+  feedbackAfterCurrentSubmission,
+  hasClientMaterialAfterFollowUp,
+} from '@/lib/kyb/complianceWorkflow';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -48,13 +55,26 @@ export function ComplianceWorkflowPanel({
   const [clientUploads, setClientUploads] = useState<ClientEmailAttachmentRef[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [decisionOutcome, setDecisionOutcome] = useState<ComplianceDecisionOutcome>('request_more_info');
+  const [decisionNote, setDecisionNote] = useState('');
 
   const replies = complianceReplyMessages(caseData);
   const canSubmit = canSubmitCaseToCompliance(caseData.status);
-  const started = Boolean(caseData.complianceSubmittedAt || complianceDraft);
+  const currentRound = currentComplianceRound(caseData);
+  const currentFeedback = feedbackAfterCurrentSubmission(caseData);
+  const started = Boolean(currentRound || complianceDraft);
   const decided = caseData.status === 'approved' || caseData.status === 'rejected';
-  const canShowDecision = canDecide && Boolean(caseData.complianceEmailSentAt) && !decided;
-  const canManageClientEmail = (kycCanOperate || canDecide) && replies.length > 0 && !decided;
+  const roundDraftReady = currentRound?.status === 'draft';
+  const roundSent = currentRound?.status === 'sent' && Boolean(currentRound.emailSentAt);
+  const needsClientAction = complianceNeedsClientAction(caseData);
+  const canShowDecision = canDecide && roundSent && !decided;
+  const canManageClientEmail = kycCanOperate && needsClientAction && !decided;
+  const clientFollowUpSent = Boolean(
+    currentRound?.clientFollowUpSentAt
+      && currentFeedback
+      && new Date(currentRound.clientFollowUpSentAt).getTime() >= new Date(currentFeedback.at).getTime(),
+  );
+  const newClientMaterial = hasClientMaterialAfterFollowUp(caseData);
 
   useEffect(() => {
     if (!started) return;
@@ -187,18 +207,25 @@ export function ComplianceWorkflowPanel({
     window.location.reload();
   }
 
-  async function approveCase() {
+  async function submitComplianceDecision() {
+    if (!decisionNote.trim()) {
+      setError('请填写本轮合规反馈，KYC 将据此跟进客户或记录最终结论。');
+      return;
+    }
+    const finalOutcome = decisionOutcome === 'approved' || decisionOutcome === 'rejected';
     const confirmed = window.confirm(
-      '确认通过该案件？\n\n点击「确定」后，系统将自动在开户邮件线程中向客户发送 KYC 已通过 / 开户成功的通知邮件。此操作不可撤销。',
+      finalOutcome
+        ? `确认提交“${COMPLIANCE_OUTCOME_LABELS[decisionOutcome]}”作为最终结论？${decisionOutcome === 'approved' ? '\n通过后 Case 将结案，并尝试在原线程通知客户。' : '\n拒绝后 Case 将作为最终拒绝关闭。'}`
+        : `确认将第 ${currentRound?.round || 1} 轮退回 KYC：${COMPLIANCE_OUTCOME_LABELS[decisionOutcome]}？`,
     );
     if (!confirmed) return;
 
-    setLoading('approved');
+    setLoading('decision');
     setError('');
     const response = await fetch(`/api/cases/${caseData.id}/compliance-review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcome: 'approved' }),
+      body: JSON.stringify({ outcome: decisionOutcome, note: decisionNote }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -206,26 +233,8 @@ export function ComplianceWorkflowPanel({
       setLoading(null);
       return;
     }
-    window.location.reload();
-  }
-
-  async function rejectCase() {
-    const confirmed = window.confirm('确认不通过该案件？');
-    if (!confirmed) return;
-
-    setLoading('rejected');
-    setError('');
-    const response = await fetch(`/api/cases/${caseData.id}/compliance-review`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcome: 'rejected' }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.error || '操作失败');
-      setLoading(null);
-      return;
-    }
+    const data = await response.json().catch(() => ({}));
+    if (data.clientEmailError) alert(data.clientEmailError);
     window.location.reload();
   }
 
@@ -233,12 +242,32 @@ export function ComplianceWorkflowPanel({
     <div className="card compliance-workflow-card">
       <h2>合规</h2>
 
-      {decided && (
+      {!decided && currentRound && (
         <p className="small">
-          <span className={`badge ${caseData.status === 'approved' ? 'accepted' : 'prohibited'}`}>
-            {caseData.status === 'approved' ? '已通过 — 开户成功邮件已发送给客户' : '已拒绝'}
-          </span>
+          <span className="badge medium">当前第 {currentRound.round} 轮</span>{' '}
+          {roundDraftReady
+            ? 'KYC 已生成送审草稿，待发送。'
+            : roundSent
+              ? '材料已发送合规，等待本轮审批。'
+              : needsClientAction
+                ? '合规已要求补件，待 KYC 跟进客户并重新送审。'
+                : '本轮合规反馈已记录。'}
         </p>
+      )}
+
+      {decided && (
+        <>
+          <p className="small">
+            <span className={`badge ${caseData.status === 'approved' ? 'accepted' : 'prohibited'}`}>
+              {caseData.status === 'approved'
+                ? caseData.clientApprovalEmailSentAt
+                  ? '已通过 — 开户成功邮件已发送给客户'
+                  : '已通过 — 客户通知待人工补发'
+                : '已拒绝'}
+            </span>
+          </p>
+          {caseData.clientApprovalEmailError && <p className="form-error">{caseData.clientApprovalEmailError}</p>}
+        </>
       )}
 
       {kycCanOperate && !started && canSubmit && (
@@ -251,13 +280,11 @@ export function ComplianceWorkflowPanel({
 
       {started && (
         <>
-          {kycCanOperate && (
+          {kycCanOperate && roundDraftReady && (
             <section className="workflow-section workflow-section-tight">
               <div className="card-heading">
                 <h3>发给合规的邮件</h3>
-                {caseData.complianceEmailSentAt && (
-                  <span className="badge accepted small">已发送</span>
-                )}
+                <span className="badge medium small">第 {currentRound?.round || 1} 轮待发送</span>
               </div>
 
               <label className="small" style={{ display: 'block', marginBottom: 12 }}>
@@ -284,11 +311,6 @@ export function ComplianceWorkflowPanel({
                 onChange={(event) => setComplianceDraft(event.target.value)}
               />
               <div className="actions">
-                {!caseData.complianceSubmittedAt && canSubmit && (
-                  <button className="button" type="button" disabled={Boolean(loading)} onClick={submitToCompliance}>
-                    重新生成草稿
-                  </button>
-                )}
                 <button className="button primary" type="button" disabled={Boolean(loading) || !complianceTo.trim()} onClick={sendComplianceEmail}>
                   {loading === 'send-compliance' ? '发送中…' : '发送给合规'}
                 </button>
@@ -296,10 +318,10 @@ export function ComplianceWorkflowPanel({
             </section>
           )}
 
-          <section className="workflow-section workflow-section-tight">
+          {(roundSent || currentFeedback || replies.length > 0) && <section className="workflow-section workflow-section-tight">
             <div className="card-heading">
               <h3>合规回复</h3>
-              {(kycCanOperate || canDecide) && caseData.complianceEmailSentAt && (
+              {(kycCanOperate || canDecide) && roundSent && (
                 <button className="button" type="button" disabled={Boolean(loading)} onClick={fetchComplianceReply}>
                   {loading === 'ingest' ? '抓取中…' : '抓取回复'}
                 </button>
@@ -328,9 +350,9 @@ export function ComplianceWorkflowPanel({
                 </article>
               ))
             ) : (
-              <p className="small">暂无回复。可在 Gmail 中查看合规回复后，点击下方按钮确认审批结果。</p>
+              <p className="small">暂无本轮邮件回复。合规人员也可以在下方直接提交本轮审批反馈。</p>
             )}
-          </section>
+          </section>}
 
           {canManageClientEmail && (
             <section className="workflow-section workflow-section-tight">
@@ -340,7 +362,7 @@ export function ComplianceWorkflowPanel({
                   {loading === 'client-draft' ? '生成中…' : '根据合规回复生成草稿'}
                 </button>
               </div>
-              <p className="small">仅根据合规回复内容生成，不包含客户已提交/缺失清单。可编辑正文，并可上传附件后发送。</p>
+              <p className="small">KYC 根据当前一轮合规意见整理所需材料，人工确认后在原客户邮件线程发送。</p>
               {clientDraft && (
                 <p className="small">
                   <strong>Subject:</strong> {splitEmailDraft(clientDraft, openingEmailSubject(caseData)).subject}
@@ -382,18 +404,57 @@ export function ComplianceWorkflowPanel({
             </section>
           )}
 
+          {kycCanOperate && needsClientAction && clientFollowUpSent && !newClientMaterial && (
+            <section className="workflow-section workflow-section-tight">
+              <h3>等待客户补件</h3>
+              <p className="small">补件邮件已发送。收到客户新材料后，请先抓取邮件、检查文件并将合格材料标记为 Accept。</p>
+            </section>
+          )}
+
+          {kycCanOperate && needsClientAction && clientFollowUpSent && newClientMaterial && (
+            <section className="workflow-section workflow-section-tight">
+              <h3>重新提交合规</h3>
+              <p className="small">已检测到补件邮件后的客户材料。确认所有必需文件已 Accept 后，生成下一轮合规包；系统会阻止缺件或待审材料被重新送审。</p>
+              <div className="actions">
+                <button className="button primary" type="button" disabled={Boolean(loading)} onClick={submitToCompliance}>
+                  {loading === 'submit' ? '检查并生成中…' : `生成第 ${(currentRound?.round || 0) + 1} 轮合规草稿`}
+                </button>
+              </div>
+            </section>
+          )}
+
           {canShowDecision && (
             <section className="workflow-section workflow-section-tight compliance-decision-section">
-              <h3>合规审批</h3>
+              <h3>第 {currentRound?.round || 1} 轮合规审批</h3>
               <p className="small">
-                审阅合规邮件回复后，请手动确认结果。点击「通过」将<strong>自动</strong>向客户发送开户成功通知（原开户邮件线程），无需再编辑草稿。
+                反馈将回到 KYC 工作台。选择补件或 EDD 后，必须由 KYC 跟进客户并创建新一轮送审；只有最终“通过”才会正常结案。
               </p>
+              <div className="compliance-outcome-grid">
+                {(['request_more_info', 'edd_required', 'approved', 'rejected'] as ComplianceDecisionOutcome[]).map((outcome) => (
+                  <label key={outcome} className={`compliance-outcome${decisionOutcome === outcome ? ' selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="compliance-decision"
+                      value={outcome}
+                      checked={decisionOutcome === outcome}
+                      onChange={() => setDecisionOutcome(outcome)}
+                    />
+                    <span>{COMPLIANCE_OUTCOME_LABELS[outcome]}</span>
+                  </label>
+                ))}
+              </div>
+              <label className="compliance-note-label">
+                本轮合规反馈
+                <textarea
+                  className="compliance-note-input"
+                  value={decisionNote}
+                  onChange={(event) => setDecisionNote(event.target.value)}
+                  placeholder="请明确列出所需材料、EDD 要求、通过依据或拒绝原因。该内容将提供给 KYC 整理对客邮件。"
+                />
+              </label>
               <div className="actions">
-                <button className="button primary" type="button" disabled={Boolean(loading)} onClick={approveCase}>
-                  {loading === 'approved' ? '处理中…' : '通过'}
-                </button>
-                <button className="button" type="button" disabled={Boolean(loading)} onClick={rejectCase}>
-                  {loading === 'rejected' ? '处理中…' : '不通过'}
+                <button className="button primary" type="button" disabled={Boolean(loading)} onClick={submitComplianceDecision}>
+                  {loading === 'decision' ? '提交中…' : `提交：${COMPLIANCE_OUTCOME_LABELS[decisionOutcome]}`}
                 </button>
               </div>
             </section>

@@ -1,5 +1,6 @@
 import { complianceReplyMessages } from './caseMailThreads';
 import type { KYCCase } from './types';
+import { currentComplianceRound, feedbackAfterCurrentSubmission } from './complianceWorkflow';
 
 export type CaseListFilter = 'all' | 'in_progress' | 'completed' | 'compliance_submitted';
 
@@ -21,13 +22,14 @@ export function isCaseCompleted(caseData: KYCCase): boolean {
 
 /** Still waiting for compliance to reply — stays in the compliance queue. */
 export function isCaseInComplianceQueue(caseData: KYCCase): boolean {
-  return wasSubmittedToCompliance(caseData) && !hasComplianceReply(caseData) && !isCaseCompleted(caseData);
+  if (isCaseCompleted(caseData)) return false;
+  const round = currentComplianceRound(caseData);
+  return Boolean(round?.emailSentAt && round.status === 'sent' && !feedbackAfterCurrentSubmission(caseData));
 }
 
 export function isCaseInProgress(caseData: KYCCase): boolean {
   if (isCaseCompleted(caseData)) return false;
-  if (hasComplianceReply(caseData)) return true;
-  return !wasSubmittedToCompliance(caseData);
+  return !isCaseInComplianceQueue(caseData);
 }
 
 export function filterCases(cases: KYCCase[], filter: CaseListFilter): KYCCase[] {
@@ -60,6 +62,6 @@ export const CASE_LIST_TITLES: Record<CaseListFilter, { title: string; descripti
   },
   compliance_submitted: {
     title: '已送合规',
-    description: '已发送合规邮件、等待合规回复的案件。',
+    description: '当前审核轮次已发送合规、正在等待本轮回复的案件。',
   },
 };

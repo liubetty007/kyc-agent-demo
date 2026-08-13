@@ -1,9 +1,9 @@
-import type { KYCCase, MailboxMessage } from './types';
+import type { KYCCase, MailboxMessage } from './types.ts';
 
 export const KYC_TEAM_EMAIL = 'kyc-team@demo.antalpha.local';
 export const COMPLIANCE_TEAM_EMAIL = 'liubetty007@gmail.com';
 
-export function defaultComplianceEmail(caseData?: Pick<import('./types').KYCCase, 'complianceEmailTo'>): string {
+export function defaultComplianceEmail(caseData?: Pick<import('./types.ts').KYCCase, 'complianceEmailTo'>): string {
   return caseData?.complianceEmailTo?.trim() || COMPLIANCE_TEAM_EMAIL;
 }
 

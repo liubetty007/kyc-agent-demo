@@ -16,6 +16,7 @@ import { getCase, updateCase } from '@/lib/kyb/storage';
 import { getBackendChecklist, isBackendEnabled, listBackendDocuments, sendBackendClientFollowUpEmail } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
 import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
+import { complianceNeedsClientAction, updateCurrentComplianceRound } from '@/lib/kyb/complianceWorkflow';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -108,15 +109,16 @@ function backendStatus(error: unknown): number | null {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
-  const user = await requireApiUser(request, ['kyc', 'admin', 'compliance']);
+  const user = await requireApiUser(request, ['kyc', 'admin']);
   if (user instanceof NextResponse) return user;
-  if (!canPerformKycOperations(user) && !canSubmitComplianceDecision(user)) {
+  if (!canPerformKycOperations(user)) {
     return NextResponse.json({ error: 'Not authorized.' }, { status: 403 });
   }
 
   const { caseId } = await params;
   const caseData = await getCase(caseId);
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
+  const complianceFollowUp = complianceNeedsClientAction(caseData);
 
   let body: { draft?: string; attachMissingTemplates?: boolean; uploadedObjectNames?: string[] } = {};
   try {
@@ -149,9 +151,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           body_text: parsed.body,
           include_package_attachments: true,
         });
+        const clientFollowUpSentAt = new Date().toISOString();
         const updated = await updateCase(caseId, {
           emailDraft: draft,
           status: 'awaiting_client_information',
+          clientFollowUpSentAt: complianceFollowUp ? clientFollowUpSentAt : caseData.clientFollowUpSentAt,
+          complianceReviewRounds: complianceFollowUp
+            ? updateCurrentComplianceRound(caseData, { clientFollowUpSentAt })
+            : caseData.complianceReviewRounds,
           mailboxMessages: appendMailboxMessage(caseData, {
             provider: 'gmail',
             providerMessageId: sent.gmail_message_id,
@@ -181,8 +188,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           body_text: parsed.body,
           include_package_attachments: false,
         });
+        const clientFollowUpSentAt = new Date().toISOString();
         const updated = await updateCase(caseId, {
           emailDraft: draft,
+          clientFollowUpSentAt: complianceFollowUp ? clientFollowUpSentAt : caseData.clientFollowUpSentAt,
+          complianceReviewRounds: complianceFollowUp
+            ? updateCurrentComplianceRound(caseData, { clientFollowUpSentAt })
+            : caseData.complianceReviewRounds,
           mailboxMessages: appendMailboxMessage(caseData, {
             provider: 'gmail',
             providerMessageId: sent.gmail_message_id,
@@ -221,9 +233,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       threadId,
       attachments,
     });
+    const clientFollowUpSentAt = new Date().toISOString();
     const updated = await updateCase(caseId, {
       emailDraft: draft,
       status: attachMissingTemplates ? 'awaiting_client_information' : caseData.status,
+      clientFollowUpSentAt: complianceFollowUp ? clientFollowUpSentAt : caseData.clientFollowUpSentAt,
+      complianceReviewRounds: complianceFollowUp
+        ? updateCurrentComplianceRound(caseData, { clientFollowUpSentAt })
+        : caseData.complianceReviewRounds,
       mailboxMessages: appendMailboxMessage(caseData, {
         provider: 'gmail',
         providerMessageId: sent.id,

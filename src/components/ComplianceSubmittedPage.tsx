@@ -12,7 +12,7 @@ export function ComplianceSubmittedPage({ cases }: { cases: KYCCase[] }) {
       <section className="page-header">
         <Link href="/" className="page-back">← 返回首页</Link>
         <h1>{copy.title}</h1>
-        <p>查看合规回复，或在案件页处理邮件草稿。</p>
+        <p>查看当前送审轮次、抓取合规回复，或进入案件处理审批。</p>
       </section>
 
       <section className="card compliance-submitted-card">

@@ -1,5 +1,6 @@
 import type { CaseStatus, ComplianceDecision, ComplianceDecisionOutcome, KYCCase } from './types';
 import { hasComplianceReply, isCaseCompleted, wasSubmittedToCompliance } from './caseViews';
+import { currentComplianceRound, feedbackAfterCurrentSubmission } from './complianceWorkflow';
 
 export const COMPLIANCE_OUTCOME_LABELS: Record<ComplianceDecisionOutcome, string> = {
   approved: '通过',
@@ -43,16 +44,19 @@ export function complianceOutcomeLabel(outcome: ComplianceDecisionOutcome): stri
 }
 
 /** Compliance returned case to KYC for changes (non-final outcomes). */
-export function isCaseAwaitingKycComplianceFeedback(caseData: Pick<KYCCase, 'complianceDecisions'>): boolean {
+export function isCaseAwaitingKycComplianceFeedback(caseData: KYCCase): boolean {
+  const round = currentComplianceRound(caseData);
+  if (round?.status === 'changes_requested') return true;
   const latest = latestComplianceDecision(caseData.complianceDecisions);
   if (!latest) return false;
-  return latest.outcome === 'request_more_info' || latest.outcome === 'edd_required';
+  return (caseData.status === 'awaiting_client_information' || caseData.status === 'edd_required')
+    && (latest.outcome === 'request_more_info' || latest.outcome === 'edd_required');
 }
 
 export function caseStatusBadgeClass(caseData: KYCCase): string {
   if (caseData.status === 'approved') return 'accepted';
   if (caseData.status === 'rejected' || caseData.status === 'prohibited') return 'prohibited';
-  if (hasComplianceReply(caseData) && !isCaseCompleted(caseData)) return 'compliance-feedback-pending';
+  if (feedbackAfterCurrentSubmission(caseData) && !isCaseCompleted(caseData)) return 'compliance-feedback-pending';
   if (isCaseAwaitingKycComplianceFeedback(caseData)) return 'compliance-feedback-pending';
   if (caseData.status === 'compliance_review' || wasSubmittedToCompliance(caseData)) return 'needs-review';
   if (caseData.status === 'awaiting_client_information' || caseData.status === 'edd_required') return 'medium';
@@ -64,12 +68,18 @@ export function caseStatusLabel(caseData: KYCCase): string {
   if (caseData.status === 'rejected') return '合规拒绝';
   if (caseData.status === 'prohibited') return '禁止开户';
 
-  if (hasComplianceReply(caseData) || isCaseAwaitingKycComplianceFeedback(caseData)) {
+  const currentRound = currentComplianceRound(caseData);
+  const currentFeedback = feedbackAfterCurrentSubmission(caseData);
+
+  if (currentFeedback || isCaseAwaitingKycComplianceFeedback(caseData)) {
     return '合规已回复，等待补齐资料';
   }
 
+  if (currentRound?.status === 'draft') return `第 ${currentRound.round} 轮待发送合规`;
   if (caseData.status === 'compliance_review' || wasSubmittedToCompliance(caseData)) {
-    if (caseData.complianceEmailSentAt) return '合规审批中';
+    if (currentRound?.emailSentAt || caseData.complianceEmailSentAt) {
+      return `第 ${currentRound?.round || 1} 轮合规审批中`;
+    }
     return '已提交合规，待发送邮件';
   }
 

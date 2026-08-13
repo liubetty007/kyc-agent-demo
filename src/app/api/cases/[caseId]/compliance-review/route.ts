@@ -1,5 +1,5 @@
 import { requireApiUser } from '@/lib/auth/admin';
-import { canPerformKycOperations, canSubmitComplianceDecision } from '@/lib/auth/roles';
+import { canSubmitComplianceDecision } from '@/lib/auth/roles';
 import { buildKycApprovalEmailDraft } from '@/lib/kyb/kycApprovalEmail';
 import { formatComplianceNote, statusAfterComplianceDecision } from '@/lib/kyb/complianceReview';
 import { appendMailboxMessage, KYC_TEAM_EMAIL } from '@/lib/kyb/mailbox';
@@ -7,18 +7,17 @@ import { sendClientThreadEmail } from '@/lib/kyb/sendClientThreadEmail';
 import { getCase, updateCase } from '@/lib/kyb/storage';
 import type { ComplianceDecisionOutcome, KYCCase } from '@/lib/kyb/types';
 import { NextResponse } from 'next/server';
-import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
-
-function apiError(error: unknown, fallback: string) {
-  return safeUpstreamErrorResponse('Compliance decision email failed', error, fallback);
-}
+import {
+  canFinalizeCurrentRound,
+  currentComplianceRound,
+  updateCurrentComplianceRound,
+} from '@/lib/kyb/complianceWorkflow';
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   const user = await requireApiUser(request, ['kyc', 'admin', 'compliance']);
   if (user instanceof NextResponse) return user;
 
-  const isKycManual = canPerformKycOperations(user);
-  if (!isKycManual && !canSubmitComplianceDecision(user)) {
+  if (!canSubmitComplianceDecision(user)) {
     return NextResponse.json({ error: 'Not authorized to submit compliance decisions.' }, { status: 403 });
   }
 
@@ -50,24 +49,60 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         : '人工记录合规意见。';
   }
 
+  if (!canFinalizeCurrentRound(caseData)) {
+    return NextResponse.json({
+      error: '只能对当前已发送且正在合规审核中的轮次提交审批。补件后请先由 KYC 重新送审。',
+    }, { status: 409 });
+  }
+
+  const currentRound = currentComplianceRound(caseData)!;
+
   const decision = {
     outcome,
     note: formatComplianceNote(rawNote, user.email),
     reviewerEmail: user.email,
     decidedAt: new Date().toISOString(),
+    round: currentRound.round,
   };
 
-  let workingCase: KYCCase = caseData;
-  let clientEmailSent = false;
+  const approvalDraft = outcome === 'approved' ? buildKycApprovalEmailDraft(caseData) : undefined;
+  const mailboxMessages = appendMailboxMessage(caseData, {
+    from: user.email,
+    to: KYC_TEAM_EMAIL,
+    subject: `Compliance decision – ${caseData.companyName} (${outcome})`,
+    body: decision.note,
+    direction: 'internal',
+    status: 'received',
+  });
 
-  if (outcome === 'approved') {
-    const approvalDraft = buildKycApprovalEmailDraft(caseData);
+  let updated = await updateCase(caseId, {
+    status: statusAfterComplianceDecision(outcome),
+    emailDraft: approvalDraft || caseData.emailDraft,
+    complianceDecisions: [...(caseData.complianceDecisions || []), decision],
+    complianceReviewRounds: updateCurrentComplianceRound(caseData, {
+      status: outcome === 'approved'
+        ? 'approved'
+        : outcome === 'rejected'
+          ? 'rejected'
+          : 'changes_requested',
+      feedbackAt: decision.decidedAt,
+      feedbackOutcome: outcome,
+    }),
+    mailboxMessages,
+  });
+
+  if (!updated) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
+
+  let clientEmailSent = false;
+  let clientEmailError: string | undefined;
+  if (outcome === 'approved' && approvalDraft) {
     try {
-      const sent = await sendClientThreadEmail(caseId, caseData, approvalDraft);
-      workingCase = {
-        ...caseData,
-        emailDraft: approvalDraft,
-        mailboxMessages: appendMailboxMessage(caseData, {
+      const sent = await sendClientThreadEmail(caseId, updated, approvalDraft);
+      const sentAt = new Date().toISOString();
+      updated = (await updateCase(caseId, {
+        clientApprovalEmailSentAt: sentAt,
+        clientApprovalEmailError: undefined,
+        mailboxMessages: appendMailboxMessage(updated, {
           provider: sent.provider,
           providerMessageId: sent.providerMessageId,
           threadId: sent.threadId,
@@ -78,28 +113,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
           direction: 'outbound',
           status: 'sent',
         }),
-      };
+      })) || updated;
       clientEmailSent = true;
-    } catch (error) {
-      return apiError(error, '向客户发送开户成功邮件失败。');
+    } catch {
+      clientEmailError = '合规审批已保存，但向客户发送开户成功邮件失败，请在客户邮件线程中人工补发。';
+      updated = (await updateCase(caseId, { clientApprovalEmailError: clientEmailError })) || updated;
     }
   }
 
-  const mailboxMessages = appendMailboxMessage(workingCase, {
-    from: user.email,
-    to: KYC_TEAM_EMAIL,
-    subject: `Compliance decision – ${caseData.companyName} (${outcome})`,
-    body: decision.note,
-    direction: 'internal',
-    status: 'received',
-  });
-
-  const updated = await updateCase(caseId, {
-    status: statusAfterComplianceDecision(outcome),
-    emailDraft: workingCase.emailDraft,
-    complianceDecisions: [...(caseData.complianceDecisions || []), decision],
-    mailboxMessages,
-  });
-
-  return NextResponse.json({ ...updated, clientEmailSent });
+  return NextResponse.json({ ...updated, clientEmailSent, clientEmailError });
 }

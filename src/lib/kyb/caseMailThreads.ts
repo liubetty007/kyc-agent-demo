@@ -1,5 +1,5 @@
-import { COMPLIANCE_TEAM_EMAIL, customerEmail, customerEmails, KYC_TEAM_EMAIL } from './mailbox';
-import type { KYCCase } from './types';
+import { COMPLIANCE_TEAM_EMAIL, customerEmail, customerEmails, KYC_TEAM_EMAIL } from './mailbox.ts';
+import type { KYCCase } from './types.ts';
 
 function normalizeEmail(value: string): string {
   const match = value.match(/<([^>]+)>/);

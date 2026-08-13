@@ -35,7 +35,7 @@ type SidebarNavProps = {
 export function SidebarNav({ role }: SidebarNavProps) {
   const pathname = usePathname();
   const navItems =
-    role === 'kyc' || role === 'admin'
+    role === 'kyc' || role === 'admin' || role === 'compliance'
       ? BASE_NAV_ITEMS
       : BASE_NAV_ITEMS.filter((item) => item.href !== '/cases/compliance-submitted');
 

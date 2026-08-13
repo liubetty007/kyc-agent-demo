@@ -19,7 +19,7 @@ export default async function ComplianceCasePage({ params }: { params: Promise<{
   }
 
   const kycCanOperate = canPerformKycOperations(user);
-  const canDecide = canSubmitComplianceDecision(user) || kycCanOperate;
+  const canDecide = canSubmitComplianceDecision(user);
 
   return (
     <div className="grid page-stack">

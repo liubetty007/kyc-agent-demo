@@ -267,6 +267,28 @@ source files private and minimize PII passed to models.
 
 ## 7. Control Rules
 
+### Required Compliance feedback loop
+
+Every Compliance submission is a numbered review round. A Case may be closed
+as `approved` only after Compliance approves the current round.
+
+1. KYC accepts the available documents and sends review round N to Compliance.
+2. Compliance returns one of: approved, rejected, request more information, or
+   EDD required, with a mandatory note to KYC.
+3. For request-more-information or EDD, KYC converts the feedback into an
+   editable client email and sends it in the original client thread.
+4. KYC waits for new client material, ingests it, reviews it, and Accepts the
+   valid documents.
+5. The system blocks resubmission until a client follow-up was sent, new client
+   material was recorded after that follow-up, required documents are present,
+   and no documents remain pending review.
+6. KYC creates round N+1 and resends the refreshed package to Compliance.
+7. Only a Compliance/Admin role may make the final approval or rejection.
+   Request-more-information and EDD outcomes never complete a Case.
+
+All previous round snapshots, attachment names, feedback, timestamps, and
+reviewers remain on the Case for auditability.
+
 - Use structured outputs validated with JSON Schema.
 - Give each agent only the minimum read/write tools it needs.
 - Separate read-only status tools from workflow mutation tools.
@@ -345,4 +367,3 @@ Must be replaced or extended:
 - Uncited free-text LLM output
 - Missing event history, agent-run tracing, task ownership, and evaluation suite
 - Missing Gmail, OCR, screening, and real audit workflows
-

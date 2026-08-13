@@ -8,6 +8,7 @@ import { analyzeComplianceReplyText } from '@/lib/kyb/complianceReplyAnalysis';
 import { hasGmailConfigured, listCaseGmailMessages } from '@/lib/kyb/gmail';
 import { NextResponse } from 'next/server';
 import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
+import { currentComplianceRound, feedbackAfterCurrentSubmission, updateCurrentComplianceRound } from '@/lib/kyb/complianceWorkflow';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -26,6 +27,28 @@ function analyzeComplianceReply(caseData: Awaited<ReturnType<typeof getCase>>, m
     ? caseData.riskRating
     : complianceReplyAnalysis.riskLevel;
   return { complianceReplyAnalysis, riskRating };
+}
+
+function complianceFeedbackPatch(
+  caseData: NonNullable<Awaited<ReturnType<typeof getCase>>>,
+  mailboxMessages: NonNullable<NonNullable<Awaited<ReturnType<typeof getCase>>>['mailboxMessages']>,
+) {
+  const analysisPatch = analyzeComplianceReply(caseData, mailboxMessages);
+  const workingCase = { ...caseData, ...analysisPatch, mailboxMessages };
+  const feedback = feedbackAfterCurrentSubmission(workingCase);
+  if (!feedback || !currentComplianceRound(caseData)?.emailSentAt) return analysisPatch;
+  const changesRequested = feedback.outcome === 'request_more_info' || feedback.outcome === 'edd_required';
+  return {
+    ...analysisPatch,
+    status: changesRequested
+      ? (feedback.outcome === 'edd_required' ? 'edd_required' as const : 'awaiting_client_information' as const)
+      : caseData.status,
+    complianceReviewRounds: updateCurrentComplianceRound(caseData, {
+      status: changesRequested ? 'changes_requested' : 'sent',
+      feedbackAt: feedback.at,
+      feedbackOutcome: feedback.outcome,
+    }),
+  };
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
@@ -68,7 +91,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       const updated = await updateCase(caseId, {
         complianceGmailThreadId: result.messages[0]?.gmail_thread_id || complianceThreadId(caseData),
         mailboxMessages,
-        ...analyzeComplianceReply(caseData, mailboxMessages),
+        ...complianceFeedbackPatch(caseData, mailboxMessages),
       });
       return NextResponse.json({ case: updated, imported });
     }
@@ -114,7 +137,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
     const updated = await updateCase(caseId, {
       complianceGmailThreadId: threadId || complianceMessages[0]?.threadId,
       mailboxMessages,
-      ...analyzeComplianceReply(caseData, mailboxMessages),
+      ...complianceFeedbackPatch(caseData, mailboxMessages),
     });
     return NextResponse.json({ case: updated, imported });
   } catch (error) {

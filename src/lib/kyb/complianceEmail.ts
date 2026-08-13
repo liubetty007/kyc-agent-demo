@@ -6,6 +6,7 @@ export function generateComplianceEmail(
   review: ReviewResult,
   attachmentNames: string[] = [],
   toEmail: string = defaultComplianceEmail(caseData),
+  round = 1,
 ): string {
   const riskFlags = review.businessAssessment.riskFlags.length
     ? review.businessAssessment.riskFlags.map((flag) => `- ${flag}`).join('\n')
@@ -22,7 +23,7 @@ export function generateComplianceEmail(
     : '- No KYC-accepted documents attached yet. Please Accept files before sending.';
 
   if (caseData.language === 'zh') {
-    return `Subject: 合规审核申请 - ${caseData.companyName} (${caseData.id})
+    return `Subject: 合规审核申请 - ${caseData.companyName} (${caseData.id}) - 第 ${round} 轮
 
 From: ${KYC_TEAM_EMAIL}
 To: ${toEmail}
@@ -33,6 +34,7 @@ KYC 团队已完成该客户的初步整理，现提交合规审核。
 
 案件概要：
 - Case ID: ${caseData.id}
+- 审核轮次: 第 ${round} 轮
 - 公司名称: ${caseData.companyName}
 - 注册地: ${caseData.jurisdiction}${caseData.usState ? ` (${caseData.usState})` : ''}
 - 业务类型: ${caseData.businessType}
@@ -56,7 +58,7 @@ ${openItems}
 KYC Team`;
   }
 
-  return `Subject: Compliance Review Request – ${caseData.companyName} (${caseData.id})
+  return `Subject: Compliance Review Request – ${caseData.companyName} (${caseData.id}) – Round ${round}
 
 From: ${KYC_TEAM_EMAIL}
 To: ${toEmail}
@@ -67,6 +69,7 @@ KYC Team has prepared the case package for your review.
 
 Case summary:
 - Case ID: ${caseData.id}
+- Review round: ${round}
 - Company: ${caseData.companyName}
 - Registration place: ${caseData.jurisdiction}${caseData.usState ? ` (${caseData.usState})` : ''}
 - Business type: ${caseData.businessType}

@@ -8,6 +8,7 @@ import { getCase, updateCase } from '@/lib/kyb/storage';
 import { isBackendEnabled, sendBackendComplianceEmail } from '@/lib/kyc-backend/client';
 import { NextResponse } from 'next/server';
 import { safeUpstreamErrorResponse } from '@/lib/api/errorResponse';
+import { currentComplianceRound, updateCurrentComplianceRound } from '@/lib/kyb/complianceWorkflow';
 
 function isBackendCaseId(caseId: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(caseId);
@@ -45,8 +46,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
 
   const review = caseData.review || runReview(caseData);
   const attachmentNames = await resolveAttachmentNames(caseId, caseData);
+  const currentRound = currentComplianceRound(caseData);
+  if (body.action === 'send_real' && (!currentRound || currentRound.status !== 'draft')) {
+    return NextResponse.json({ error: '请先生成当前一轮的合规送审草稿，或该轮已经发送。' }, { status: 409 });
+  }
   const toEmail = (body.toEmail || caseData.complianceEmailTo || defaultComplianceEmail(caseData)).trim();
-  const draft = body.draft || caseData.complianceEmailDraft || generateComplianceEmail(caseData, review, attachmentNames, toEmail);
+  const draft = body.draft || caseData.complianceEmailDraft || generateComplianceEmail(
+    caseData,
+    review,
+    attachmentNames,
+    toEmail,
+    currentRound?.round || 1,
+  );
   const parsed = splitEmailDraft(draft, `Compliance Review Request – ${caseData.companyName} (${caseId})`);
 
   if (body.action === 'send_real') {
@@ -58,13 +69,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
             subject: parsed.subject,
             body_text: parsed.body,
           });
+          const sentAt = new Date().toISOString();
           const updated = await updateCase(caseId, {
             review,
             complianceEmailDraft: draft,
             complianceEmailTo: toEmail,
-            complianceEmailSentAt: new Date().toISOString(),
+            complianceEmailSentAt: sentAt,
             complianceGmailThreadId: sent.gmail_thread_id,
             status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
+            complianceReviewRounds: updateCurrentComplianceRound(caseData, { status: 'sent', emailSentAt: sentAt }),
             mailboxMessages: appendMailboxMessage(caseData, {
               provider: 'gmail',
               providerMessageId: sent.gmail_message_id,
@@ -97,13 +110,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
         threadId: caseData.complianceGmailThreadId,
         attachments,
       });
+      const sentAt = new Date().toISOString();
       const updated = await updateCase(caseId, {
         review,
         complianceEmailDraft: draft,
         complianceEmailTo: toEmail,
-        complianceEmailSentAt: new Date().toISOString(),
+        complianceEmailSentAt: sentAt,
         complianceGmailThreadId: sent.threadId || caseData.complianceGmailThreadId,
         status: caseData.status === 'approved' ? caseData.status : 'compliance_review',
+        complianceReviewRounds: updateCurrentComplianceRound(caseData, { status: 'sent', emailSentAt: sentAt }),
         mailboxMessages: appendMailboxMessage(caseData, {
           provider: 'gmail',
           providerMessageId: sent.id,
