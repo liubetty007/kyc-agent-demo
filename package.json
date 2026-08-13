@@ -4,7 +4,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/test-compliance-workflow.ts"
+    "test:workflow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/test-compliance-workflow.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.102.0",
