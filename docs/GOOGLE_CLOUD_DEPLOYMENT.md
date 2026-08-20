@@ -78,6 +78,34 @@ Current frontend URL (Betty demo — latest Next.js UI):
 Deploy: `bash scripts/deploy-staging.sh` on project `kyc-agent-staging-20260610`.  
 Gmail/Drive OAuth on that service must be **Betty's** refresh token (`liubetty007@gmail.com`) so files use her `KYC文件` Drive. See `config/betty-drive.defaults.json`.
 
+## Automatic deployment from GitHub
+
+The `CI` workflow deploys a new Cloud Run revision after the workflow tests and
+Next.js build pass on `main`. The deployment sends the checked-out source to
+Cloud Build and updates `kyc-agent-frontend`; it intentionally does not pass
+environment variables or Secret Manager bindings, so the service's existing
+login, Gmail/Drive, OCR, and LLM configuration is preserved.
+
+The deployment uses GitHub OIDC and Google Workload Identity Federation. No
+Google service-account JSON key is created or stored in GitHub. The provider is
+restricted to all of the following immutable or exact claims:
+
+- GitHub repository ID `1271046505` (`liubetty007/kyc-agent-demo`)
+- GitHub owner ID `294129570`
+- branch `refs/heads/main`
+- workflow `liubetty007/kyc-agent-demo/.github/workflows/ci.yml@refs/heads/main`
+
+Run the one-time, idempotent GCP setup as a project administrator:
+
+```bash
+bash scripts/setup-github-actions-deploy.sh
+```
+
+After IAM changes propagate, pushing to `main` runs build, workflow tests,
+deployment, and a public `/login` smoke check. A failed build never reaches the
+deployment job, and concurrent deployments are serialized. The workflow does
+not change the Cloud Run public-access IAM policy.
+
 Before the first deployment, enable Email/Password in Identity Platform, create
 a Firebase Web app, and pass its API key as `FIREBASE_API_KEY` to the deployment
 script. Provision only allowlisted users, mark administrator-verified addresses

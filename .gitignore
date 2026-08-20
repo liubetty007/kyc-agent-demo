@@ -21,6 +21,9 @@ data/cases.json
 *password*.txt
 .gmail-oauth-token.json
 
+# generated short-lived credentials from google-github-actions/auth
+gha-creds-*.json
+
 # OS/editor files
 .DS_Store
 docs/.DS_Store

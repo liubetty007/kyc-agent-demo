@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -17,3 +21,54 @@ jobs:
       - run: npm ci
       - run: npm run test:workflow
       - run: npm run build
+
+  deploy-staging:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: kyc-agent-staging-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # OIDC/WIF issues a short-lived Google credential. No service-account
+      # key or application secret is stored in GitHub.
+      - id: google-auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: kyc-agent-staging-20260610
+          workload_identity_provider: projects/20130272975/locations/global/workloadIdentityPools/github-actions/providers/kyc-agent-main
+          service_account: kyc-agent-github-deployer@kyc-agent-staging-20260610.iam.gserviceaccount.com
+          request_reason: GitHub Actions deploy ${{ github.repository }}@${{ github.sha }}
+
+      # Deploying from source without env_vars or secrets preserves the
+      # existing Cloud Run login, Gmail, Drive, OCR, and LLM configuration.
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: kyc-agent-staging-20260610
+          region: asia-east2
+          service: kyc-agent-frontend
+          source: .
+
+      - name: Verify deployed login page
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --location \
+            --retry 6 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --max-time 30 \
+            "${SERVICE_URL}/login" | grep -q 'KYC Agent'
