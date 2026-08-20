@@ -150,8 +150,16 @@ export function hasClientMaterialAfterFollowUp(caseData: KYCCase): boolean {
 }
 
 export function resubmissionBlockers(caseData: KYCCase, snapshot: ComplianceSubmitSnapshot): string[] {
+  const checklistBlockers: string[] = [];
+  if (snapshot.missing_required.length) {
+    checklistBlockers.push(`仍缺少必需材料：${snapshot.missing_required.join('、')}`);
+  }
+  if (snapshot.pending_doc_types.length) {
+    checklistBlockers.push(`以下材料尚未由 KYC Accept：${snapshot.pending_doc_types.join('、')}`);
+  }
+
   const current = currentComplianceRound(caseData);
-  if (!current?.emailSentAt) return [];
+  if (!current?.emailSentAt) return checklistBlockers;
   const feedback = feedbackAfterCurrentSubmission(caseData);
   if (!feedback) return ['当前一轮仍在等待合规回复，不能重复送审。'];
   if (feedback.outcome !== 'request_more_info' && feedback.outcome !== 'edd_required') {
@@ -164,12 +172,7 @@ export function resubmissionBlockers(caseData: KYCCase, snapshot: ComplianceSubm
   } else if (!hasClientMaterialAfterFollowUp(caseData)) {
     blockers.push('尚未记录客户在补件邮件之后提交的新材料或回复。');
   }
-  if (snapshot.missing_required.length) {
-    blockers.push(`仍缺少必需材料：${snapshot.missing_required.join('、')}`);
-  }
-  if (snapshot.pending_doc_types.length) {
-    blockers.push(`以下材料尚未由 KYC Accept：${snapshot.pending_doc_types.join('、')}`);
-  }
+  blockers.push(...checklistBlockers);
   return blockers;
 }
 

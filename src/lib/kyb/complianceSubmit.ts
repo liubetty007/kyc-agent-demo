@@ -48,5 +48,5 @@ export function checklistSnapshotFromStatuses(
 }
 
 export function canSubmitCaseToCompliance(status: string): boolean {
-  return status !== 'approved';
+  return status !== 'approved' && status !== 'rejected' && status !== 'prohibited';
 }

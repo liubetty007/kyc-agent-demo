@@ -2,7 +2,7 @@ import { requireApiUser } from '@/lib/auth/admin';
 import { generateComplianceEmail } from '@/lib/kyb/complianceEmail';
 import { acceptedDocumentNames, backendAcceptedDocumentNames } from '@/lib/kyb/complianceAttachments';
 import { defaultComplianceEmail } from '@/lib/kyb/mailbox';
-import { checklistSnapshotFromStatuses, localChecklistSnapshot } from '@/lib/kyb/complianceSubmit';
+import { canSubmitCaseToCompliance, checklistSnapshotFromStatuses, localChecklistSnapshot } from '@/lib/kyb/complianceSubmit';
 import { generateCompliancePack } from '@/lib/kyb/compliancePack';
 import { runReview } from '@/lib/kyb/review';
 import { getCase, updateCase } from '@/lib/kyb/storage';
@@ -21,8 +21,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
   const caseData = await getCase(caseId);
   if (!caseData) return NextResponse.json({ error: 'Case not found' }, { status: 404 });
 
-  if (caseData.status === 'approved') {
-    return NextResponse.json({ error: '该案件已通过合规审批。' }, { status: 400 });
+  if (!canSubmitCaseToCompliance(caseData.status)) {
+    const error = caseData.status === 'approved'
+      ? '该案件已通过合规审批，不能再次送审。'
+      : caseData.status === 'rejected'
+        ? '该案件已被合规拒绝，不能再次送审。'
+        : '该案件属于禁止开户范围，不能送审合规。';
+    return NextResponse.json({ error }, { status: 400 });
   }
 
   let checklistSnapshot;

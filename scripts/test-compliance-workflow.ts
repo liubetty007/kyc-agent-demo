@@ -37,6 +37,15 @@ const snapshot = (submittedAt: string): ComplianceSubmitSnapshot => ({
 });
 
 let caseData = base();
+assert.deepEqual(resubmissionBlockers(caseData, {
+  ...snapshot('2026-08-13T00:55:00.000Z'),
+  missing_required: ['proof_of_address'],
+  pending_doc_types: ['register_of_directors'],
+}), [
+  '仍缺少必需材料：proof_of_address',
+  '以下材料尚未由 KYC Accept：register_of_directors',
+]);
+
 const first = prepareComplianceRound({
   caseData,
   snapshot: snapshot('2026-08-13T01:00:00.000Z'),
