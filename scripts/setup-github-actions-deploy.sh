@@ -66,6 +66,16 @@ done
   --condition=None \
   --quiet >/dev/null
 
+# The GitHub deployer must be allowed to select the build identity for a
+# source deployment. This does not let it mint credentials for unrelated
+# service accounts.
+"$GCLOUD" iam service-accounts add-iam-policy-binding "$BUILD_SERVICE_ACCOUNT" \
+  --project="$PROJECT_ID" \
+  --member="serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}" \
+  --role=roles/iam.serviceAccountUser \
+  --condition=None \
+  --quiet >/dev/null
+
 if ! "$GCLOUD" iam workload-identity-pools describe "$POOL_ID" \
   --project="$PROJECT_ID" \
   --location=global >/dev/null 2>&1; then

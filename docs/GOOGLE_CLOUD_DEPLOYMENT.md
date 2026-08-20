@@ -106,6 +106,11 @@ deployment, and a public `/login` smoke check. A failed build never reaches the
 deployment job, and concurrent deployments are serialized. The workflow does
 not change the Cloud Run public-access IAM policy.
 
+The deployer has `iam.serviceAccountUser` only on the application's runtime
+service account and Cloud Build's default build service account. The latter is
+required for `gcloud run deploy --source`; it does not grant access to other
+service accounts.
+
 Before the first deployment, enable Email/Password in Identity Platform, create
 a Firebase Web app, and pass its API key as `FIREBASE_API_KEY` to the deployment
 script. Provision only allowlisted users, mark administrator-verified addresses
